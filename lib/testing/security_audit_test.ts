@@ -43,7 +43,7 @@ const forbiddenKeys = [
 ];
 
 for (const key of forbiddenKeys) {
-  if (key in (publicData as Record<string, unknown>)) {
+  if (key in (publicData as unknown as Record<string, unknown>)) {
     console.error(`SECURITY VIOLATION: '${key}' leaked in public projection!`);
     process.exit(1);
   }
@@ -79,7 +79,7 @@ if (assignedPublicData.assigned_worker_first_name !== 'Manikandan') {
   console.error(`FAIL: Expected first name 'Manikandan', got: ${assignedPublicData.assigned_worker_first_name}`);
   process.exit(1);
 }
-if ('worker_phone' in (assignedPublicData as Record<string, unknown>)) {
+if ('worker_phone' in (assignedPublicData as unknown as Record<string, unknown>)) {
   console.error('SECURITY VIOLATION: worker_phone leaked after assignment!');
   process.exit(1);
 }

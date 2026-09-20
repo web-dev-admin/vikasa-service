@@ -39,6 +39,8 @@ ON service_requests(tracking_token);
 -- Strictly limited projection for anonymous customer tracking.
 -- Zero PII exposed: No customer phone, no worker phone, no coordinates, no internal notes.
 -- =========================================================================
+DROP FUNCTION IF EXISTS get_public_tracking_status(UUID);
+
 CREATE OR REPLACE FUNCTION get_public_tracking_status(p_tracking_token UUID)
 RETURNS TABLE (
     request_number INT,
@@ -88,9 +90,10 @@ GRANT EXECUTE ON FUNCTION get_public_tracking_status(UUID) TO anon, authenticate
 
 -- =========================================================================
 -- Step 3: Enhanced PostGIS Matching Function for Operator Cockpit
--- Returns verified, available workers within both search radius and worker service radius.
--- Includes coordinates for operator map display.
+-- Drop previous function signature because return table columns changed.
 -- =========================================================================
+DROP FUNCTION IF EXISTS find_matching_workers(UUID, DOUBLE PRECISION, DOUBLE PRECISION, NUMERIC);
+
 CREATE OR REPLACE FUNCTION find_matching_workers(
     p_service_id UUID,
     p_request_lon DOUBLE PRECISION,
