@@ -385,7 +385,7 @@ export default function OperationsPage() {
                         {isUrgent && (
                           <span className="flex items-center gap-0.5 text-[10px] font-black text-red-600 bg-red-100/80 px-1.5 py-0.2 rounded">
                             <Flame className="w-3 h-3 text-red-500" />
-                            {req.urgency.toUpperCase()}
+                            {req.urgency?.toUpperCase() || 'STANDARD'}
                           </span>
                         )}
                         {getStatusBadge(req.status)}
@@ -497,7 +497,7 @@ export default function OperationsPage() {
                       </span>
                     ) : (
                       <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700">
-                        {activeRequest.urgency.toUpperCase()} Priority
+                        {(activeRequest.urgency || 'standard').toUpperCase()} Status
                       </span>
                     )}
                   </div>

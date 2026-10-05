@@ -5,13 +5,17 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'VIKASA — Location-Based Service Coordination & Dispatch',
+  title: 'VIKASA — Interior & Home Services | Certified Technicians in Salem',
   description:
-    'Managed service coordination platform connecting customers with verified nearby trade specialists through human-in-the-loop dispatch.',
-  keywords: ['service dispatch', 'plumber', 'electrician', 'carpenter', 'salem', 'tamil nadu', 'local services'],
+    'Book verified plumbers, electricians, carpenters, AC technicians, and interior services in Salem, Tamil Nadu. Fast doorstep dispatch. Helpline & WhatsApp: 9865652420.',
+  keywords: ['vikasa interior', 'home services', 'plumber salem', 'electrician salem', 'carpenter salem', 'ac service salem', 'salem', 'tamil nadu'],
+  icons: {
+    icon: '/logo/vikasa_interior_logo.png',
+    apple: '/logo/vikasa_interior_logo.png',
+  },
   openGraph: {
-    title: 'VIKASA — Location-Based Service Coordination & Dispatch',
-    description: 'Trusted local service coordination for Salem and surrounding areas.',
+    title: 'VIKASA — Interior & Home Services | Salem',
+    description: 'Trusted local doorstep service coordination for Salem and surrounding areas. Call/WhatsApp: 9865652420.',
     type: 'website',
   },
 };
@@ -22,8 +26,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="h-full antialiased">
-      <body className={`${inter.className} min-h-full flex flex-col`}>
+    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
+      <body className={`${inter.className} min-h-full flex flex-col`} suppressHydrationWarning>
         {children}
       </body>
     </html>

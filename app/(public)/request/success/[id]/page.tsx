@@ -16,6 +16,8 @@ import {
   MessageCircle,
 } from 'lucide-react';
 
+import { VIKASA_CONFIG } from '@/lib/constants';
+
 export default function RequestSuccessPage() {
   const params = useParams();
   const router = useRouter();
@@ -34,10 +36,10 @@ export default function RequestSuccessPage() {
 
   const whatsappHelpUrl = request
     ? getWhatsAppUrl(
-        '914272334455',
+        VIKASA_CONFIG.whatsappNumber,
         `Hello VIKASA Support, I submitted request #${request.request_number} for ${request.service_name}. Need assistance.`
       )
-    : '#';
+    : VIKASA_CONFIG.whatsappUrl;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-50/50 via-white to-slate-50 py-10 px-4">
@@ -138,9 +140,9 @@ export default function RequestSuccessPage() {
 
         {/* Operator Support Contact */}
         <div className="text-center text-xs text-slate-400">
-          Helpline:{' '}
-          <a href="tel:+914272334455" className="font-semibold text-emerald-600 hover:underline">
-            +91 427 233 4455
+          Helpline / WhatsApp:{' '}
+          <a href={VIKASA_CONFIG.telUrl} className="font-semibold text-emerald-600 hover:underline">
+            {VIKASA_CONFIG.phoneDisplay}
           </a>
         </div>
       </div>

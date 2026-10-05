@@ -16,6 +16,7 @@ import {
   AlertCircle,
   MessageCircle,
 } from 'lucide-react';
+import { VIKASA_CONFIG } from '@/lib/constants';
 
 export default function TrackRequestPage() {
   const params = useParams();
@@ -106,7 +107,7 @@ export default function TrackRequestPage() {
   ];
 
   const whatsappHelpUrl = getWhatsAppUrl(
-    '914272334455',
+    VIKASA_CONFIG.whatsappNumber,
     `Hello VIKASA, checking status on my service request #${data.request_number} (${data.service_name}).`
   );
 
@@ -220,11 +221,11 @@ export default function TrackRequestPage() {
             </a>
 
             <a
-              href="tel:+914272334455"
+              href={VIKASA_CONFIG.telUrl}
               className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
             >
               <PhoneCall className="w-4 h-4 text-emerald-600" />
-              <span>Call Helpline</span>
+              <span>Call Helpline ({VIKASA_CONFIG.phone})</span>
             </a>
           </div>
         </div>

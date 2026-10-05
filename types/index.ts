@@ -67,6 +67,7 @@ export interface Worker {
   id: string;
   full_name: string;
   phone: string;
+  whatsapp?: string;
   email?: string;
   avatar_url?: string;
   experience_years: number;
@@ -77,6 +78,8 @@ export interface Worker {
   verified_by?: string;
   verification_notes?: string;
   availability: WorkerAvailability;
+  active_status?: 'active' | 'inactive';
+  district?: string;
   
   // Location
   base_location_name: string;
@@ -96,8 +99,14 @@ export interface Customer {
   user_id?: string;
   full_name: string;
   phone: string;
+  whatsapp?: string;
   email?: string;
+  district?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface ServiceRequest {
@@ -106,6 +115,7 @@ export interface ServiceRequest {
   customer_id: string;
   customer_name: string;
   customer_phone: string; // Visible only to admin, hidden in customer/worker views
+  customer_whatsapp?: string;
   customer_email?: string;
   
   category_id: string;
@@ -115,11 +125,12 @@ export interface ServiceRequest {
   description: string;
   
   formatted_address: string;
+  district?: string;
   latitude: number;
   longitude: number;
   location_accuracy?: number;
   
-  urgency: UrgencyLevel;
+  urgency?: UrgencyLevel;
   preferred_date?: string;
   preferred_time_slot?: string;
   photo_urls?: string[];
@@ -129,7 +140,7 @@ export interface ServiceRequest {
   customer_confirmed_at?: string;
   
   // Marketing Attribution
-  source: LeadSource;
+  source?: LeadSource;
   utm_source?: string;
   utm_medium?: string;
   utm_campaign?: string;
@@ -141,6 +152,9 @@ export interface ServiceRequest {
   admin_notes?: string;
   assigned_worker_id?: string;
   assigned_worker_name?: string;
+  assigned_worker_phone?: string;
+  preferred_worker_id?: string;
+  preferred_worker_name?: string;
   
   tracking_token: string; // Secure non-enumerable UUID for customer tracking
   
