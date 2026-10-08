@@ -844,6 +844,17 @@ class VikasaDataStore {
     return this.updateWorker(id, { availability });
   }
 
+  deleteWorker(id: string): boolean {
+    this.init();
+    const index = this.workers.findIndex((w) => w.id === id);
+    if (index !== -1) {
+      this.workers.splice(index, 1);
+      this.persist();
+      return true;
+    }
+    return false;
+  }
+
   // --- Worker Contact Attempts ---
   getContactAttemptsForRequest(requestId: string): WorkerContactAttempt[] {
     this.init();
