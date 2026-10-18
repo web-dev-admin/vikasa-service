@@ -35,6 +35,92 @@ console.log('================================================================');
 console.log('  VIKASA COMPREHENSIVE AUTOMATED VERIFICATION SUITE');
 console.log('================================================================\n');
 
+// Baseline test technicians for test environment
+const tPlumber = dataStore.registerWorker({
+  id: 'w-mani',
+  full_name: 'Manikandan S.',
+  phone: '+91 97890 44211',
+  experience_years: 5,
+  skills: ['Pipe Leakage', 'Tap Fitting'],
+  verification_status: 'verified',
+  availability: 'available',
+  base_location_name: 'Fairlands, Salem',
+  latitude: 11.6685,
+  longitude: 78.1410,
+  service_radius_km: 25,
+  service_area_names: ['Salem'],
+  service_ids: ['srv-plumbing'],
+});
+dataStore.verifyWorker(tPlumber.id, 'admin-1', 'Test verification');
+
+const tElectrician = dataStore.registerWorker({
+  id: 'w-prakash-elec',
+  full_name: 'Prakash Velu',
+  phone: '+91 96291 33455',
+  experience_years: 4,
+  skills: ['Electrical'],
+  verification_status: 'verified',
+  availability: 'available',
+  base_location_name: 'Ammapet, Salem',
+  latitude: 11.6540,
+  longitude: 78.1750,
+  service_radius_km: 25,
+  service_area_names: ['Salem'],
+  service_ids: ['srv-electrical'],
+});
+dataStore.verifyWorker(tElectrician.id, 'admin-1', 'Test verification');
+
+const tPlumber2 = dataStore.registerWorker({
+  id: 'w-velu',
+  full_name: 'Velu P.',
+  phone: '+91 98427 12340',
+  experience_years: 8,
+  skills: ['Plumbing'],
+  verification_status: 'verified',
+  availability: 'available',
+  base_location_name: 'Suramangalam, Salem',
+  latitude: 11.6710,
+  longitude: 78.1250,
+  service_radius_km: 25,
+  service_area_names: ['Salem'],
+  service_ids: ['srv-plumbing'],
+});
+dataStore.verifyWorker(tPlumber2.id, 'admin-1', 'Test verification');
+
+const tCarp1 = dataStore.registerWorker({
+  id: 'w-murugan-carp',
+  full_name: 'Murugan C.',
+  phone: '+91 98421 88888',
+  experience_years: 7,
+  skills: ['Carpentry'],
+  verification_status: 'verified',
+  availability: 'available',
+  base_location_name: 'Fairlands, Salem',
+  latitude: 11.6640,
+  longitude: 78.1400,
+  service_radius_km: 25,
+  service_area_names: ['Salem'],
+  service_ids: ['srv-carpentry'],
+});
+dataStore.verifyWorker(tCarp1.id, 'admin-1', 'Test verification');
+
+const tCarp2 = dataStore.registerWorker({
+  id: 'w-selvam',
+  full_name: 'Selvam R.',
+  phone: '+91 98421 77777',
+  experience_years: 6,
+  skills: ['Carpentry'],
+  verification_status: 'verified',
+  availability: 'available',
+  base_location_name: 'Shevapet, Salem',
+  latitude: 11.6500,
+  longitude: 78.1300,
+  service_radius_km: 25,
+  service_area_names: ['Salem'],
+  service_ids: ['srv-carpentry'],
+});
+dataStore.verifyWorker(tCarp2.id, 'admin-1', 'Test verification');
+
 // -------------------------------------------------------------
 // SCENARIO 1: Customer submits valid request
 // -------------------------------------------------------------

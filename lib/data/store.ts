@@ -18,405 +18,37 @@ export const SALEM_CENTER = {
   name: 'Salem City Center, Tamil Nadu',
 };
 
-// Seed Realistic Service Technicians in Salem, Erode, Coimbatore, Namakkal & Nearby
-export const SEED_WORKERS: Worker[] = [
-  {
-    id: 'w-kumar',
-    full_name: 'Kumarasamy R.',
-    phone: '+91 98427 11029',
-    whatsapp: '+91 98427 11029',
-    email: 'kumar.plumbing@example.com',
-    experience_years: 7,
-    skills: ['Pipe Leakage', 'Tap Fitting', 'Bathroom Plumbing', 'Water Tank'],
-    bio: 'Experienced master plumber specialized in high-pressure bathroom and concealed pipe repairs.',
-    verification_status: 'verified',
-    verified_at: '2026-01-10T10:00:00Z',
-    verified_by: 'admin-1',
-    availability: 'available',
-    active_status: 'active',
-    district: 'Salem',
-    base_location_name: 'Suramangalam, Salem',
-    latitude: 11.6710,
-    longitude: 78.1250,
-    service_radius_km: 20,
-    service_area_names: ['Suramangalam', 'Fairlands', 'Meyyanur', 'Salem Junction'],
-    service_ids: ['srv-plumbing', 'srv-pipe-leakage', 'srv-tap-repair', 'srv-water-tank', 'srv-toilet-repair'],
-    created_at: '2026-01-05T08:00:00Z',
-    updated_at: '2026-01-05T08:00:00Z',
-  },
-  {
-    id: 'w-mani',
-    full_name: 'Manikandan S.',
-    phone: '+91 97890 44211',
-    whatsapp: '+91 97890 44211',
-    email: 'mani.plumbing@example.com',
-    experience_years: 5,
-    skills: ['Angle Cock Repair', 'Drain Blockage Clear', 'Overhead Tank Connection'],
-    bio: 'Quick response emergency plumber with rotary drain clear tools.',
-    verification_status: 'verified',
-    verified_at: '2026-01-12T14:30:00Z',
-    verified_by: 'admin-1',
-    availability: 'available',
-    active_status: 'active',
-    district: 'Salem',
-    base_location_name: 'Fairlands, Salem',
-    latitude: 11.6685,
-    longitude: 78.1410,
-    service_radius_km: 15,
-    service_area_names: ['Fairlands', 'Hasthampatti', 'Alagapuram', 'Meyyanur'],
-    service_ids: ['srv-plumbing', 'srv-pipe-leakage', 'srv-tap-repair', 'srv-water-tank'],
-    created_at: '2026-01-08T09:00:00Z',
-    updated_at: '2026-01-08T09:00:00Z',
-  },
-  {
-    id: 'w-ravi-erode',
-    full_name: 'Ravi Kumar',
-    phone: '+91 94432 88102',
-    whatsapp: '+91 94432 88102',
-    email: 'ravi.plumber.erode@example.com',
-    experience_years: 11,
-    skills: ['Plumbing', 'Pipe Repair', 'Drainage Laying', 'Motor Pump'],
-    bio: 'Senior plumbing technician with over a decade of residential and commercial plumbing experience.',
-    verification_status: 'verified',
-    verified_at: '2026-01-02T11:00:00Z',
-    verified_by: 'admin-1',
-    availability: 'available',
-    active_status: 'active',
-    district: 'Erode',
-    base_location_name: 'Perundurai Road, Erode',
-    latitude: 11.3410,
-    longitude: 77.7172,
-    service_radius_km: 25,
-    service_area_names: ['Perundurai Road', 'Brough Road', 'Thindal', 'Surampatti'],
-    service_ids: ['srv-plumbing', 'srv-pipe-leakage', 'srv-water-tank', 'srv-toilet-repair'],
-    created_at: '2026-01-01T10:00:00Z',
-    updated_at: '2026-01-01T10:00:00Z',
-  },
-  {
-    id: 'w-selvam-elec',
-    full_name: 'Selvamurugan K.',
-    phone: '+91 98941 55670',
-    whatsapp: '+91 98941 55670',
-    email: 'selvam.electrician@example.com',
-    experience_years: 8,
-    skills: ['MCB Tripping', '3-Phase Wiring', 'Inverter Installation', 'Switchboard Fixes'],
-    bio: 'Licensed B-grade electrical contractor. Fast fault-finding specialist.',
-    verification_status: 'verified',
-    verified_at: '2026-01-03T16:00:00Z',
-    verified_by: 'admin-1',
-    availability: 'available',
-    active_status: 'active',
-    district: 'Salem',
-    base_location_name: 'Meyyanur, Salem',
-    latitude: 11.6620,
-    longitude: 78.1320,
-    service_radius_km: 18,
-    service_area_names: ['Meyyanur', 'New Bus Stand', 'Kandhampatti', 'Fairlands'],
-    service_ids: ['srv-electrical', 'srv-switchboard-repair', 'srv-fan-installation', 'srv-wiring-lighting'],
-    created_at: '2026-01-02T09:30:00Z',
-    updated_at: '2026-01-02T09:30:00Z',
-  },
-  {
-    id: 'w-prakash-elec',
-    full_name: 'Prakash Velu',
-    phone: '+91 96291 33455',
-    whatsapp: '+91 96291 33455',
-    experience_years: 4,
-    skills: ['Ceiling Fan Repair', 'Switchboard Assembly', 'Geyser Electrical Connection'],
-    bio: 'Prompt and detail-oriented electrician for quick domestic troubleshooting.',
-    verification_status: 'verified',
-    verified_at: '2026-01-15T11:00:00Z',
-    verified_by: 'admin-1',
-    availability: 'available',
-    active_status: 'active',
-    district: 'Salem',
-    base_location_name: 'Ammapet, Salem',
-    latitude: 11.6540,
-    longitude: 78.1750,
-    service_radius_km: 15,
-    service_area_names: ['Ammapet', 'Ponnammapet', 'Udayapatty', 'Pattai'],
-    service_ids: ['srv-electrical', 'srv-fan-installation', 'srv-switchboard-repair'],
-    created_at: '2026-01-10T12:00:00Z',
-    updated_at: '2026-01-10T12:00:00Z',
-  },
-  {
-    id: 'w-murugan-carp',
-    full_name: 'Murugesan A.',
-    phone: '+91 94862 77019',
-    whatsapp: '+91 94862 77019',
-    experience_years: 12,
-    skills: ['Teakwood Door Fixing', 'Godrej Lock Fitting', 'Modular Kitchen Hinge Repair', 'Interior Woodwork'],
-    bio: 'Master carpenter with 12 years experience in door alignments, sliding wardrobes, and lock sets.',
-    verification_status: 'verified',
-    verified_at: '2026-01-04T10:00:00Z',
-    verified_by: 'admin-1',
-    availability: 'available',
-    active_status: 'active',
-    district: 'Salem',
-    base_location_name: 'Shevapet, Salem',
-    latitude: 11.6510,
-    longitude: 78.1390,
-    service_radius_km: 20,
-    service_area_names: ['Shevapet', 'Gugai', 'Bazaar', 'Dadagapatty'],
-    service_ids: ['srv-carpentry', 'srv-door-repair', 'srv-lock-repair', 'srv-wood-furniture', 'srv-interior'],
-    created_at: '2026-01-02T08:00:00Z',
-    updated_at: '2026-01-02T08:00:00Z',
-  },
-  {
-    id: 'w-vijay-ac',
-    full_name: 'Vijay Anand',
-    phone: '+91 97500 22341',
-    whatsapp: '+91 97500 22341',
-    experience_years: 6,
-    skills: ['Inverter AC Servicing', 'Gas Charging R32/R410A', 'Compressor Replacement', 'Jet Wash'],
-    bio: 'Certified HVAC technician equipped with pressure gauges and jet wash pump.',
-    verification_status: 'verified',
-    verified_at: '2026-01-06T15:00:00Z',
-    verified_by: 'admin-1',
-    availability: 'available',
-    active_status: 'active',
-    district: 'Salem',
-    base_location_name: 'Alagapuram, Salem',
-    latitude: 11.6810,
-    longitude: 78.1430,
-    service_radius_km: 25,
-    service_area_names: ['Alagapuram', 'Fairlands', 'Hasthampatti', 'Reddiyur'],
-    service_ids: ['srv-ac', 'srv-ac-service', 'srv-washing-machine'],
-    created_at: '2026-01-04T11:00:00Z',
-    updated_at: '2026-01-04T11:00:00Z',
-  },
-  {
-    id: 'w-karthik-cleaning',
-    full_name: 'Karthik Deepan',
-    phone: '+91 98433 99881',
-    whatsapp: '+91 98433 99881',
-    experience_years: 5,
-    skills: ['Deep Bathroom Cleaning', 'Water Tank Jet Cleaning', 'Floor Polishing'],
-    bio: 'Professional residential and commercial deep cleaning specialist.',
-    verification_status: 'verified',
-    verified_at: '2026-01-18T10:00:00Z',
-    verified_by: 'admin-1',
-    availability: 'available',
-    active_status: 'active',
-    district: 'Dharmapuri',
-    base_location_name: 'Collectorate Area, Dharmapuri',
-    latitude: 12.1211,
-    longitude: 78.1582,
-    service_radius_km: 25,
-    service_area_names: ['Dharmapuri Town', 'Pennagaram Road', 'Nallampalli'],
-    service_ids: ['srv-cleaning', 'srv-painting'],
-    created_at: '2026-01-15T09:00:00Z',
-    updated_at: '2026-01-15T09:00:00Z',
-  },
-  {
-    id: 'w-saravanan-coimbatore',
-    full_name: 'Saravanan M.',
-    phone: '+91 99441 66520',
-    whatsapp: '+91 99441 66520',
-    experience_years: 9,
-    skills: ['Interior Design Consultation', 'Modular Kitchen', 'False Ceiling', 'Carpentry'],
-    bio: 'Interior finishes and architectural woodwork specialist in Western Tamil Nadu.',
-    verification_status: 'verified',
-    verified_at: '2026-01-05T10:00:00Z',
-    verified_by: 'admin-1',
-    availability: 'available',
-    active_status: 'active',
-    district: 'Coimbatore',
-    base_location_name: 'Gandhipuram, Coimbatore',
-    latitude: 11.0168,
-    longitude: 76.9558,
-    service_radius_km: 30,
-    service_area_names: ['Gandhipuram', 'RS Puram', 'Peelamedu', 'Saravanampatti'],
-    service_ids: ['srv-interior', 'srv-carpentry', 'srv-painting'],
-    created_at: '2026-01-03T11:00:00Z',
-    updated_at: '2026-01-03T11:00:00Z',
-  },
-];
-
-// Seed Permanent Customers
-export const SEED_CUSTOMERS: Customer[] = [
-  {
-    id: 'cust-1',
-    full_name: 'Arun Kumar',
-    phone: '+91 98401 22334',
-    whatsapp: '+91 98401 22334',
-    district: 'Erode',
-    address: 'Plot 42, 5th Cross, Perundurai Road, Erode',
-    latitude: 11.3410,
-    longitude: 77.7172,
-    created_at: '2026-02-18T09:00:00Z',
-    updated_at: '2026-02-18T09:00:00Z',
-  },
-  {
-    id: 'cust-2',
-    full_name: 'Meena Sundaram',
-    phone: '+91 97892 11456',
-    whatsapp: '+91 97892 11456',
-    district: 'Salem',
-    address: 'No 18, Meyyanur Main Road, Salem',
-    latitude: 11.6630,
-    longitude: 78.1330,
-    created_at: '2026-02-18T09:30:00Z',
-    updated_at: '2026-02-18T09:30:00Z',
-  },
-  {
-    id: 'cust-3',
-    full_name: 'Karthik N.',
-    phone: '+91 94433 77881',
-    whatsapp: '+91 94433 77881',
-    district: 'Dharmapuri',
-    address: '12 Gandhi Nagar, Near Collectorate, Dharmapuri',
-    latitude: 12.1211,
-    longitude: 78.1582,
-    created_at: '2026-02-18T10:00:00Z',
-    updated_at: '2026-02-18T10:00:00Z',
-  },
-  {
-    id: 'cust-4',
-    full_name: 'Dr. Anitha Mohan',
-    phone: '+91 98421 99012',
-    whatsapp: '+91 98421 99012',
-    district: 'Salem',
-    address: 'Fairlands Main Road, Salem',
-    latitude: 11.6720,
-    longitude: 78.1380,
-    created_at: '2026-02-18T10:30:00Z',
-    updated_at: '2026-02-18T10:30:00Z',
-  },
-  {
-    id: 'cust-5',
-    full_name: 'Suresh Babu',
-    phone: '+91 96290 88712',
-    whatsapp: '+91 96290 88712',
-    district: 'Coimbatore',
-    address: '45 Cross Cut Road, Gandhipuram, Coimbatore',
-    latitude: 11.0168,
-    longitude: 76.9558,
-    created_at: '2026-02-18T11:00:00Z',
-    updated_at: '2026-02-18T11:00:00Z',
-  },
-];
-
-// Seed Service Requests across simplified states:
-// 'NEW' | 'CUSTOMER_CONFIRMED' | 'ASSIGNED' | 'COMPLETED'
-export const SEED_REQUESTS: ServiceRequest[] = [
-  {
-    id: 'req-1042',
-    request_number: 1042,
-    customer_id: 'cust-1',
-    customer_name: 'Arun Kumar',
-    customer_phone: '+91 98401 22334',
-    customer_whatsapp: '+91 98401 22334',
-    category_id: 'cat-plumbing',
-    category_name: 'Plumbing',
-    service_id: 'srv-plumbing',
-    service_name: 'Plumbing',
-    description: 'Bathroom pipe joint leaking under washbasin, water dripping continuously.',
-    formatted_address: 'Plot 42, 5th Cross, Perundurai Road, Erode',
-    district: 'Erode',
-    latitude: 11.3410,
-    longitude: 77.7172,
-    preferred_date: '2026-10-06',
-    status: 'NEW',
-    customer_confirmed: false,
-    tracking_token: 'e7b1a234-8c90-4d56-a123-456789abc101',
-    created_at: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-    updated_at: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'req-1043',
-    request_number: 1043,
-    customer_id: 'cust-2',
-    customer_name: 'Meena Sundaram',
-    customer_phone: '+91 97892 11456',
-    customer_whatsapp: '+91 97892 11456',
-    category_id: 'cat-electrical',
-    category_name: 'Electrical',
-    service_id: 'srv-electrical',
-    service_name: 'Electrical',
-    description: 'Kitchen main switchboard sparking when induction stove is plugged in.',
-    formatted_address: 'No 18, Meyyanur Main Road, Salem',
-    district: 'Salem',
-    latitude: 11.6630,
-    longitude: 78.1330,
-    preferred_date: '2026-10-06',
-    status: 'CUSTOMER_CONFIRMED',
-    customer_confirmed: true,
-    customer_confirmed_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-    tracking_token: 'e7b1a234-8c90-4d56-a123-456789abc102',
-    created_at: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-    updated_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'req-1044',
-    request_number: 1044,
-    customer_id: 'cust-3',
-    customer_name: 'Karthik N.',
-    customer_phone: '+91 94433 77881',
-    customer_whatsapp: '+91 94433 77881',
-    category_id: 'cat-cleaning',
-    category_name: 'Cleaning',
-    service_id: 'srv-cleaning',
-    service_name: 'Cleaning',
-    description: 'Full house deep cleaning required before housewarming.',
-    formatted_address: '12 Gandhi Nagar, Near Collectorate, Dharmapuri',
-    district: 'Dharmapuri',
-    latitude: 12.1211,
-    longitude: 78.1582,
-    preferred_date: '2026-10-07',
-    status: 'ASSIGNED',
-    customer_confirmed: true,
-    assigned_worker_id: 'w-karthik-cleaning',
-    assigned_worker_name: 'Karthik Deepan',
-    assigned_worker_phone: '+91 98433 99881',
-    tracking_token: 'e7b1a234-8c90-4d56-a123-456789abc103',
-    created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    updated_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'req-1045',
-    request_number: 1045,
-    customer_id: 'cust-4',
-    customer_name: 'Dr. Anitha Mohan',
-    customer_phone: '+91 98421 99012',
-    customer_whatsapp: '+91 98421 99012',
-    category_id: 'cat-ac-appliances',
-    category_name: 'AC Service',
-    service_id: 'srv-ac',
-    service_name: 'AC Service',
-    description: 'Split AC not cooling properly in master bedroom, need filter cleaning and gas check.',
-    formatted_address: 'Fairlands Main Road, Salem',
-    district: 'Salem',
-    latitude: 11.6720,
-    longitude: 78.1380,
-    preferred_date: '2026-10-05',
-    status: 'COMPLETED',
-    customer_confirmed: true,
-    assigned_worker_id: 'w-vijay-ac',
-    assigned_worker_name: 'Vijay Anand',
-    assigned_worker_phone: '+91 97500 22341',
-    tracking_token: 'e7b1a234-8c90-4d56-a123-456789abc104',
-    created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    updated_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-  },
-];
+// Clean Baseline: Zero Seed Technicians, Zero Customers, Zero Dummy Bookings
+export const SEED_WORKERS: Worker[] = [];
+export const SEED_CUSTOMERS: Customer[] = [];
+export const SEED_REQUESTS: ServiceRequest[] = [];
 
 export const SEED_CONTACT_ATTEMPTS: WorkerContactAttempt[] = [];
 export const SEED_AUDIT_LOGS: AuditLog[] = [];
 
 // In-Memory Repository with localStorage hydration and permanent records
 class VikasaDataStore {
-  private workers: Worker[] = [...SEED_WORKERS];
-  private customers: Customer[] = [...SEED_CUSTOMERS];
-  private requests: ServiceRequest[] = [...SEED_REQUESTS];
-  private contactAttempts: WorkerContactAttempt[] = [...SEED_CONTACT_ATTEMPTS];
-  private auditLogs: AuditLog[] = [...SEED_AUDIT_LOGS];
+  private workers: Worker[] = [];
+  private customers: Customer[] = [];
+  private requests: ServiceRequest[] = [];
+  private contactAttempts: WorkerContactAttempt[] = [];
+  private auditLogs: AuditLog[] = [];
   private initialized = false;
 
   private init() {
     if (this.initialized) return;
     if (typeof window !== 'undefined') {
       try {
+        const PURGE_KEY = 'vikasa_purged_dummy_data_v2';
+        if (!localStorage.getItem(PURGE_KEY)) {
+          localStorage.removeItem('vikasa_requests');
+          localStorage.removeItem('vikasa_workers');
+          localStorage.removeItem('vikasa_customers');
+          localStorage.removeItem('vikasa_attempts');
+          localStorage.removeItem('vikasa_logs');
+          localStorage.setItem(PURGE_KEY, 'true');
+        }
+
         const savedReqs = localStorage.getItem('vikasa_requests');
         if (savedReqs) {
           const parsed: ServiceRequest[] = JSON.parse(savedReqs);
@@ -424,13 +56,23 @@ class VikasaDataStore {
             ...r,
             tracking_token: r.tracking_token || `e7b1a234-8c90-4d56-a123-456789abc${100 + idx}`,
           }));
+        } else {
+          this.requests = [];
         }
 
         const savedWorkers = localStorage.getItem('vikasa_workers');
-        if (savedWorkers) this.workers = JSON.parse(savedWorkers);
+        if (savedWorkers) {
+          this.workers = JSON.parse(savedWorkers);
+        } else {
+          this.workers = [];
+        }
 
         const savedCustomers = localStorage.getItem('vikasa_customers');
-        if (savedCustomers) this.customers = JSON.parse(savedCustomers);
+        if (savedCustomers) {
+          this.customers = JSON.parse(savedCustomers);
+        } else {
+          this.customers = [];
+        }
 
         const savedAttempts = localStorage.getItem('vikasa_attempts');
         if (savedAttempts) this.contactAttempts = JSON.parse(savedAttempts);
@@ -841,11 +483,11 @@ class VikasaDataStore {
     return this.requests.filter((r) => r.assigned_worker_id === workerId);
   }
 
-  registerWorker(data: Omit<Worker, 'id' | 'created_at' | 'updated_at'>): Worker {
+  registerWorker(data: Omit<Worker, 'id' | 'created_at' | 'updated_at'> & { id?: string }): Worker {
     this.init();
     const newWorker: Worker = {
       ...data,
-      id: `w-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      id: data.id || `w-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       whatsapp: data.whatsapp || data.phone,
       active_status: data.active_status || 'active',
       district: data.district || 'Salem',
@@ -856,6 +498,17 @@ class VikasaDataStore {
     this.workers.unshift(newWorker);
     this.persist();
     return newWorker;
+  }
+
+  verifyWorker(id: string, verifiedBy = 'admin-1', notes?: string): Worker | undefined {
+    this.init();
+    const worker = this.workers.find((w) => w.id === id);
+    if (!worker) return undefined;
+    worker.verification_status = 'verified';
+    worker.updated_at = new Date().toISOString();
+    this.addAuditLog('WORKER_VERIFIED', 'worker', id, { verifiedBy, notes });
+    this.persist();
+    return worker;
   }
 
   updateWorker(id: string, updates: Partial<Worker>): Worker | undefined {
