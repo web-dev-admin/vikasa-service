@@ -86,6 +86,21 @@ export default function AdminRequestsPage() {
       .catch(() => {
         // Fallback gracefully
       });
+
+    fetch('/api/technicians', {
+      headers: {
+        'x-admin-portal': 'true',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json?.success && Array.isArray(json.data)) {
+          dataStore.mergeWorkers(json.data);
+          setWorkers(dataStore.getWorkers().filter((w) => w.verification_status === 'verified'));
+        }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {

@@ -18,6 +18,7 @@ import {
   PhoneCall,
   Download,
   ShieldAlert,
+  RotateCw,
 } from 'lucide-react';
 import { getTelUrl, getWhatsAppUrl } from '@/lib/utils/phone';
 
@@ -44,22 +45,71 @@ export default function AdminContactsPage() {
   } | null>(null);
 
   const [selectedTechnician, setSelectedTechnician] = useState<Worker | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const loadData = () => {
+  const loadData = React.useCallback(() => {
+    // 1. Immediately hydrate from local store
     setCustomers(dataStore.getCustomers());
     setTechnicians(dataStore.getWorkers());
-  };
+
+    // 2. Fetch from server API with admin authentication
+    const token = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
+      : null;
+
+    const headers: Record<string, string> = {
+      'x-admin-portal': 'true',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+
+    setIsLoading(true);
+
+    Promise.all([
+      fetch('/api/customers', { headers }).then((r) => (r.ok ? r.json() : null)),
+      fetch('/api/technicians', { headers }).then((r) => (r.ok ? r.json() : null)),
+      fetch('/api/requests', { headers }).then((r) => (r.ok ? r.json() : null)),
+    ])
+      .then(([custRes, techRes, reqRes]) => {
+        // If requests arrived, merge them first (which auto-synthesizes customer profiles)
+        if (reqRes?.success && Array.isArray(reqRes.data)) {
+          dataStore.mergeRequests(reqRes.data);
+        }
+
+        // If customers arrived from Supabase, merge them
+        if (custRes?.success && Array.isArray(custRes.data) && custRes.data.length > 0) {
+          dataStore.mergeCustomers(custRes.data);
+        }
+
+        // If technicians arrived from Supabase, merge them
+        if (techRes?.success && Array.isArray(techRes.data) && techRes.data.length > 0) {
+          dataStore.mergeWorkers(techRes.data);
+        }
+
+        // Re-read finalized unified state
+        setCustomers(dataStore.getCustomers());
+        setTechnicians(dataStore.getWorkers());
+      })
+      .catch((err) => {
+        console.warn('Admin contacts sync warning:', err);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, []);
 
   React.useEffect(() => {
     loadData();
-    const handleUpdate = () => loadData();
+    const handleUpdate = () => {
+      setCustomers(dataStore.getCustomers());
+      setTechnicians(dataStore.getWorkers());
+    };
     window.addEventListener('vikasa_data_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
     return () => {
       window.removeEventListener('vikasa_data_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
-  }, []);
+  }, [loadData]);
 
   const handleToggleTechnicianStatus = (id: string, currentStatus?: string) => {
     const nextStatus = currentStatus === 'inactive' ? 'active' : 'inactive';
@@ -179,29 +229,42 @@ export default function AdminContactsPage() {
         </div>
 
         {/* 2 Main Sections/Tabs: Customers and Technicians */}
-        <div className="flex items-center bg-slate-100 p-1.5 rounded-2xl border border-slate-200 self-start sm:self-auto">
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
             type="button"
-            onClick={() => setActiveTab('customers')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'customers'
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
+            onClick={loadData}
+            disabled={isLoading}
+            className="px-3 py-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors text-xs font-bold flex items-center gap-1.5 cursor-pointer border border-slate-200"
+            title="Sync latest contacts from database"
           >
-            Customers ({customers.length})
+            <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-emerald-600' : 'text-slate-600'}`} />
+            <span className="hidden sm:inline">{isLoading ? 'Syncing...' : 'Sync'}</span>
           </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('technicians')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'technicians'
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            Technicians ({technicians.length})
-          </button>
+
+          <div className="flex items-center bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setActiveTab('customers')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'customers'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Customers ({customers.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('technicians')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'technicians'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Technicians ({technicians.length})
+            </button>
+          </div>
         </div>
       </div>
 

@@ -109,6 +109,19 @@ class VikasaDataStore {
     this.requests = [...requests].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
+    for (const req of this.requests) {
+      if (req.customer_name && req.customer_phone) {
+        this.upsertCustomer({
+          full_name: req.customer_name,
+          phone: req.customer_phone,
+          whatsapp: req.customer_whatsapp || req.customer_phone,
+          district: req.district || 'Erode',
+          address: req.formatted_address,
+          latitude: req.latitude,
+          longitude: req.longitude,
+        });
+      }
+    }
     this.persist();
   }
 
@@ -122,6 +135,19 @@ class VikasaDataStore {
       if (inc && inc.id) {
         const prev = existingMap.get(inc.id);
         existingMap.set(inc.id, { ...prev, ...inc });
+
+        // Auto-register customer profile for every request
+        if (inc.customer_name && inc.customer_phone) {
+          this.upsertCustomer({
+            full_name: inc.customer_name,
+            phone: inc.customer_phone,
+            whatsapp: inc.customer_whatsapp || inc.customer_phone,
+            district: inc.district || 'Erode',
+            address: inc.formatted_address,
+            latitude: inc.latitude,
+            longitude: inc.longitude,
+          });
+        }
       }
     }
     this.requests = Array.from(existingMap.values()).sort(
@@ -129,6 +155,54 @@ class VikasaDataStore {
     );
     this.persist();
     return this.requests;
+  }
+
+  setWorkers(workers: Worker[]) {
+    this.init();
+    this.workers = [...workers];
+    this.persist();
+  }
+
+  mergeWorkers(incoming: Worker[]): Worker[] {
+    this.init();
+    const existingMap = new Map<string, Worker>();
+    for (const w of this.workers) {
+      if (w && w.id) existingMap.set(w.id, w);
+    }
+    for (const inc of incoming) {
+      if (inc && inc.id) {
+        const prev = existingMap.get(inc.id);
+        existingMap.set(inc.id, { ...prev, ...inc });
+      }
+    }
+    this.workers = Array.from(existingMap.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    this.persist();
+    return this.workers;
+  }
+
+  setCustomers(customers: Customer[]) {
+    this.init();
+    this.customers = [...customers];
+    this.persist();
+  }
+
+  mergeCustomers(incoming: Customer[]): Customer[] {
+    this.init();
+    const existingMap = new Map<string, Customer>();
+    for (const c of this.customers) {
+      if (c && c.id) existingMap.set(c.id, c);
+    }
+    for (const inc of incoming) {
+      if (inc && inc.id) {
+        const prev = existingMap.get(inc.id);
+        existingMap.set(inc.id, { ...prev, ...inc });
+      }
+    }
+    this.customers = Array.from(existingMap.values());
+    this.persist();
+    return this.customers;
   }
 
   // --- Customers (Permanent Records & Deduplication) ---
@@ -181,6 +255,36 @@ class VikasaDataStore {
 
   getCustomers(filters?: { search?: string; district?: string; service?: string }): Array<Customer & { totalRequests: number; latestService?: string; latestStatus?: RequestStatus }> {
     this.init();
+
+    // Auto-synthesize customers from requests if any customer is missing
+    if (this.requests.length > 0) {
+      const knownPhones = new Set(this.customers.map((c) => c.phone.replace(/\D/g, '').slice(-10)));
+      let changed = false;
+      for (const req of this.requests) {
+        if (!req.customer_phone) continue;
+        const cleanP = req.customer_phone.replace(/\D/g, '').slice(-10);
+        if (cleanP && !knownPhones.has(cleanP)) {
+          knownPhones.add(cleanP);
+          this.customers.push({
+            id: req.customer_id || `cust-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            full_name: req.customer_name || 'Customer',
+            phone: req.customer_phone,
+            whatsapp: req.customer_whatsapp || req.customer_phone,
+            district: req.district || 'Erode',
+            address: req.formatted_address || '',
+            latitude: req.latitude || ERODE_CENTER.lat,
+            longitude: req.longitude || ERODE_CENTER.lon,
+            created_at: req.created_at || new Date().toISOString(),
+            updated_at: req.updated_at || new Date().toISOString(),
+          });
+          changed = true;
+        }
+      }
+      if (changed) {
+        this.persist();
+      }
+    }
+
     let result = [...this.customers];
 
     if (filters?.search) {

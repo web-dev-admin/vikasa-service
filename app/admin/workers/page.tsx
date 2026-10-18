@@ -19,11 +19,35 @@ export default function AdminWorkersPage() {
   });
 
   const refreshWorkers = useCallback(() => {
+    // 1. Immediate local hydration
     setWorkers(dataStore.getWorkers());
+
+    // 2. Server API fetch
+    const token = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
+      : null;
+
+    fetch('/api/technicians', {
+      headers: {
+        'x-admin-portal': 'true',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json?.success && Array.isArray(json.data)) {
+          dataStore.mergeWorkers(json.data);
+          setWorkers(dataStore.getWorkers());
+        }
+      })
+      .catch((err) => {
+        console.warn('Technician list refresh warning:', err);
+      });
   }, []);
 
   useEffect(() => {
-    const interval = setInterval(refreshWorkers, 5000);
+    refreshWorkers();
+    const interval = setInterval(refreshWorkers, 8000);
     return () => clearInterval(interval);
   }, [refreshWorkers]);
 
@@ -71,11 +95,12 @@ export default function AdminWorkersPage() {
         skills: [formData.service],
         verification_status: 'verified',
         availability: 'available',
-        base_location_name: formData.area,
-        latitude: 11.6643,
-        longitude: 78.1460,
-        service_radius_km: 15,
-        service_area_names: [formData.area],
+        district: 'Erode',
+        base_location_name: formData.area || 'Erode, Tamil Nadu',
+        latitude: 11.3410,
+        longitude: 77.7172,
+        service_radius_km: 20,
+        service_area_names: [formData.area || 'Erode'],
         service_ids: [],
       });
     }

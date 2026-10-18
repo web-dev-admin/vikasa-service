@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dataStore, ERODE_CENTER } from '@/lib/data/store';
 import { authenticateAdmin, unauthorizedResponse } from '@/lib/auth/admin';
+import { supabase } from '@/lib/supabase/client';
 
 // GET: Admin only technician directory
 export async function GET(request: NextRequest) {
@@ -8,6 +9,21 @@ export async function GET(request: NextRequest) {
     const session = await authenticateAdmin(request);
     if (!session) {
       return unauthorizedResponse('Administrator authorization required to view technician directory');
+    }
+
+    // Sync from Supabase workers table if configured
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      try {
+        const { data: dbWorkers, error } = await supabase
+          .from('workers')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (!error && Array.isArray(dbWorkers) && dbWorkers.length > 0) {
+          dataStore.mergeWorkers(dbWorkers);
+        }
+      } catch (e) {
+        console.warn('Supabase workers fetch warning:', e);
+      }
     }
 
     const { searchParams } = new URL(request.url);
@@ -106,6 +122,37 @@ export async function POST(request: NextRequest) {
       service_area_names: [body.base_location_name || body.district || 'Erode'],
       service_ids: body.service_ids,
     });
+
+    // Sync new worker to Supabase if configured
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      try {
+        await supabase.from('workers').insert([{
+          id: technician.id,
+          full_name: technician.full_name,
+          phone: technician.phone,
+          whatsapp: technician.whatsapp,
+          email: technician.email,
+          avatar_url: technician.avatar_url,
+          experience_years: technician.experience_years,
+          skills: technician.skills,
+          bio: technician.bio,
+          verification_status: technician.verification_status,
+          availability: technician.availability,
+          active_status: technician.active_status,
+          district: technician.district,
+          base_location_name: technician.base_location_name,
+          latitude: technician.latitude,
+          longitude: technician.longitude,
+          service_radius_km: technician.service_radius_km,
+          service_area_names: technician.service_area_names,
+          service_ids: technician.service_ids,
+          created_at: technician.created_at,
+          updated_at: technician.updated_at,
+        }]);
+      } catch (dbErr) {
+        console.warn('Supabase worker insert warning:', dbErr);
+      }
+    }
 
     return NextResponse.json({
       success: true,
