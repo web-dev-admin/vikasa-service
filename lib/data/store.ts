@@ -94,10 +94,38 @@ class VikasaDataStore {
         localStorage.setItem('vikasa_customers', JSON.stringify(this.customers));
         localStorage.setItem('vikasa_attempts', JSON.stringify(this.contactAttempts));
         localStorage.setItem('vikasa_logs', JSON.stringify(this.auditLogs));
+        window.dispatchEvent(new Event('vikasa_data_updated'));
       } catch (e) {
         console.error('Failed to persist database state:', e);
       }
     }
+  }
+
+  setRequests(requests: ServiceRequest[]) {
+    this.init();
+    this.requests = [...requests].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    this.persist();
+  }
+
+  mergeRequests(incoming: ServiceRequest[]): ServiceRequest[] {
+    this.init();
+    const existingMap = new Map<string, ServiceRequest>();
+    for (const r of this.requests) {
+      if (r && r.id) existingMap.set(r.id, r);
+    }
+    for (const inc of incoming) {
+      if (inc && inc.id) {
+        const prev = existingMap.get(inc.id);
+        existingMap.set(inc.id, { ...prev, ...inc });
+      }
+    }
+    this.requests = Array.from(existingMap.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    this.persist();
+    return this.requests;
   }
 
   // --- Customers (Permanent Records & Deduplication) ---

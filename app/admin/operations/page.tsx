@@ -80,6 +80,7 @@ export default function OperationsPage() {
 
   // Refresh data from store
   const refreshData = useCallback(() => {
+    // 1. Immediately hydrate from local store
     const allReqs = dataStore.getRequests();
     const allWorkers = dataStore.getWorkers();
     setRequests(allReqs);
@@ -89,11 +90,45 @@ export default function OperationsPage() {
       if (!prev && allReqs.length > 0) return allReqs[0].id;
       return prev;
     });
+
+    // 2. Fetch latest server queue
+    const token = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
+      : null;
+
+    fetch('/api/requests', {
+      headers: {
+        'x-admin-portal': 'true',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json?.success && Array.isArray(json.data)) {
+          dataStore.setRequests(json.data);
+          setRequests(json.data);
+          setSelectedRequestId((prev) => {
+            if (!prev && json.data.length > 0) return json.data[0].id;
+            return prev;
+          });
+        }
+      })
+      .catch(() => {
+        // Fallback gracefully
+      });
   }, []);
 
   useEffect(() => {
+    refreshData();
     const interval = setInterval(refreshData, 4000);
-    return () => clearInterval(interval);
+    const handleUpdate = () => refreshData();
+    window.addEventListener('vikasa_data_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('vikasa_data_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
   }, [refreshData]);
 
   const activeRequest = requests.find((r) => r.id === selectedRequestId) || requests[0];

@@ -3,6 +3,7 @@ import { dataStore, SALEM_CENTER } from '@/lib/data/store';
 import { RequestStatus } from '@/types';
 import { authenticateAdmin, unauthorizedResponse } from '@/lib/auth/admin';
 import { STANDARDIZED_SERVICES } from '@/lib/constants';
+import { supabase } from '@/lib/supabase/client';
 
 // GET: Privileged Admin Queue Retrieval
 export async function GET(request: NextRequest) {
@@ -10,6 +11,28 @@ export async function GET(request: NextRequest) {
     const session = await authenticateAdmin(request);
     if (!session) {
       return unauthorizedResponse('Administrator authorization required to view service requests');
+    }
+
+    // Sync from Supabase if connected
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      try {
+        const { data: dbRequests, error } = await supabase
+          .rpc('get_admin_service_requests')
+          .select('*');
+        if (!error && Array.isArray(dbRequests) && dbRequests.length > 0) {
+          dataStore.mergeRequests(dbRequests);
+        } else {
+          const { data: directReqs } = await supabase
+            .from('service_requests')
+            .select('*')
+            .order('created_at', { ascending: false });
+          if (Array.isArray(directReqs) && directReqs.length > 0) {
+            dataStore.mergeRequests(directReqs);
+          }
+        }
+      } catch {
+        // Fallback gracefully to local store
+      }
     }
 
     const { searchParams } = new URL(request.url);
@@ -122,7 +145,38 @@ export async function POST(request: NextRequest) {
       customer_confirmed: false,
     });
 
-    // Return only safe public reference and tracking token to the customer
+    // Sync to Supabase if connected
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      try {
+        await supabase.from('service_requests').insert([{
+          id: newRequest.id,
+          customer_name: newRequest.customer_name,
+          customer_phone: newRequest.customer_phone,
+          customer_whatsapp: newRequest.customer_whatsapp,
+          customer_email: newRequest.customer_email,
+          category_id: newRequest.category_id,
+          category_name: newRequest.category_name,
+          service_id: newRequest.service_id,
+          service_name: newRequest.service_name,
+          description: newRequest.description,
+          formatted_address: newRequest.formatted_address,
+          district: newRequest.district,
+          latitude: newRequest.latitude,
+          longitude: newRequest.longitude,
+          preferred_date: newRequest.preferred_date,
+          preferred_time_slot: newRequest.preferred_time_slot,
+          status: newRequest.status,
+          customer_confirmed: newRequest.customer_confirmed,
+          tracking_token: newRequest.tracking_token,
+          created_at: newRequest.created_at,
+          updated_at: newRequest.updated_at,
+        }]);
+      } catch (dbErr) {
+        console.warn('Supabase request sync warning:', dbErr);
+      }
+    }
+
+    // Return safe public reference and tracking token to the customer, plus full_request for store sync
     return NextResponse.json({
       success: true,
       message: 'Service request created successfully',
@@ -132,6 +186,7 @@ export async function POST(request: NextRequest) {
         service_name: newRequest.service_name,
         district: newRequest.district,
         created_at: newRequest.created_at,
+        full_request: newRequest,
       },
     });
   } catch (error) {

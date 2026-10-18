@@ -106,8 +106,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (!isLoginPage && isAuthenticated) {
-      const interval = setInterval(refreshStats, 5000);
-      return () => clearInterval(interval);
+      refreshStats();
+      const interval = setInterval(refreshStats, 4000);
+      const handleUpdate = () => refreshStats();
+      window.addEventListener('vikasa_data_updated', handleUpdate);
+      window.addEventListener('storage', handleUpdate);
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('vikasa_data_updated', handleUpdate);
+        window.removeEventListener('storage', handleUpdate);
+      };
     }
   }, [isLoginPage, isAuthenticated, refreshStats]);
 

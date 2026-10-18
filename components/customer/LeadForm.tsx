@@ -7,7 +7,7 @@ import {
   TAMIL_NADU_DISTRICTS,
   VIKASA_CONFIG,
 } from '@/lib/constants';
-import { SALEM_CENTER } from '@/lib/data/store';
+import { dataStore, SALEM_CENTER } from '@/lib/data/store';
 import {
   MapPin,
   CheckCircle2,
@@ -219,6 +219,11 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
       }
 
       const created = json.data;
+
+      // Immediately sync with local client store and broadcast to open admin tabs
+      if (created.full_request) {
+        dataStore.mergeRequests([created.full_request]);
+      }
 
       setSubmittedData({
         requestNumber: created.request_number,

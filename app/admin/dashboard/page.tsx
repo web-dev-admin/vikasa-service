@@ -55,6 +55,7 @@ export default function AdminDashboardPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const loadData = useCallback(() => {
+    // 1. Immediately hydrate from local store
     const allRequests = dataStore.getRequests();
     const allWorkers = dataStore.getWorkers().filter((w) => w.verification_status === 'verified');
     setRequests(allRequests);
@@ -65,11 +66,45 @@ export default function AdminDashboardPage() {
       if (!prev) return null;
       return allRequests.find((r) => r.id === prev.id) || null;
     });
+
+    // 2. Fetch latest server queue
+    const token = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
+      : null;
+
+    fetch('/api/requests', {
+      headers: {
+        'x-admin-portal': 'true',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json?.success && Array.isArray(json.data)) {
+          dataStore.setRequests(json.data);
+          setRequests(json.data);
+          setSelectedRequest((prev) => {
+            if (!prev) return null;
+            return json.data.find((r: ServiceRequest) => r.id === prev.id) || null;
+          });
+        }
+      })
+      .catch(() => {
+        // Fallback to local store gracefully
+      });
   }, []);
 
   useEffect(() => {
+    loadData();
     const interval = setInterval(loadData, 4000);
-    return () => clearInterval(interval);
+    const handleUpdate = () => loadData();
+    window.addEventListener('vikasa_data_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('vikasa_data_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
   }, [loadData]);
 
   const showToast = (msg: string) => {

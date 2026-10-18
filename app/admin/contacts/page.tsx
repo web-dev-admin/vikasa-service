@@ -50,6 +50,17 @@ export default function AdminContactsPage() {
     setTechnicians(dataStore.getWorkers());
   };
 
+  React.useEffect(() => {
+    loadData();
+    const handleUpdate = () => loadData();
+    window.addEventListener('vikasa_data_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('vikasa_data_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
+
   const handleToggleTechnicianStatus = (id: string, currentStatus?: string) => {
     const nextStatus = currentStatus === 'inactive' ? 'active' : 'inactive';
     dataStore.updateWorker(id, { active_status: nextStatus });
