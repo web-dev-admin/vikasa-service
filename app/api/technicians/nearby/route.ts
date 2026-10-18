@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
           name: w.full_name,
           phone: w.phone,
           whatsapp: w.whatsapp || w.phone,
-          district: w.district || 'Salem',
+          district: w.district || 'Erode',
           base_location: w.base_location_name,
           experience_years: w.experience_years,
           skills: w.skills,

@@ -1,9 +1,24 @@
 import React, { Suspense } from 'react';
+import type { Metadata } from 'next';
 import LeadForm from '@/components/customer/LeadForm';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ChevronLeft, ShieldCheck, PhoneCall, MessageCircle } from 'lucide-react';
 import { VIKASA_CONFIG } from '@/lib/constants';
+
+export const metadata: Metadata = {
+  title: 'Book an Interior Consultation or Service | Vikasa Interiors Erode',
+  description:
+    'Request a free interior design consultation or home service in Erode, Perundurai, Bhavani, and surrounding regions. Fast coordination by Vikasa Interiors.',
+  alternates: {
+    canonical: '/request',
+  },
+  openGraph: {
+    title: 'Book an Interior Consultation | Vikasa Interiors Erode',
+    description: 'Bespoke modular kitchens, custom wardrobes, and home interiors in Erode.',
+    url: '/request',
+  },
+};
 
 export default function RequestServicePage() {
   return (
@@ -19,7 +34,7 @@ export default function RequestServicePage() {
           </Link>
           <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-800 bg-emerald-100/70 px-3 py-1 rounded-full border border-emerald-200">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
-            <span>Verified Technicians • No Advance Fee</span>
+            <span>Erode Specialists • Free Consultation</span>
           </div>
         </div>
 

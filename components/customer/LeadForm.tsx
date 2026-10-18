@@ -7,7 +7,7 @@ import {
   TAMIL_NADU_DISTRICTS,
   VIKASA_CONFIG,
 } from '@/lib/constants';
-import { dataStore, SALEM_CENTER } from '@/lib/data/store';
+import { dataStore, ERODE_CENTER } from '@/lib/data/store';
 import {
   MapPin,
   CheckCircle2,
@@ -37,16 +37,16 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
   // Default date to today
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [service, setService] = useState(initialService || 'Plumbing');
+  const [service, setService] = useState(initialService || 'Interior Design');
   const [customServiceNote, setCustomServiceNote] = useState('');
   const [preferredDate, setPreferredDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [district, setDistrict] = useState('Salem');
+  const [district, setDistrict] = useState('Erode');
   const [address, setAddress] = useState('');
   const [description, setDescription] = useState('');
 
   // Location Coordinates & Geolocation State
-  const [latitude, setLatitude] = useState(SALEM_CENTER.lat);
-  const [longitude, setLongitude] = useState(SALEM_CENTER.lon);
+  const [latitude, setLatitude] = useState(ERODE_CENTER.lat);
+  const [longitude, setLongitude] = useState(ERODE_CENTER.lon);
   const [isLocating, setIsLocating] = useState(false);
   const [locationSuccessText, setLocationSuccessText] = useState<string | null>(null);
 

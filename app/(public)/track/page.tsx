@@ -95,7 +95,7 @@ export default function TrackLookupPage() {
         {/* Need Assistance */}
         <div className="bg-emerald-900 text-white rounded-2xl p-5 text-center space-y-3 shadow-sm">
           <p className="text-xs text-emerald-200">
-            Can&apos;t find your tracking number? Contact our Salem coordinator:
+            Can&apos;t find your tracking number? Contact our Erode coordinator:
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
             <a

@@ -15,19 +15,19 @@ interface LocationPickerProps {
   }) => void;
 }
 
-// Landmark quick-select points around Salem
-const SALEM_PRESETS = [
-  { name: 'Fairlands (Brindavan Rd)', lat: 11.672, lon: 78.138 },
-  { name: 'Suramangalam (Junction)', lat: 11.671, lon: 78.125 },
-  { name: 'Meyyanur (New Bus Stand)', lat: 11.663, lon: 78.133 },
-  { name: 'Hasthampatti', lat: 11.676, lon: 78.156 },
-  { name: 'Ammapet', lat: 11.654, lon: 78.175 },
+// Landmark quick-select points around Erode
+const ERODE_PRESETS = [
+  { name: 'Perundurai Road', lat: 11.332, lon: 77.685 },
+  { name: 'Thindal', lat: 11.328, lon: 77.671 },
+  { name: 'Bhavani Road', lat: 11.365, lon: 77.712 },
+  { name: 'Chithode', lat: 11.415, lon: 77.662 },
+  { name: 'Solar', lat: 11.312, lon: 77.738 },
 ];
 
 export default function LocationPicker({
-  initialLat = 11.6643,
-  initialLon = 78.146,
-  initialAddress = 'Salem, Tamil Nadu',
+  initialLat = 11.341,
+  initialLon = 77.7172,
+  initialAddress = 'Perundurai Road, Erode, Tamil Nadu',
   onLocationSelected,
 }: LocationPickerProps) {
   const [lat, setLat] = useState(initialLat);
@@ -201,11 +201,11 @@ export default function LocationPicker({
           <Compass className="w-3 h-3 text-slate-400" /> Or select landmark:
         </p>
         <div className="flex flex-wrap gap-1.5">
-          {SALEM_PRESETS.map((preset) => (
+          {ERODE_PRESETS.map((preset) => (
             <button
               key={preset.name}
               type="button"
-              onClick={() => updateLocation(preset.lat, preset.lon, `${preset.name}, Salem`)}
+              onClick={() => updateLocation(preset.lat, preset.lon, `${preset.name}, Erode`)}
               className="text-xs px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 border border-transparent transition-all"
             >
               {preset.name}

@@ -32,7 +32,7 @@ export default function AdminGuidePage() {
         'When a customer fills the booking form on the website, their request immediately shows up in your Overview and Bookings tab as a "New Inquiry".',
       checklist: [
         'Open the "Overview" or "Bookings" page to see the latest incoming ticket.',
-        'Review the client’s name, phone number, address in Salem, and their problem description.',
+        'Review the client’s name, phone number, address in Erode, and their problem description.',
         'Check their preferred arrival date and time slot.',
       ],
       quickLink: '/admin/requests',
@@ -57,7 +57,7 @@ export default function AdminGuidePage() {
     {
       num: '3',
       title: 'Assign Nearest Qualified Technician',
-      subtitle: 'Match the best electrician, plumber, or carpenter in Salem',
+      subtitle: 'Match the best electrician, plumber, or carpenter in Erode',
       badge: 'Step 3 • Technician Dispatch',
       color: 'blue',
       description:

@@ -437,7 +437,7 @@ export default function AdminDashboardPage() {
                         {req.service_name}
                       </span>
                       <span className="text-xs text-slate-500">
-                        Today · <strong className="text-slate-800">{req.district || 'Salem'}</strong>
+                        Today · <strong className="text-slate-800">{req.district || 'Erode'}</strong>
                       </span>
                     </div>
                   </div>
@@ -555,7 +555,7 @@ export default function AdminDashboardPage() {
 
               <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
                 <span className="text-slate-400 font-semibold">District:</span>
-                <span className="font-bold text-slate-900">{selectedRequest.district || 'Salem'}</span>
+                <span className="font-bold text-slate-900">{selectedRequest.district || 'Erode'}</span>
               </div>
 
               <div className="flex items-start justify-between py-1.5 border-b border-slate-100">
@@ -671,7 +671,7 @@ export default function AdminDashboardPage() {
                   Assign for: {assigningRequest.customer_name}
                 </h2>
                 <p className="text-xs text-slate-500">
-                  {assigningRequest.service_name} • {assigningRequest.district || 'Salem'}
+                  {assigningRequest.service_name} • {assigningRequest.district || 'Erode'}
                 </p>
               </div>
               <button

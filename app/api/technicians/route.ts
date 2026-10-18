@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { dataStore, SALEM_CENTER } from '@/lib/data/store';
+import { dataStore, ERODE_CENTER } from '@/lib/data/store';
 import { authenticateAdmin, unauthorizedResponse } from '@/lib/auth/admin';
 
 // GET: Admin only technician directory
@@ -81,8 +81,8 @@ export async function POST(request: NextRequest) {
     // Validate coordinates
     const lat = Number(body.latitude);
     const lon = Number(body.longitude);
-    const validLat = !isNaN(lat) && lat >= 8.0 && lat <= 14.0 ? lat : SALEM_CENTER.lat;
-    const validLon = !isNaN(lon) && lon >= 76.0 && lon <= 81.0 ? lon : SALEM_CENTER.lon;
+    const validLat = !isNaN(lat) && lat >= 8.0 && lat <= 14.0 ? lat : ERODE_CENTER.lat;
+    const validLon = !isNaN(lon) && lon >= 76.0 && lon <= 81.0 ? lon : ERODE_CENTER.lon;
 
     // Strict security rule: Public registrations CANNOT self-approve.
     // They are always set to 'pending_verification'.
@@ -94,16 +94,16 @@ export async function POST(request: NextRequest) {
       avatar_url: body.avatar_url?.trim() || undefined,
       experience_years: Math.max(0, Math.min(50, Number(body.experience_years) || 1)),
       skills: Array.isArray(body.skills) ? body.skills : [],
-      bio: body.bio?.trim() || `Professional service technician registered for ${body.district || 'Salem'}.`,
+      bio: body.bio?.trim() || `Professional service technician registered for ${body.district || 'Erode'}.`,
       verification_status: 'pending_verification', // ALWAYS pending_verification
       availability: 'available',
       active_status: 'active',
-      district: body.district?.trim() || 'Salem',
-      base_location_name: body.base_location_name?.trim() || `${body.district || 'Salem'}, Tamil Nadu`,
+      district: body.district?.trim() || 'Erode',
+      base_location_name: body.base_location_name?.trim() || `${body.district || 'Erode'}, Tamil Nadu`,
       latitude: validLat,
       longitude: validLon,
       service_radius_km: Math.max(5, Math.min(100, Number(body.service_radius_km) || 20)),
-      service_area_names: [body.base_location_name || body.district || 'Salem'],
+      service_area_names: [body.base_location_name || body.district || 'Erode'],
       service_ids: body.service_ids,
     });
 

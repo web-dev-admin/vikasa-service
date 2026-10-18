@@ -1,15 +1,50 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { VIKASA_CONFIG } from '@/lib/constants';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ['latin'], display: 'swap' });
+
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://vikasainteriors.in';
+
+export const viewport: Viewport = {
+  themeColor: '#059669',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+};
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://vikasa.in'),
-  title: 'VIKASA — Interior & Home Services | Certified Technicians in Salem',
+  metadataBase: new URL(baseUrl),
+  title: {
+    default: 'Vikasa Interiors — Interior Design & Custom Plywood Work in Erode',
+    template: '%s | Vikasa Interiors Erode',
+  },
   description:
-    'Book verified plumbers, electricians, carpenters, AC technicians, and interior services in Salem, Tamil Nadu. Fast doorstep dispatch. Helpline & WhatsApp: 9865652420.',
-  keywords: ['vikasa interior', 'home services', 'plumber salem', 'electrician salem', 'carpenter salem', 'ac service salem', 'salem', 'tamil nadu'],
+    'Premier interior design and bespoke plywood craftsmanship in Erode, Tamil Nadu. Specialist in modular kitchens, designer wardrobes, false ceilings, and complete turnkey home interiors. Call/WhatsApp: +91 98656 52420.',
+  keywords: [
+    'interior designers in erode',
+    'interior design erode',
+    'home interiors erode',
+    'plywood interior work erode',
+    'modular kitchen erode',
+    'custom wardrobes erode',
+    'false ceiling designers erode',
+    'vikasa interiors',
+    'residential interiors erode',
+    'commercial interiors erode',
+    'carpentry woodwork erode',
+    'erode interior decorators',
+    'tamil nadu home renovation',
+  ],
+  authors: [{ name: 'Vikasa Interiors' }],
+  creator: 'Vikasa Interiors',
+  publisher: 'Vikasa Interiors',
+  formatDetection: {
+    telephone: true,
+    email: true,
+    address: true,
+  },
   alternates: {
     canonical: '/',
   },
@@ -18,48 +53,147 @@ export const metadata: Metadata = {
     apple: '/logo/vikasa_interior_logo.png',
   },
   openGraph: {
-    title: 'VIKASA — Interior & Home Services | Salem',
-    description: 'Trusted local doorstep service coordination for Salem and surrounding areas. Call/WhatsApp: 9865652420.',
-    type: 'website',
+    title: 'Vikasa Interiors — Interior Design & Plywood Craftsmanship in Erode',
+    description:
+      'Turnkey interior design and custom plywood woodwork in Erode and surrounding regions. Modular kitchens, designer wardrobes, and home renovations. Call/WhatsApp: +91 98656 52420.',
+    url: baseUrl,
+    siteName: 'Vikasa Interiors',
     locale: 'en_IN',
+    type: 'website',
+    images: [
+      {
+        url: '/logo/vikasa_interior_logo.png',
+        width: 512,
+        height: 512,
+        alt: 'Vikasa Interiors Erode Logo',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Vikasa Interiors — Interior Design & Plywood Work in Erode',
+    description:
+      'Expert modular kitchens, designer wardrobes, false ceilings & precision plywood work in Erode. Free consultation: +91 98656 52420.',
+    images: ['/logo/vikasa_interior_logo.png'],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
   },
 };
 
 const structuredData = {
   '@context': 'https://schema.org',
-  '@type': 'HomeAndConstructionBusiness',
-  name: 'VIKASA Interior & Home Services',
-  image: 'https://vikasa.in/logo/vikasa_interior_logo.png',
-  telephone: '+919865652420',
-  address: {
-    '@type': 'PostalAddress',
-    streetAddress: 'Fairlands',
-    addressLocality: 'Salem',
-    addressRegion: 'Tamil Nadu',
-    postalCode: '636016',
-    addressCountry: 'IN',
-  },
-  geo: {
-    '@type': 'GeoCoordinates',
-    latitude: 11.6643,
-    longitude: 78.146,
-  },
-  areaServed: [
+  '@graph': [
     {
-      '@type': 'AdministrativeArea',
-      name: 'Salem, Tamil Nadu',
+      '@type': ['HomeAndConstructionBusiness', 'ProfessionalService'],
+      '@id': `${baseUrl}/#business`,
+      name: 'Vikasa Interiors',
+      alternateName: 'Vikasa Interior & Plywood Works',
+      url: baseUrl,
+      logo: `${baseUrl}/logo/vikasa_interior_logo.png`,
+      image: `${baseUrl}/logo/vikasa_interior_logo.png`,
+      telephone: '+919865652420',
+      priceRange: '₹₹',
+      currenciesAccepted: 'INR',
+      paymentAccepted: 'Cash, UPI, Bank Transfer',
+      address: {
+        '@type': 'PostalAddress',
+        streetAddress: 'Erode City',
+        addressLocality: 'Erode',
+        addressRegion: 'Tamil Nadu',
+        postalCode: '638001',
+        addressCountry: 'IN',
+      },
+      geo: {
+        '@type': 'GeoCoordinates',
+        latitude: 11.341,
+        longitude: 77.7172,
+      },
+      areaServed: [
+        { '@type': 'City', name: 'Erode' },
+        { '@type': 'City', name: 'Perundurai' },
+        { '@type': 'City', name: 'Bhavani' },
+        { '@type': 'City', name: 'Gobichettipalayam' },
+        { '@type': 'City', name: 'Chithode' },
+        { '@type': 'City', name: 'Modakkurichi' },
+        { '@type': 'City', name: 'Thindal' },
+        { '@type': 'AdministrativeArea', name: 'Erode District' },
+        { '@type': 'AdministrativeArea', name: 'Tamil Nadu' },
+      ],
+      hasOfferCatalog: {
+        '@type': 'OfferCatalog',
+        name: 'Interior Design & Plywood Craftsmanship',
+        itemListElement: [
+          {
+            '@type': 'Offer',
+            itemOffered: {
+              '@type': 'Service',
+              name: 'Modular Kitchen Design & Installation',
+              description: 'Custom modular kitchens with waterproof marine plywood, acrylic and laminate finishes, and soft-close hardware.',
+            },
+          },
+          {
+            '@type': 'Offer',
+            itemOffered: {
+              '@type': 'Service',
+              name: 'Custom Plywood Wardrobes & Storage',
+              description: 'Bespoke sliding, openable, and walk-in wardrobe units designed for optimized space and longevity.',
+            },
+          },
+          {
+            '@type': 'Offer',
+            itemOffered: {
+              '@type': 'Service',
+              name: 'Living Room TV Entertainment Units',
+              description: 'Contemporary fluted paneling, LED profile lighting, and custom media console woodwork.',
+            },
+          },
+          {
+            '@type': 'Offer',
+            itemOffered: {
+              '@type': 'Service',
+              name: 'False Ceiling & Architectural Lighting',
+              description: 'Designer gypsum and POP ceilings with ambient recessed and cove lighting integration.',
+            },
+          },
+          {
+            '@type': 'Offer',
+            itemOffered: {
+              '@type': 'Service',
+              name: 'Turnkey Residential & Commercial Interiors',
+              description: 'End-to-end design, woodwork fabrication, painting, electrical, and full space transformation.',
+            },
+          },
+        ],
+      },
+      openingHoursSpecification: [
+        {
+          '@type': 'OpeningHoursSpecification',
+          dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+          opens: '09:00',
+          closes: '20:00',
+        },
+      ],
     },
     {
-      '@type': 'AdministrativeArea',
-      name: 'Tamil Nadu',
+      '@type': 'WebSite',
+      '@id': `${baseUrl}/#website`,
+      url: baseUrl,
+      name: 'Vikasa Interiors',
+      description: 'Interior Design & Custom Plywood Work in Erode, Tamil Nadu',
+      publisher: {
+        '@id': `${baseUrl}/#business`,
+      },
     },
   ],
-  openingHoursSpecification: {
-    '@type': 'OpeningHoursSpecification',
-    dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
-    opens: '08:00',
-    closes: '20:00',
-  },
 };
 
 export default function RootLayout({

@@ -356,7 +356,7 @@ export default function AdminContactsPage() {
                   <p className="text-xs text-slate-600 mt-0.5">
                     <span className="font-semibold text-emerald-700">{cust.latestService || 'General Inquiry'}</span>
                     {' • '}
-                    <span>{cust.district || 'Salem'}</span>
+                    <span>{cust.district || 'Erode'}</span>
                     {' • '}
                     <span className="font-mono text-slate-800">{cust.phone}</span>
                   </p>
@@ -419,7 +419,7 @@ export default function AdminContactsPage() {
                   <p className="text-xs text-slate-600 mt-0.5">
                     <span className="font-semibold text-emerald-700">{tech.skills[0] || 'Technician'}</span>
                     {' • '}
-                    <span>{tech.district || 'Salem'}</span>
+                    <span>{tech.district || 'Erode'}</span>
                     {' • '}
                     <span className="font-mono text-slate-800">{tech.phone}</span>
                   </p>
@@ -482,7 +482,7 @@ export default function AdminContactsPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-400 font-semibold">District:</span>
-                <span className="font-bold text-slate-900">{selectedCustomer.customer.district || 'Salem'}</span>
+                <span className="font-bold text-slate-900">{selectedCustomer.customer.district || 'Erode'}</span>
               </div>
               {selectedCustomer.customer.address && (
                 <div className="flex items-start justify-between">
@@ -580,7 +580,7 @@ export default function AdminContactsPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-400 font-semibold">District:</span>
-                <span className="font-bold text-slate-900">{selectedTechnician.district || 'Salem'}</span>
+                <span className="font-bold text-slate-900">{selectedTechnician.district || 'Erode'}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-400 font-semibold">Base Area:</span>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { dataStore, SALEM_CENTER } from '@/lib/data/store';
+import { dataStore, ERODE_CENTER } from '@/lib/data/store';
 import { RequestStatus } from '@/types';
 import { authenticateAdmin, unauthorizedResponse } from '@/lib/auth/admin';
 import { STANDARDIZED_SERVICES } from '@/lib/constants';
@@ -108,8 +108,8 @@ export async function POST(request: NextRequest) {
     // Validate coordinates
     const lat = Number(body.latitude);
     const lon = Number(body.longitude);
-    const validLat = !isNaN(lat) && lat >= 8.0 && lat <= 14.0 ? lat : SALEM_CENTER.lat;
-    const validLon = !isNaN(lon) && lon >= 76.0 && lon <= 81.0 ? lon : SALEM_CENTER.lon;
+    const validLat = !isNaN(lat) && lat >= 8.0 && lat <= 14.0 ? lat : ERODE_CENTER.lat;
+    const validLon = !isNaN(lon) && lon >= 76.0 && lon <= 81.0 ? lon : ERODE_CENTER.lon;
 
     const matchedService = STANDARDIZED_SERVICES.find(
       (s) => s.id === body.service_id || s.name.toLowerCase() === serviceName.toLowerCase()
@@ -134,9 +134,9 @@ export async function POST(request: NextRequest) {
       category_name: serviceName,
       service_id: matchedService?.id || (isOtherService ? 'srv-other' : 'srv-general'),
       service_name: serviceName,
-      description: `${body.description?.trim() || `${serviceName} requirement in ${body.district || 'Salem'}`}${customServiceNote}`,
-      formatted_address: body.formatted_address?.trim() || `${body.district || 'Salem'}, Tamil Nadu`,
-      district: body.district || 'Salem',
+      description: `${body.description?.trim() || `${serviceName} requirement in ${body.district || 'Erode'}`}${customServiceNote}`,
+      formatted_address: body.formatted_address?.trim() || `${body.district || 'Erode'}, Tamil Nadu`,
+      district: body.district || 'Erode',
       latitude: validLat,
       longitude: validLon,
       preferred_date: preferredDate,

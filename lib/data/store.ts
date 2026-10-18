@@ -11,12 +11,15 @@ import {
 } from '@/types';
 import { INITIAL_CATEGORIES, INITIAL_SERVICES } from '@/lib/taxonomy/catalog';
 
-// Base coordinates: Salem, Tamil Nadu, India (11.6643° N, 78.1460° E)
-export const SALEM_CENTER = {
-  lat: 11.6643,
-  lon: 78.146,
-  name: 'Salem City Center, Tamil Nadu',
+// Primary Headquarters: Erode, Tamil Nadu, India (11.3410° N, 77.7172° E)
+export const ERODE_CENTER = {
+  lat: 11.3410,
+  lon: 77.7172,
+  name: 'Erode, Tamil Nadu, India',
 };
+
+// Aliased for backwards compatibility
+export const SALEM_CENTER = ERODE_CENTER;
 
 // Clean Baseline: Zero Seed Technicians, Zero Customers, Zero Dummy Bookings
 export const SEED_WORKERS: Worker[] = [];
@@ -163,10 +166,10 @@ class VikasaDataStore {
       full_name: data.full_name.trim(),
       phone: data.phone.trim(),
       whatsapp: data.whatsapp?.trim() || data.phone.trim(),
-      district: data.district || 'Salem',
+      district: data.district || 'Erode',
       address: data.address || '',
-      latitude: data.latitude || SALEM_CENTER.lat,
-      longitude: data.longitude || SALEM_CENTER.lon,
+      latitude: data.latitude || ERODE_CENTER.lat,
+      longitude: data.longitude || ERODE_CENTER.lon,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

@@ -7,7 +7,7 @@ import {
   TAMIL_NADU_DISTRICTS,
   VIKASA_CONFIG,
 } from '@/lib/constants';
-import { SALEM_CENTER } from '@/lib/data/store';
+import { ERODE_CENTER } from '@/lib/data/store';
 import {
   Briefcase,
   User,
@@ -32,13 +32,13 @@ export default function WorkerRegisterPage() {
   const [selectedServices, setSelectedServices] = useState<string[]>(['srv-plumbing']);
   const [experienceYears, setExperienceYears] = useState(5);
   const [availability, setAvailability] = useState<'available' | 'busy' | 'offline'>('available');
-  const [workingArea, setWorkingArea] = useState('Salem & Surrounding');
+  const [workingArea, setWorkingArea] = useState('Erode & Surrounding');
 
   // Location Information
-  const [district, setDistrict] = useState('Salem');
-  const [address, setAddress] = useState('Fairlands, Salem');
-  const [latitude, setLatitude] = useState(SALEM_CENTER.lat);
-  const [longitude, setLongitude] = useState(SALEM_CENTER.lon);
+  const [district, setDistrict] = useState('Erode');
+  const [address, setAddress] = useState('Perundurai Road, Erode');
+  const [latitude, setLatitude] = useState(ERODE_CENTER.lat);
+  const [longitude, setLongitude] = useState(ERODE_CENTER.lon);
   const [isLocating, setIsLocating] = useState(false);
   const [locationSuccess, setLocationSuccess] = useState<string | null>(null);
 
@@ -246,7 +246,7 @@ export default function WorkerRegisterPage() {
             Register as a Verified Technician
           </h1>
           <p className="text-xs sm:text-sm text-slate-500">
-            Join the VIKASA service network in Salem &amp; Tamil Nadu. Receive direct jobs from coordinators.
+            Join the VIKASA service network in Erode &amp; Tamil Nadu. Receive direct jobs from coordinators.
           </p>
         </div>
 
@@ -404,7 +404,7 @@ export default function WorkerRegisterPage() {
               </label>
               <input
                 type="text"
-                placeholder="e.g. Fairlands, Suramangalam, Meyyanur (Salem)"
+                placeholder="e.g. Perundurai, Thindal, Bhavani, Chithode (Erode)"
                 value={workingArea}
                 onChange={(e) => setWorkingArea(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-slate-900"
