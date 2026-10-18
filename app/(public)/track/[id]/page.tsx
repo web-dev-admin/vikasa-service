@@ -2,13 +2,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { dataStore } from '@/lib/data/store';
 import { PublicTrackingData } from '@/types';
 import { getWhatsAppUrl } from '@/lib/utils/phone';
 import Link from 'next/link';
 import {
   CheckCircle2,
-  Clock,
   MapPin,
   PhoneCall,
   ShieldCheck,
@@ -22,17 +20,39 @@ export default function TrackRequestPage() {
   const params = useParams();
   const token = params?.id as string;
   const [data, setData] = useState<PublicTrackingData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => Boolean(params?.id));
 
   useEffect(() => {
-    if (token) {
-      // Secure public projection query - strictly returns non-sensitive data
-      const tracking = dataStore.getPublicTrackingStatus(token);
-      setData(tracking);
-      setLoading(false);
-    } else {
-      setLoading(false);
+    let isMounted = true;
+
+    if (!token) {
+      return;
     }
+
+    // Call secure server projection API (zero store bundling on client)
+    fetch(`/api/track/${encodeURIComponent(token)}`)
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json();
+      })
+      .then((json) => {
+        if (!isMounted) return;
+        if (json && json.success && json.data) {
+          setData(json.data);
+        } else {
+          setData(null);
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setData(null);
+        setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [token]);
 
   if (loading) {
@@ -50,7 +70,7 @@ export default function TrackRequestPage() {
           <AlertCircle className="w-12 h-12 text-amber-500 mx-auto" />
           <h1 className="text-base font-bold text-slate-900">Request Not Found</h1>
           <p className="text-xs text-slate-500 leading-relaxed">
-            The tracking token provided is invalid or has expired. For your security, service tracking links are private and non-guessable.
+            The tracking link provided is invalid or has expired. For your security, service tracking links are private and non-guessable.
           </p>
           <div className="pt-2 space-y-2">
             <Link

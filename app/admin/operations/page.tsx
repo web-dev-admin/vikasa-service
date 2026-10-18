@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { dataStore } from '@/lib/data/store';
 import {
   ServiceRequest,
@@ -52,9 +52,12 @@ import {
 type MobileActiveTab = 'queue' | 'details' | 'workers';
 
 export default function OperationsPage() {
-  const [requests, setRequests] = useState<ServiceRequest[]>([]);
-  const [workers, setWorkers] = useState<Worker[]>([]);
-  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [requests, setRequests] = useState<ServiceRequest[]>(() => dataStore.getRequests());
+  const [workers, setWorkers] = useState<Worker[]>(() => dataStore.getWorkers());
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(() => {
+    const all = dataStore.getRequests();
+    return all.length > 0 ? all[0].id : null;
+  });
   const [searchFilter, setSearchFilter] = useState('');
   const [statusTab, setStatusTab] = useState<'ALL' | 'URGENT' | 'TO_CALL' | 'MATCHING' | 'ASSIGNED'>('ALL');
   const [searchRadiusKm, setSearchRadiusKm] = useState(15);
@@ -76,20 +79,22 @@ export default function OperationsPage() {
   const [newAdminNote, setNewAdminNote] = useState('');
 
   // Refresh data from store
-  const refreshData = () => {
+  const refreshData = useCallback(() => {
     const allReqs = dataStore.getRequests();
     const allWorkers = dataStore.getWorkers();
     setRequests(allReqs);
     setWorkers(allWorkers);
 
-    if (!selectedRequestId && allReqs.length > 0) {
-      setSelectedRequestId(allReqs[0].id);
-    }
-  };
+    setSelectedRequestId((prev) => {
+      if (!prev && allReqs.length > 0) return allReqs[0].id;
+      return prev;
+    });
+  }, []);
 
   useEffect(() => {
-    refreshData();
-  }, []);
+    const interval = setInterval(refreshData, 4000);
+    return () => clearInterval(interval);
+  }, [refreshData]);
 
   const activeRequest = requests.find((r) => r.id === selectedRequestId) || requests[0];
 

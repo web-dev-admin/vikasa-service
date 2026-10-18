@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -11,26 +11,13 @@ import {
   Tv,
   Sparkles,
   PhoneCall,
-  MapPin,
-  Clock,
   ShieldCheck,
-  CheckCircle2,
   ArrowRight,
   MessageCircle,
-  Star,
-  UserCheck,
-  Check,
-  X,
-  ChevronRight,
-  Shield,
-  Award,
   Phone,
 } from 'lucide-react';
-import { INITIAL_CATEGORIES, INITIAL_SERVICES } from '@/lib/taxonomy/catalog';
-import { dataStore } from '@/lib/data/store';
+import { INITIAL_CATEGORIES } from '@/lib/taxonomy/catalog';
 import { VIKASA_CONFIG } from '@/lib/constants';
-import { Worker } from '@/types';
-import LeadForm from '@/components/customer/LeadForm';
 
 const iconMap: { [key: string]: React.ElementType } = {
   Wrench,
@@ -40,47 +27,13 @@ const iconMap: { [key: string]: React.ElementType } = {
   Sparkles,
 };
 
-// Pricing & subtitle suggestions for services
-const SERVICE_METAS: { [key: string]: { price: string; popular: string[] } } = {
-  'cat-plumbing': {
-    price: 'From ₹199',
-    popular: ['Tap Leakage', 'Pipe Repair', 'Flush Tank Fix', 'Tank Cleaning'],
-  },
-  'cat-electrical': {
-    price: 'From ₹149',
-    popular: ['Switchboard Fix', 'Fan Installation', 'MCB Tripping', 'Wiring'],
-  },
-  'cat-carpentry': {
-    price: 'From ₹249',
-    popular: ['Door Lock Repair', 'Cabinet Hinges', 'Woodwork Alignments'],
-  },
-  'cat-ac-appliances': {
-    price: 'From ₹399',
-    popular: ['AC Jet Wash', 'Gas Charging', 'Washing Machine Repair'],
-  },
-  'cat-cleaning-painting': {
-    price: 'From ₹499',
-    popular: ['Bathroom Deep Clean', 'Water Tank Cleaning', 'Touch-up Painting'],
-  },
-};
-
 export default function LandingPage() {
   const router = useRouter();
   const [selectedServiceCategory, setSelectedServiceCategory] = useState(INITIAL_CATEGORIES[0]?.id);
-  const [quickPhone, setQuickPhone] = useState('');
   const [quickArea, setQuickArea] = useState('Fairlands');
-
-  // Booking Modal State
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<'service' | 'technician'>('service');
-  const [modalPreselectedTech, setModalPreselectedTech] = useState<string | undefined>(undefined);
 
   const openBookingForService = (catSlug?: string) => {
     router.push(`/request${catSlug ? `?cat=${catSlug}` : ''}`);
-  };
-
-  const openBookingForTechnician = (techId: string) => {
-    router.push(`/request?tech=${techId}`);
   };
 
   const handleHeroQuickSubmit = (e: React.FormEvent) => {
@@ -153,14 +106,14 @@ export default function LandingPage() {
             <a href="#services" className="hover:text-emerald-700 transition-colors">
               Services
             </a>
-            <a href="#technicians" className="hover:text-emerald-700 transition-colors">
-              Technicians
+            <a href="#how-it-works" className="hover:text-emerald-700 transition-colors">
+              How It Works
             </a>
-            <Link href="/technician" className="hover:text-emerald-700 transition-colors text-amber-700 font-bold">
-              Technician Portal
-            </Link>
             <Link href="/track" className="hover:text-emerald-700 transition-colors">
               Track Request
+            </Link>
+            <Link href="/worker-register" className="hover:text-emerald-700 transition-colors text-emerald-800 font-bold">
+              Join as Technician
             </Link>
           </nav>
 
@@ -496,19 +449,14 @@ export default function LandingPage() {
                   </Link>
                 </li>
                 <li>
-                  <a href="#technicians" className="hover:text-emerald-400 transition-colors">
-                    Certified Technicians
-                  </a>
-                </li>
-                <li>
                   <Link href="/track" className="hover:text-emerald-400 transition-colors">
                     Track Your Request
                   </Link>
                 </li>
                 <li>
-                  <Link href="/technician" className="text-amber-400 hover:text-amber-300 transition-colors font-medium">
-                    Technician Portal (Today's Jobs)
-                  </Link>
+                  <a href="#how-it-works" className="hover:text-emerald-400 transition-colors">
+                    How It Works
+                  </a>
                 </li>
                 <li>
                   <Link href="/worker-register" className="hover:text-emerald-400 transition-colors">

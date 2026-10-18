@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dataStore } from '@/lib/data/store';
+import { authenticateAdmin, unauthorizedResponse } from '@/lib/auth/admin';
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await authenticateAdmin(request);
+    if (!session) {
+      return unauthorizedResponse('Administrator authorization required to view customer contacts');
+    }
+
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || undefined;
     const district = searchParams.get('district') || undefined;
@@ -24,6 +30,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await authenticateAdmin(request);
+    if (!session) {
+      return unauthorizedResponse('Administrator authorization required to manage customer contacts');
+    }
+
     const body = await request.json();
     if (!body.full_name || !body.phone) {
       return NextResponse.json(

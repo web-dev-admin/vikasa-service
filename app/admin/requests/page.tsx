@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { dataStore } from '@/lib/data/store';
 import {
@@ -30,8 +30,10 @@ import {
 import { getTelUrl, getWhatsAppUrl } from '@/lib/utils/phone';
 
 export default function AdminRequestsPage() {
-  const [requests, setRequests] = useState<ServiceRequest[]>([]);
-  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [requests, setRequests] = useState<ServiceRequest[]>(() => dataStore.getRequests());
+  const [workers, setWorkers] = useState<Worker[]>(() =>
+    dataStore.getWorkers().filter((w) => w.verification_status === 'verified')
+  );
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [districtFilter, setDistrictFilter] = useState('ALL');
@@ -47,21 +49,22 @@ export default function AdminRequestsPage() {
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const loadData = () => {
+  const loadData = useCallback(() => {
     const allRequests = dataStore.getRequests();
     const allWorkers = dataStore.getWorkers().filter((w) => w.verification_status === 'verified');
     setRequests(allRequests);
     setWorkers(allWorkers);
 
-    if (selectedRequest) {
-      const refreshed = allRequests.find((r) => r.id === selectedRequest.id);
-      if (refreshed) setSelectedRequest(refreshed);
-    }
-  };
+    setSelectedRequest((prev) => {
+      if (!prev) return null;
+      return allRequests.find((r) => r.id === prev.id) || null;
+    });
+  }, []);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    const interval = setInterval(loadData, 4000);
+    return () => clearInterval(interval);
+  }, [loadData]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -92,8 +95,8 @@ export default function AdminRequestsPage() {
         setSelectedRequest(null);
       }
       loadData();
-    } catch (err: any) {
-      alert(err?.message || 'Failed to assign technician');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to assign technician');
     }
   };
 

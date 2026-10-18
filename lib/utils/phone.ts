@@ -23,6 +23,23 @@ export function normalizeIndianPhone(phone: string): string {
   return digits;
 }
 
+export function isValidIndianPhone(phone: string): boolean {
+  if (!phone) return false;
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return /^[6-9]\d{9}$/.test(digits);
+  if (digits.length === 11 && digits.startsWith('0')) return /^[6-9]\d{9}$/.test(digits.slice(1));
+  if (digits.length === 12 && digits.startsWith('91')) return /^[6-9]\d{9}$/.test(digits.slice(2));
+  return false;
+}
+
+export function normalizePhoneNumber(phone: string): string {
+  const norm = normalizeIndianPhone(phone);
+  if (norm.length === 12 && norm.startsWith('91')) {
+    return `+91 ${norm.slice(2, 7)} ${norm.slice(7)}`;
+  }
+  return phone;
+}
+
 /**
  * Generates a safe tel: link for phone dialers
  */

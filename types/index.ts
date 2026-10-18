@@ -158,6 +158,7 @@ export interface ServiceRequest {
   
   tracking_token: string; // Secure non-enumerable UUID for customer tracking
   
+  completed_at?: string;
   created_at: string;
   updated_at: string;
 }

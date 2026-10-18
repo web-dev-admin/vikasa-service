@@ -1,39 +1,30 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
+import React, { useState } from 'react';
 import { dataStore } from '@/lib/data/store';
 import {
   STANDARDIZED_SERVICES,
   TAMIL_NADU_DISTRICTS,
   getStatusBadgeInfo,
-  VIKASA_CONFIG,
 } from '@/lib/constants';
 import { Customer, Worker, ServiceRequest } from '@/types';
 import {
   Users,
-  Phone,
   MessageCircle,
   Search,
-  MapPin,
-  Calendar,
-  Wrench,
   CheckCircle2,
-  Clock,
-  Briefcase,
   X,
-  UserCheck,
   ChevronRight,
-  ShieldCheck,
-  Filter,
   PhoneCall,
+  Download,
+  ShieldAlert,
 } from 'lucide-react';
 import { getTelUrl, getWhatsAppUrl } from '@/lib/utils/phone';
 
 export default function AdminContactsPage() {
   const [activeTab, setActiveTab] = useState<'customers' | 'technicians'>('customers');
-  const [customers, setCustomers] = useState<Array<Customer & { totalRequests: number; latestService?: string; latestStatus?: string }>>([]);
-  const [technicians, setTechnicians] = useState<Worker[]>([]);
+  const [customers, setCustomers] = useState<Array<Customer & { totalRequests: number; latestService?: string; latestStatus?: string }>>(() => dataStore.getCustomers());
+  const [technicians, setTechnicians] = useState<Worker[]>(() => dataStore.getWorkers());
   const [search, setSearch] = useState('');
 
   // Customer Filters
@@ -59,9 +50,65 @@ export default function AdminContactsPage() {
     setTechnicians(dataStore.getWorkers());
   };
 
-  useEffect(() => {
+  const handleToggleTechnicianStatus = (id: string, currentStatus?: string) => {
+    const nextStatus = currentStatus === 'inactive' ? 'active' : 'inactive';
+    dataStore.updateWorker(id, { active_status: nextStatus });
     loadData();
-  }, []);
+    if (selectedTechnician && selectedTechnician.id === id) {
+      setSelectedTechnician({ ...selectedTechnician, active_status: nextStatus });
+    }
+  };
+
+  const handleVerifyTechnician = (id: string) => {
+    dataStore.updateWorker(id, { verification_status: 'verified', verified_at: new Date().toISOString() });
+    loadData();
+    if (selectedTechnician && selectedTechnician.id === id) {
+      setSelectedTechnician({ ...selectedTechnician, verification_status: 'verified' });
+    }
+  };
+
+  const exportContactsCSV = () => {
+    if (activeTab === 'customers') {
+      const headers = ['ID', 'Full Name', 'Phone', 'District', 'Total Requests', 'Latest Service', 'Created At'];
+      const rows = filteredCustomers.map((c) => [
+        c.id,
+        `"${(c.full_name || '').replace(/"/g, '""')}"`,
+        `"${c.phone}"`,
+        `"${c.district || ''}"`,
+        c.totalRequests,
+        `"${c.latestService || ''}"`,
+        c.created_at,
+      ]);
+      const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+      downloadCSV(csvContent, `vikasa_customers_${new Date().toISOString().split('T')[0]}.csv`);
+    } else {
+      const headers = ['ID', 'Full Name', 'Phone', 'District', 'Experience Years', 'Skills', 'Availability', 'Verification', 'Status'];
+      const rows = filteredTechnicians.map((t) => [
+        t.id,
+        `"${(t.full_name || '').replace(/"/g, '""')}"`,
+        `"${t.phone}"`,
+        `"${t.district || ''}"`,
+        t.experience_years,
+        `"${(t.skills || []).join('; ')}"`,
+        t.availability,
+        t.verification_status,
+        t.active_status || 'active',
+      ]);
+      const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+      downloadCSV(csvContent, `vikasa_technicians_${new Date().toISOString().split('T')[0]}.csv`);
+    }
+  };
+
+  const downloadCSV = (content: string, filename: string) => {
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Filtered Customers
   const filteredCustomers = customers.filter((c) => {

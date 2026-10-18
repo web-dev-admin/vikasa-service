@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { dataStore } from '@/lib/data/store';
 import {
@@ -36,8 +36,10 @@ import { getTelUrl, getWhatsAppUrl } from '@/lib/utils/phone';
 type CategoryFilter = 'NEW' | 'CONFIRMED' | 'ASSIGNED' | 'COMPLETED' | 'ALL';
 
 export default function AdminDashboardPage() {
-  const [requests, setRequests] = useState<ServiceRequest[]>([]);
-  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [requests, setRequests] = useState<ServiceRequest[]>(() => dataStore.getRequests());
+  const [workers, setWorkers] = useState<Worker[]>(() =>
+    dataStore.getWorkers().filter((w) => w.verification_status === 'verified')
+  );
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('NEW');
 
   // Customer Detail Modal
@@ -52,22 +54,23 @@ export default function AdminDashboardPage() {
   // Toast message
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const loadData = () => {
+  const loadData = useCallback(() => {
     const allRequests = dataStore.getRequests();
     const allWorkers = dataStore.getWorkers().filter((w) => w.verification_status === 'verified');
     setRequests(allRequests);
     setWorkers(allWorkers);
 
     // Keep active selected request in sync if open
-    if (selectedRequest) {
-      const refreshed = allRequests.find((r) => r.id === selectedRequest.id);
-      if (refreshed) setSelectedRequest(refreshed);
-    }
-  };
+    setSelectedRequest((prev) => {
+      if (!prev) return null;
+      return allRequests.find((r) => r.id === prev.id) || null;
+    });
+  }, []);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    const interval = setInterval(loadData, 4000);
+    return () => clearInterval(interval);
+  }, [loadData]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -133,8 +136,8 @@ export default function AdminDashboardPage() {
         setSelectedRequest(null);
       }
       loadData();
-    } catch (err: any) {
-      alert(err?.message || 'Failed to assign technician');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to assign technician');
     }
   };
 
@@ -229,12 +232,29 @@ export default function AdminDashboardPage() {
           </h1>
         </div>
 
-        <Link
-          href="/admin/contacts"
-          className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
-        >
-          <span>Contacts Directory</span>
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm('Are you sure you want to remove all dummy test data (requests, customers, technicians)?')) {
+                dataStore.clearAllOperationalData();
+                loadData();
+                showToast('All dummy test data cleared. Ready for live operations.');
+              }
+            }}
+            className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+            title="Wipe test data and start with an empty production queue"
+          >
+            <span>Purge Dummy Data</span>
+          </button>
+
+          <Link
+            href="/admin/contacts"
+            className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+          >
+            <span>Contacts Directory</span>
+          </Link>
+        </div>
       </div>
 
       {/* Simple 4 Category Tabs */}

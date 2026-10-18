@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { dataStore } from '@/lib/data/store';
 import { Worker } from '@/types';
 import { INITIAL_CATEGORIES } from '@/lib/taxonomy/catalog';
 
 export default function AdminWorkersPage() {
-  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [workers, setWorkers] = useState<Worker[]>(() => dataStore.getWorkers());
   const [view, setView] = useState<'list' | 'form' | 'delete'>('list');
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
 
@@ -18,13 +18,14 @@ export default function AdminWorkersPage() {
     area: '',
   });
 
-  const refreshWorkers = () => {
+  const refreshWorkers = useCallback(() => {
     setWorkers(dataStore.getWorkers());
-  };
+  }, []);
 
   useEffect(() => {
-    refreshWorkers();
-  }, []);
+    const interval = setInterval(refreshWorkers, 5000);
+    return () => clearInterval(interval);
+  }, [refreshWorkers]);
 
   const handleAddClick = () => {
     setFormData({
@@ -76,7 +77,7 @@ export default function AdminWorkersPage() {
         service_radius_km: 15,
         service_area_names: [formData.area],
         service_ids: [],
-      } as any);
+      });
     }
     refreshWorkers();
     setView('list');

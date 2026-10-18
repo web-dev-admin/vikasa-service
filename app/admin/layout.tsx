@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
@@ -32,7 +32,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
+    setMobileMenuOpen(false);
+  }
+
+  const isLoginPage = pathname === '/admin/login';
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(() =>
+    pathname === '/admin/login' ? true : null
+  );
   const [adminUser, setAdminUser] = useState<string>('Admin');
 
   const [stats, setStats] = useState({
@@ -42,32 +51,42 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     totalWorkers: 0,
   });
 
-  const isLoginPage = pathname === '/admin/login';
-
-  // Check authentication
+  // Check server-side authentication
   useEffect(() => {
     if (isLoginPage) {
-      setIsAuthenticated(true);
       return;
     }
 
-    try {
-      const auth = localStorage.getItem('vikasa_admin_auth');
-      if (!auth) {
+    let isMounted = true;
+    fetch('/api/admin/auth/session')
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error('Not authenticated');
+        }
+        return res.json();
+      })
+      .then((json) => {
+        if (!isMounted) return;
+        if (json && json.success) {
+          setAdminUser(json.data.email || 'Admin');
+          setIsAuthenticated(true);
+        } else {
+          setIsAuthenticated(false);
+          router.replace('/admin/login');
+        }
+      })
+      .catch(() => {
+        if (!isMounted) return;
         setIsAuthenticated(false);
         router.replace('/admin/login');
-      } else {
-        const parsed = JSON.parse(auth);
-        setAdminUser(parsed.name || parsed.user || 'Admin');
-        setIsAuthenticated(true);
-      }
-    } catch {
-      setIsAuthenticated(false);
-      router.replace('/admin/login');
-    }
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [pathname, isLoginPage, router]);
 
-  const refreshStats = () => {
+  const refreshStats = useCallback(() => {
     const all = dataStore.getRequests();
     const workers = dataStore.getWorkers();
     setStats({
@@ -83,25 +102,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       completed: all.filter((r) => r.status === 'COMPLETED').length,
       totalWorkers: workers.length,
     });
-  };
+  }, []);
 
   useEffect(() => {
-    if (!isLoginPage) {
-      refreshStats();
-      const interval = setInterval(refreshStats, 4000);
+    if (!isLoginPage && isAuthenticated) {
+      const interval = setInterval(refreshStats, 5000);
       return () => clearInterval(interval);
     }
-  }, [isLoginPage]);
+  }, [isLoginPage, isAuthenticated, refreshStats]);
 
-  // Close mobile drawer on route change
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [pathname]);
-
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     try {
+      await fetch('/api/admin/auth/logout', { method: 'POST' });
       localStorage.removeItem('vikasa_admin_auth');
-      document.cookie = 'vikasa_admin_token=; path=/; max-age=0';
     } catch {
       // ignore
     }

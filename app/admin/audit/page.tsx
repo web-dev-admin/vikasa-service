@@ -1,17 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { dataStore } from '@/lib/data/store';
 import { AuditLog } from '@/types';
-import { History, Shield, Clock, Search, Terminal, Activity, User } from 'lucide-react';
+import { History, Search, User } from 'lucide-react';
 
 export default function AdminAuditPage() {
-  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [logs] = useState<AuditLog[]>(() => dataStore.getAuditLogs());
   const [search, setSearch] = useState('');
-
-  useEffect(() => {
-    setLogs(dataStore.getAuditLogs());
-  }, []);
 
   const filtered = logs.filter(
     (l) =>

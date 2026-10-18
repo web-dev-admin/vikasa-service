@@ -158,7 +158,7 @@ export const SEED_WORKERS: Worker[] = [
     longitude: 78.1390,
     service_radius_km: 20,
     service_area_names: ['Shevapet', 'Gugai', 'Bazaar', 'Dadagapatty'],
-    service_ids: ['srv-carpentry', 'srv-door-lock-repair', 'srv-furniture-repair', 'srv-woodwork-general', 'srv-interior'],
+    service_ids: ['srv-carpentry', 'srv-door-repair', 'srv-lock-repair', 'srv-wood-furniture', 'srv-interior'],
     created_at: '2026-01-02T08:00:00Z',
     updated_at: '2026-01-02T08:00:00Z',
   },
@@ -204,7 +204,7 @@ export const SEED_WORKERS: Worker[] = [
     longitude: 78.1582,
     service_radius_km: 25,
     service_area_names: ['Dharmapuri Town', 'Pennagaram Road', 'Nallampalli'],
-    service_ids: ['srv-cleaning', 'srv-deep-cleaning', 'srv-painting'],
+    service_ids: ['srv-cleaning', 'srv-painting'],
     created_at: '2026-01-15T09:00:00Z',
     updated_at: '2026-01-15T09:00:00Z',
   },
@@ -354,7 +354,7 @@ export const SEED_REQUESTS: ServiceRequest[] = [
     customer_name: 'Karthik N.',
     customer_phone: '+91 94433 77881',
     customer_whatsapp: '+91 94433 77881',
-    category_id: 'cat-cleaning-painting',
+    category_id: 'cat-cleaning',
     category_name: 'Cleaning',
     service_id: 'srv-cleaning',
     service_name: 'Cleaning',
@@ -585,13 +585,17 @@ class VikasaDataStore {
       status: req.status,
       preferred_date: req.preferred_date,
       preferred_time_slot: req.preferred_time_slot,
-      general_area: req.formatted_address.split(',')[0]?.trim() || req.district || 'Salem',
+      general_area: req.formatted_address ? req.formatted_address.split(',')[0]?.trim() : (req.district || 'Salem'),
       created_at: req.created_at,
       assigned_worker_first_name: req.assigned_worker_name ? req.assigned_worker_name.split(' ')[0] : undefined,
     };
   }
 
-  createRequest(data: Omit<ServiceRequest, 'id' | 'request_number' | 'tracking_token' | 'created_at' | 'updated_at'>): ServiceRequest {
+  createRequest(
+    data: Omit<ServiceRequest, 'id' | 'request_number' | 'tracking_token' | 'created_at' | 'updated_at' | 'customer_id'> & {
+      customer_id?: string;
+    }
+  ): ServiceRequest {
     this.init();
     // 1. Permanently upsert customer
     const permanentCustomer = this.upsertCustomer({
@@ -681,8 +685,23 @@ class VikasaDataStore {
     const req = this.getRequestById(requestId);
     const worker = this.getWorkerById(workerId);
 
-    if (!req || !worker) {
-      throw new Error('Invalid request or technician for assignment');
+    if (!req) {
+      throw new Error('Service request not found');
+    }
+    if (!worker) {
+      throw new Error('Technician not found');
+    }
+
+    if (req.status === 'ASSIGNED' || req.assigned_worker_id) {
+      throw new Error(`Request #${req.request_number} already has an assigned technician (${req.assigned_worker_name || req.assigned_worker_id})`);
+    }
+
+    if (worker.verification_status !== 'verified') {
+      throw new Error(`Technician ${worker.full_name} is not verified for dispatch`);
+    }
+
+    if (worker.availability === 'busy') {
+      throw new Error(`Technician ${worker.full_name} is currently busy with another active job`);
     }
 
     req.status = 'ASSIGNED';
@@ -716,13 +735,18 @@ class VikasaDataStore {
     return assignment;
   }
 
-  completeJob(requestId: string): void {
+  completeJob(requestId: string, notes?: string): void {
     this.init();
     const req = this.getRequestById(requestId);
     if (!req) return;
 
+    const now = new Date().toISOString();
     req.status = 'COMPLETED';
-    req.updated_at = new Date().toISOString();
+    req.completed_at = now;
+    req.updated_at = now;
+    if (notes) {
+      req.admin_notes = req.admin_notes ? `${req.admin_notes}\n[Completed] ${notes}` : `[Completed] ${notes}`;
+    }
 
     if (req.assigned_worker_id) {
       const worker = this.getWorkerById(req.assigned_worker_id);
@@ -733,18 +757,22 @@ class VikasaDataStore {
     }
 
     this.addAuditLog('JOB_COMPLETED', 'service_request', requestId, {
-      completed_at: new Date().toISOString(),
+      completed_at: now,
     });
 
     this.persist();
   }
 
-  cancelRequest(requestId: string, reason?: string): void {
+  cancelRequest(
+    requestId: string,
+    reason?: string,
+    status: 'CANCELLED' | 'CUSTOMER_CANCELLED' = 'CUSTOMER_CANCELLED'
+  ): void {
     this.init();
     const req = this.getRequestById(requestId);
     if (!req) return;
 
-    req.status = 'CANCELLED';
+    req.status = status;
     req.updated_at = new Date().toISOString();
     if (reason) {
       req.admin_notes = req.admin_notes ? `${req.admin_notes}\n[Cancelled] ${reason}` : `[Cancelled] ${reason}`;
@@ -921,6 +949,15 @@ class VikasaDataStore {
     this.requests = [...SEED_REQUESTS];
     this.workers = [...SEED_WORKERS];
     this.customers = [...SEED_CUSTOMERS];
+    this.contactAttempts = [];
+    this.auditLogs = [];
+    this.persist();
+  }
+
+  clearAllOperationalData() {
+    this.requests = [];
+    this.workers = [];
+    this.customers = [];
     this.contactAttempts = [];
     this.auditLogs = [];
     this.persist();

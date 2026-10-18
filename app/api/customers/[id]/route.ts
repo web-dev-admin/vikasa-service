@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dataStore } from '@/lib/data/store';
+import { authenticateAdmin, unauthorizedResponse } from '@/lib/auth/admin';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await authenticateAdmin(request);
+    if (!session) {
+      return unauthorizedResponse('Administrator authorization required to view customer details');
+    }
+
     const { id } = await params;
     const result = dataStore.getCustomerById(id);
 

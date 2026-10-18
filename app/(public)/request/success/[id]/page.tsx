@@ -1,17 +1,13 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { dataStore } from '@/lib/data/store';
-import { ServiceRequest } from '@/types';
+import { useParams } from 'next/navigation';
+import { PublicTrackingData } from '@/types';
 import { getWhatsAppUrl } from '@/lib/utils/phone';
 import Link from 'next/link';
 import {
   CheckCircle2,
-  PhoneCall,
   Shield,
-  Clock,
-  MapPin,
   ArrowRight,
   MessageCircle,
 } from 'lucide-react';
@@ -20,18 +16,28 @@ import { VIKASA_CONFIG } from '@/lib/constants';
 
 export default function RequestSuccessPage() {
   const params = useParams();
-  const router = useRouter();
   const token = params?.id as string;
-  const [request, setRequest] = useState<ServiceRequest | null>(null);
+  const [request, setRequest] = useState<PublicTrackingData | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
     if (token) {
-      // Secure lookup by tracking token, with fallback to ID
-      const found = dataStore.getRequestByTrackingToken(token) || dataStore.getRequestById(token);
-      if (found) {
-        setRequest(found);
-      }
+      fetch(`/api/track/${encodeURIComponent(token)}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((json) => {
+          if (!isMounted) return;
+          if (json && json.success && json.data) {
+            setRequest(json.data);
+          }
+        })
+        .catch(() => {
+          // ignore
+        });
     }
+
+    return () => {
+      isMounted = false;
+    };
   }, [token]);
 
   const whatsappHelpUrl = request
@@ -97,7 +103,7 @@ export default function RequestSuccessPage() {
             <div className="flex items-start justify-between border-b border-slate-100 pb-2.5">
               <span className="text-xs text-slate-500">Area</span>
               <span className="text-xs text-slate-700 text-right max-w-[200px] truncate">
-                {request.formatted_address.split(',')[0]}
+                {request.general_area}
               </span>
             </div>
 
@@ -113,7 +119,7 @@ export default function RequestSuccessPage() {
         {/* Action Buttons */}
         <div className="space-y-3">
           <Link
-            href={`/track/${request?.tracking_token || token}`}
+            href={`/track/${token}`}
             className="w-full py-3.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold flex items-center justify-center gap-2 shadow-sm transition-all"
           >
             <span>Track Request Status</span>
