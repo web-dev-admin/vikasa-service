@@ -171,8 +171,17 @@ export default function AdminContactsPage() {
     document.body.removeChild(link);
   };
 
-  // Filtered Customers
-  const filteredCustomers = customers.filter((c) => {
+  // Strict Phone-Based Deduplicated Customers
+  const uniqueCustomerMap = new Map<string, (typeof customers)[0]>();
+  for (const c of customers) {
+    if (!c) continue;
+    const cleanPhone = c.phone ? c.phone.replace(/\D/g, '').slice(-10) : c.id;
+    if (cleanPhone && !uniqueCustomerMap.has(cleanPhone)) {
+      uniqueCustomerMap.set(cleanPhone, c);
+    }
+  }
+
+  const filteredCustomers = Array.from(uniqueCustomerMap.values()).filter((c) => {
     const q = search.toLowerCase();
     const matchSearch =
       c.full_name.toLowerCase().includes(q) ||
@@ -186,8 +195,17 @@ export default function AdminContactsPage() {
     return true;
   });
 
-  // Filtered Technicians
-  const filteredTechnicians = technicians.filter((t) => {
+  // Strict Phone-Based Deduplicated Technicians
+  const uniqueTechMap = new Map<string, Worker>();
+  for (const t of technicians) {
+    if (!t) continue;
+    const cleanPhone = t.phone ? t.phone.replace(/\D/g, '').slice(-10) : t.id;
+    if (cleanPhone && !uniqueTechMap.has(cleanPhone)) {
+      uniqueTechMap.set(cleanPhone, t);
+    }
+  }
+
+  const filteredTechnicians = Array.from(uniqueTechMap.values()).filter((t) => {
     const q = search.toLowerCase();
     const matchSearch =
       t.full_name.toLowerCase().includes(q) ||
@@ -251,7 +269,7 @@ export default function AdminContactsPage() {
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              Customers ({customers.length})
+              Customers ({uniqueCustomerMap.size})
             </button>
             <button
               type="button"
@@ -262,7 +280,7 @@ export default function AdminContactsPage() {
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              Technicians ({technicians.length})
+              Technicians ({uniqueTechMap.size})
             </button>
           </div>
         </div>

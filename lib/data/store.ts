@@ -55,7 +55,13 @@ class VikasaDataStore {
         const savedReqs = localStorage.getItem('vikasa_requests');
         if (savedReqs) {
           const parsed: ServiceRequest[] = JSON.parse(savedReqs);
-          this.requests = parsed.map((r, idx) => ({
+          const reqMap = new Map<string, ServiceRequest>();
+          for (const r of parsed) {
+            if (r && r.id && !reqMap.has(r.id)) {
+              reqMap.set(r.id, r);
+            }
+          }
+          this.requests = Array.from(reqMap.values()).map((r, idx) => ({
             ...r,
             tracking_token: r.tracking_token || `e7b1a234-8c90-4d56-a123-456789abc${100 + idx}`,
           }));
@@ -65,14 +71,34 @@ class VikasaDataStore {
 
         const savedWorkers = localStorage.getItem('vikasa_workers');
         if (savedWorkers) {
-          this.workers = JSON.parse(savedWorkers);
+          const parsed: Worker[] = JSON.parse(savedWorkers);
+          const phoneMap = new Map<string, Worker>();
+          for (const w of parsed) {
+            if (!w) continue;
+            const cleanP = w.phone ? w.phone.replace(/\D/g, '').slice(-10) : '';
+            const key = cleanP || w.id;
+            if (key && !phoneMap.has(key)) {
+              phoneMap.set(key, w);
+            }
+          }
+          this.workers = Array.from(phoneMap.values());
         } else {
           this.workers = [];
         }
 
         const savedCustomers = localStorage.getItem('vikasa_customers');
         if (savedCustomers) {
-          this.customers = JSON.parse(savedCustomers);
+          const parsed: Customer[] = JSON.parse(savedCustomers);
+          const phoneMap = new Map<string, Customer>();
+          for (const c of parsed) {
+            if (!c) continue;
+            const cleanP = c.phone ? c.phone.replace(/\D/g, '').slice(-10) : '';
+            const key = cleanP || c.id;
+            if (key && !phoneMap.has(key)) {
+              phoneMap.set(key, c);
+            }
+          }
+          this.customers = Array.from(phoneMap.values());
         } else {
           this.customers = [];
         }
@@ -165,17 +191,28 @@ class VikasaDataStore {
 
   mergeWorkers(incoming: Worker[]): Worker[] {
     this.init();
-    const existingMap = new Map<string, Worker>();
+    const phoneMap = new Map<string, Worker>();
+
+    // Index existing workers by clean phone (or id fallback)
     for (const w of this.workers) {
-      if (w && w.id) existingMap.set(w.id, w);
+      if (!w) continue;
+      const cleanP = w.phone ? w.phone.replace(/\D/g, '').slice(-10) : '';
+      const key = cleanP || w.id;
+      if (key) phoneMap.set(key, w);
     }
+
+    // Merge incoming workers by clean phone
     for (const inc of incoming) {
-      if (inc && inc.id) {
-        const prev = existingMap.get(inc.id);
-        existingMap.set(inc.id, { ...prev, ...inc });
+      if (!inc) continue;
+      const cleanP = inc.phone ? inc.phone.replace(/\D/g, '').slice(-10) : '';
+      const key = cleanP || inc.id;
+      if (key) {
+        const prev = phoneMap.get(key);
+        phoneMap.set(key, { ...prev, ...inc, id: prev?.id || inc.id });
       }
     }
-    this.workers = Array.from(existingMap.values()).sort(
+
+    this.workers = Array.from(phoneMap.values()).sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
     this.persist();
@@ -184,23 +221,54 @@ class VikasaDataStore {
 
   setCustomers(customers: Customer[]) {
     this.init();
-    this.customers = [...customers];
+    const phoneMap = new Map<string, Customer>();
+    for (const c of customers) {
+      if (!c) continue;
+      const cleanP = c.phone ? c.phone.replace(/\D/g, '').slice(-10) : '';
+      const key = cleanP || c.id;
+      if (key && !phoneMap.has(key)) {
+        phoneMap.set(key, c);
+      }
+    }
+    this.customers = Array.from(phoneMap.values());
     this.persist();
   }
 
   mergeCustomers(incoming: Customer[]): Customer[] {
     this.init();
-    const existingMap = new Map<string, Customer>();
+    const phoneMap = new Map<string, Customer>();
+
+    // 1. Index existing customers by clean phone
     for (const c of this.customers) {
-      if (c && c.id) existingMap.set(c.id, c);
+      if (!c) continue;
+      const cleanP = c.phone ? c.phone.replace(/\D/g, '').slice(-10) : '';
+      const key = cleanP || c.id;
+      if (key) phoneMap.set(key, c);
     }
+
+    // 2. Merge incoming customers by clean phone
     for (const inc of incoming) {
-      if (inc && inc.id) {
-        const prev = existingMap.get(inc.id);
-        existingMap.set(inc.id, { ...prev, ...inc });
+      if (!inc) continue;
+      const cleanP = inc.phone ? inc.phone.replace(/\D/g, '').slice(-10) : '';
+      const key = cleanP || inc.id;
+      if (key) {
+        const prev = phoneMap.get(key);
+        phoneMap.set(key, {
+          id: prev?.id || inc.id,
+          full_name: inc.full_name || prev?.full_name || 'Customer',
+          phone: inc.phone || prev?.phone || '',
+          whatsapp: inc.whatsapp || prev?.whatsapp || inc.phone || '',
+          district: inc.district || prev?.district || 'Erode',
+          address: inc.address || prev?.address || '',
+          latitude: inc.latitude || prev?.latitude || ERODE_CENTER.lat,
+          longitude: inc.longitude || prev?.longitude || ERODE_CENTER.lon,
+          created_at: prev?.created_at || inc.created_at || new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
       }
     }
-    this.customers = Array.from(existingMap.values());
+
+    this.customers = Array.from(phoneMap.values());
     this.persist();
     return this.customers;
   }
@@ -219,7 +287,7 @@ class VikasaDataStore {
     const cleanPhone = data.phone.replace(/\D/g, '').slice(-10);
 
     const existing = this.customers.find((c) => {
-      const cClean = c.phone.replace(/\D/g, '').slice(-10);
+      const cClean = c.phone ? c.phone.replace(/\D/g, '').slice(-10) : '';
       return cClean === cleanPhone;
     });
 
@@ -236,7 +304,7 @@ class VikasaDataStore {
     }
 
     const newCustomer: Customer = {
-      id: `cust-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      id: cleanPhone ? `cust-${cleanPhone}` : `cust-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       full_name: data.full_name.trim(),
       phone: data.phone.trim(),
       whatsapp: data.whatsapp?.trim() || data.phone.trim(),
@@ -256,36 +324,45 @@ class VikasaDataStore {
   getCustomers(filters?: { search?: string; district?: string; service?: string }): Array<Customer & { totalRequests: number; latestService?: string; latestStatus?: RequestStatus }> {
     this.init();
 
-    // Auto-synthesize customers from requests if any customer is missing
-    if (this.requests.length > 0) {
-      const knownPhones = new Set(this.customers.map((c) => c.phone.replace(/\D/g, '').slice(-10)));
-      let changed = false;
-      for (const req of this.requests) {
-        if (!req.customer_phone) continue;
-        const cleanP = req.customer_phone.replace(/\D/g, '').slice(-10);
-        if (cleanP && !knownPhones.has(cleanP)) {
-          knownPhones.add(cleanP);
-          this.customers.push({
-            id: req.customer_id || `cust-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-            full_name: req.customer_name || 'Customer',
-            phone: req.customer_phone,
-            whatsapp: req.customer_whatsapp || req.customer_phone,
-            district: req.district || 'Erode',
-            address: req.formatted_address || '',
-            latitude: req.latitude || ERODE_CENTER.lat,
-            longitude: req.longitude || ERODE_CENTER.lon,
-            created_at: req.created_at || new Date().toISOString(),
-            updated_at: req.updated_at || new Date().toISOString(),
-          });
-          changed = true;
-        }
-      }
-      if (changed) {
-        this.persist();
+    // 1. Strict deduplication pass over existing customers by clean phone
+    const uniqueMap = new Map<string, Customer>();
+    for (const c of this.customers) {
+      if (!c) continue;
+      const cleanP = c.phone ? c.phone.replace(/\D/g, '').slice(-10) : '';
+      const key = cleanP || c.id;
+      if (key && !uniqueMap.has(key)) {
+        uniqueMap.set(key, c);
       }
     }
 
-    let result = [...this.customers];
+    // 2. Synthesize missing customer profiles from requests
+    let changed = uniqueMap.size !== this.customers.length;
+    for (const req of this.requests) {
+      if (!req.customer_phone) continue;
+      const cleanP = req.customer_phone.replace(/\D/g, '').slice(-10);
+      if (cleanP && !uniqueMap.has(cleanP)) {
+        uniqueMap.set(cleanP, {
+          id: req.customer_id || `cust-${cleanP}`,
+          full_name: req.customer_name || 'Customer',
+          phone: req.customer_phone,
+          whatsapp: req.customer_whatsapp || req.customer_phone,
+          district: req.district || 'Erode',
+          address: req.formatted_address || '',
+          latitude: req.latitude || ERODE_CENTER.lat,
+          longitude: req.longitude || ERODE_CENTER.lon,
+          created_at: req.created_at || new Date().toISOString(),
+          updated_at: req.updated_at || new Date().toISOString(),
+        });
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      this.customers = Array.from(uniqueMap.values());
+      this.persist();
+    }
+
+    let result = Array.from(uniqueMap.values());
 
     if (filters?.search) {
       const q = filters.search.toLowerCase();
