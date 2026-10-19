@@ -145,7 +145,12 @@ export default function OperationsPage() {
         activeRequest.longitude,
         workers,
         contactAttempts,
-        searchRadiusKm
+        searchRadiusKm,
+        {
+          allowPending: true,
+          serviceName: activeRequest.service_name,
+          customerDistrict: activeRequest.district,
+        }
       )
     : [];
 

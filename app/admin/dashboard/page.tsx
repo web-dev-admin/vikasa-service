@@ -10,7 +10,11 @@ import {
   getStatusBadgeInfo,
   VIKASA_CONFIG,
 } from '@/lib/constants';
-import { calculateDistanceKm } from '@/lib/matching/algorithm';
+import {
+  calculateDistanceKm,
+  matchServiceOrTrade,
+  matchDistrict,
+} from '@/lib/matching/algorithm';
 import { ServiceRequest, Worker, RequestStatus } from '@/types';
 import {
   PhoneCall,
@@ -37,9 +41,7 @@ type CategoryFilter = 'NEW' | 'CONFIRMED' | 'ASSIGNED' | 'COMPLETED' | 'ALL';
 
 export default function AdminDashboardPage() {
   const [requests, setRequests] = useState<ServiceRequest[]>(() => dataStore.getRequests());
-  const [workers, setWorkers] = useState<Worker[]>(() =>
-    dataStore.getWorkers().filter((w) => w.verification_status === 'verified')
-  );
+  const [workers, setWorkers] = useState<Worker[]>(() => dataStore.getWorkers());
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('NEW');
 
   // Customer Detail Modal
@@ -49,7 +51,7 @@ export default function AdminDashboardPage() {
   const [assigningRequest, setAssigningRequest] = useState<ServiceRequest | null>(null);
   const [techFilterService, setTechFilterService] = useState<string>('ALL');
   const [techFilterDistrict, setTechFilterDistrict] = useState<string>('ALL');
-  const [techFilterAvailability, setTechFilterAvailability] = useState<string>('available');
+  const [techFilterAvailability, setTechFilterAvailability] = useState<string>('ALL');
 
   // Toast message
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -57,7 +59,7 @@ export default function AdminDashboardPage() {
   const loadData = useCallback(() => {
     // 1. Immediately hydrate from local store
     const allRequests = dataStore.getRequests();
-    const allWorkers = dataStore.getWorkers().filter((w) => w.verification_status === 'verified');
+    const allWorkers = dataStore.getWorkers();
     setRequests(allRequests);
     setWorkers(allWorkers);
 
@@ -103,7 +105,7 @@ export default function AdminDashboardPage() {
       .then((json) => {
         if (json?.success && Array.isArray(json.data)) {
           dataStore.mergeWorkers(json.data);
-          setWorkers(dataStore.getWorkers().filter((w) => w.verification_status === 'verified'));
+          setWorkers(dataStore.getWorkers());
         }
       })
       .catch(() => {});
@@ -170,15 +172,23 @@ export default function AdminDashboardPage() {
   const openAssignModal = (request: ServiceRequest, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setAssigningRequest(request);
-    setTechFilterService(request.service_name || 'ALL');
+    // Find matching standardized service if available, otherwise 'ALL'
+    const stdMatch = STANDARDIZED_SERVICES.find((s) =>
+      matchServiceOrTrade([request.service_name], [request.service_id], s.name, s.id)
+    );
+    setTechFilterService(stdMatch ? stdMatch.name : 'ALL');
     setTechFilterDistrict(request.district || 'ALL');
-    setTechFilterAvailability('available');
+    setTechFilterAvailability('ALL');
   };
 
   // Action: Assign Technician
   const handleAssignTechnician = (technicianId: string) => {
     if (!assigningRequest) return;
     try {
+      const worker = workers.find((w) => w.id === technicianId);
+      if (worker && worker.verification_status !== 'verified') {
+        dataStore.verifyWorker(technicianId, 'admin-1', 'Verified on assignment dispatch');
+      }
       dataStore.assignWorker(assigningRequest.id, technicianId);
       showToast('Technician assigned successfully.');
       setAssigningRequest(null);
@@ -206,20 +216,20 @@ export default function AdminDashboardPage() {
     ? workers
         .map((w) => {
           const dist = calculateDistanceKm(
-            assigningRequest.latitude,
-            assigningRequest.longitude,
-            w.latitude,
-            w.longitude
+            assigningRequest.latitude || VIKASA_CONFIG.coordinates.lat,
+            assigningRequest.longitude || VIKASA_CONFIG.coordinates.lon,
+            w.latitude || VIKASA_CONFIG.coordinates.lat,
+            w.longitude || VIKASA_CONFIG.coordinates.lon
           );
 
-          const sLower = assigningRequest.service_name.toLowerCase();
-          const matchesService =
-            w.service_ids.some((id) => id.toLowerCase().includes(sLower) || sLower.includes(id.toLowerCase())) ||
-            w.skills.some((skill) => skill.toLowerCase().includes(sLower) || sLower.includes(skill.toLowerCase()));
+          const matchesService = matchServiceOrTrade(
+            w.skills,
+            w.service_ids,
+            assigningRequest.service_name,
+            assigningRequest.service_id
+          );
 
-          const matchesDistrict =
-            !assigningRequest.district ||
-            w.district?.toLowerCase() === assigningRequest.district.toLowerCase();
+          const matchesDistrict = matchDistrict(w.district, assigningRequest.district);
 
           return {
             ...w,
@@ -230,14 +240,15 @@ export default function AdminDashboardPage() {
         })
         .filter((w) => {
           if (techFilterService !== 'ALL') {
-            const fLower = techFilterService.toLowerCase();
-            const hasService =
-              w.service_ids.some((id) => id.toLowerCase().includes(fLower)) ||
-              w.skills.some((s) => s.toLowerCase().includes(fLower));
+            const hasService = matchServiceOrTrade(
+              w.skills,
+              w.service_ids,
+              techFilterService
+            );
             if (!hasService) return false;
           }
 
-          if (techFilterDistrict !== 'ALL' && w.district?.toLowerCase() !== techFilterDistrict.toLowerCase()) {
+          if (techFilterDistrict !== 'ALL' && !matchDistrict(w.district, techFilterDistrict)) {
             return false;
           }
 
@@ -252,12 +263,19 @@ export default function AdminDashboardPage() {
           if (a.matchesDistrict && !b.matchesDistrict) return -1;
           if (!a.matchesDistrict && b.matchesDistrict) return 1;
 
-          // 2. Available first
+          // 2. Matching trade service first
+          if (a.matchesService && !b.matchesService) return -1;
+          if (!a.matchesService && b.matchesService) return 1;
+
+          // 3. Available first
           if (a.availability === 'available' && b.availability !== 'available') return -1;
           if (a.availability !== 'available' && b.availability === 'available') return 1;
 
-          // 3. Distance nearest
-          return a.distance_km - b.distance_km;
+          // 4. Distance nearest first
+          if (a.distance_km !== b.distance_km) return a.distance_km - b.distance_km;
+
+          // 5. Higher experience first
+          return b.experience_years - a.experience_years;
         })
     : [];
 
@@ -753,10 +771,33 @@ export default function AdminDashboardPage() {
               </span>
 
               {recommendedTechnicians.length === 0 ? (
-                <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 text-center space-y-1">
+                <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 text-center space-y-3">
                   <AlertCircle className="w-8 h-8 text-amber-500 mx-auto" />
-                  <p className="text-xs font-bold text-slate-700">No matching technicians found</p>
-                  <p className="text-[11px] text-slate-400">Try changing district or availability filter above.</p>
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-slate-800">No matching technicians for current filter</p>
+                    <p className="text-[11px] text-slate-500">
+                      Total in directory: {workers.length} technician{workers.length === 1 ? '' : 's'}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTechFilterService('ALL');
+                        setTechFilterDistrict('ALL');
+                        setTechFilterAvailability('ALL');
+                      }}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                    >
+                      Reset Filters (Show All)
+                    </button>
+                    <Link
+                      href="/admin/workers"
+                      className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl transition-colors"
+                    >
+                      + Add Technician
+                    </Link>
+                  </div>
                 </div>
               ) : (
                 recommendedTechnicians.map((tech) => (
@@ -767,7 +808,7 @@ export default function AdminDashboardPage() {
                   >
                     <div className="flex items-start justify-between">
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="text-sm font-bold text-slate-900">{tech.full_name}</h4>
                           <span
                             className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
@@ -778,14 +819,29 @@ export default function AdminDashboardPage() {
                           >
                             {tech.availability.toUpperCase()}
                           </span>
+                          {tech.verification_status !== 'verified' ? (
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                              PENDING REVIEW
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              ✓ VERIFIED
+                            </span>
+                          )}
+                          {tech.matchesService && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
+                              <Sparkles className="w-2.5 h-2.5" />
+                              TRADE MATCH
+                            </span>
+                          )}
                         </div>
 
                         <p className="text-xs text-slate-600 mt-0.5">
-                          {tech.skills[0] || 'Technician'} • <strong>{tech.distance_km} km away</strong> • {tech.district}
+                          {tech.skills[0] || 'Technician'} • <strong>{tech.distance_km} km away</strong> • {tech.district || 'Erode'}
                         </p>
                       </div>
 
-                      <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 shrink-0">
                         {tech.experience_years}+ Yrs
                       </span>
                     </div>
@@ -803,7 +859,7 @@ export default function AdminDashboardPage() {
                       <a
                         href={getWhatsAppUrl(
                           tech.phone,
-                          `Vanakkam ${tech.full_name}, VIKASA has a service job nearby for ${assigningRequest.service_name} in ${assigningRequest.district}. Are you ready?`
+                          `Vanakkam ${tech.full_name}, VIKASA has a service job nearby for ${assigningRequest.service_name} in ${assigningRequest.district || 'Erode'}. Are you ready?`
                         )}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -819,7 +875,7 @@ export default function AdminDashboardPage() {
                         className="py-2 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer text-center shadow-xs"
                       >
                         <UserCheck className="w-3.5 h-3.5" />
-                        <span>Assign</span>
+                        <span>{tech.verification_status === 'verified' ? 'Assign' : 'Verify & Assign'}</span>
                       </button>
                     </div>
                   </div>

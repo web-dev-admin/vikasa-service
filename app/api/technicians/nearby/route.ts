@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dataStore } from '@/lib/data/store';
-import { calculateDistanceKm } from '@/lib/matching/algorithm';
+import { calculateDistanceKm, matchServiceOrTrade, matchDistrict } from '@/lib/matching/algorithm';
 import { authenticateAdmin, unauthorizedResponse } from '@/lib/auth/admin';
 
 export async function GET(request: NextRequest) {
@@ -16,12 +16,13 @@ export async function GET(request: NextRequest) {
     const service = searchParams.get('service') || '';
     const district = searchParams.get('district') || '';
     const radiusKm = Number(searchParams.get('radius')) || 50;
+    const includePending = searchParams.get('include_pending') !== 'false';
 
-    const customerLat = latStr ? parseFloat(latStr) : 11.6643;
-    const customerLon = lonStr ? parseFloat(lonStr) : 78.146;
+    const customerLat = latStr ? parseFloat(latStr) : 11.3410;
+    const customerLon = lonStr ? parseFloat(lonStr) : 77.7172;
 
-    // Fetch only active verified workers
-    const allWorkers = dataStore.getWorkers().filter((w) => w.verification_status === 'verified');
+    // Fetch technicians (all or verified only based on param)
+    const allWorkers = dataStore.getWorkers().filter((w) => includePending || w.verification_status === 'verified');
 
     // Calculate distance and rank
     const ranked = allWorkers
@@ -33,15 +34,11 @@ export async function GET(request: NextRequest) {
           w.longitude
         );
 
-        // Check if provides service
-        const sLower = service.toLowerCase();
-        const matchesService =
-          !service ||
-          w.service_ids.some((id) => id.toLowerCase().includes(sLower) || sLower.includes(id.toLowerCase())) ||
-          w.skills.some((skill) => skill.toLowerCase().includes(sLower) || sLower.includes(skill.toLowerCase()));
+        // Check if provides service or compatible trade
+        const matchesService = matchServiceOrTrade(w.skills, w.service_ids, service);
 
         // Check district match
-        const matchesDistrict = !district || district === 'ALL' || w.district?.toLowerCase() === district.toLowerCase();
+        const matchesDistrict = matchDistrict(w.district, district);
 
         return {
           technician_id: w.id,
@@ -52,6 +49,7 @@ export async function GET(request: NextRequest) {
           base_location: w.base_location_name,
           experience_years: w.experience_years,
           skills: w.skills,
+          verification_status: w.verification_status,
           availability: w.availability,
           distance_km: distance,
           matchesService,

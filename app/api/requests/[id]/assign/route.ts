@@ -51,16 +51,9 @@ export async function POST(
       );
     }
 
-    // 2. Technician must be verified
+    // 2. Technician verification (auto-verified if pending when assigned by admin)
     if (worker.verification_status !== 'verified') {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Only verified technicians can be assigned to customer requests.',
-          code: 'WORKER_NOT_VERIFIED',
-        },
-        { status: 400 }
-      );
+      dataStore.verifyWorker(technician_id, session.email, 'Auto-verified by administrator on assignment');
     }
 
     // 3. Technician must be available
