@@ -138,10 +138,10 @@ export default function LandingPage() {
             </div>
             <div>
               <span className="text-xl font-black tracking-tight text-slate-900 block leading-tight group-hover:text-emerald-700 transition-colors">
-                VIKASA INTERIORS
+                VIKASA SERVICES
               </span>
               <span className="text-[11px] font-bold text-emerald-700 tracking-wider uppercase block">
-                Interior Design & Plywood Craftsmanship
+                vikasaservices.in • Interiors &amp; Home Services
               </span>
             </div>
           </Link>
@@ -651,7 +651,7 @@ export default function LandingPage() {
           </div>
 
           <div className="pt-8 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between gap-3 text-slate-500 text-[11px]">
-            <p>© {new Date().getFullYear()} Vikasa Interiors. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} Vikasa Services &amp; Interiors (vikasaservices.in). All rights reserved.</p>
             <div className="flex items-center gap-4">
               <Link href="/track" className="hover:text-white transition-colors">Track Request</Link>
               <Link href="/technician" className="hover:text-amber-400 transition-colors">Technician Portal</Link>

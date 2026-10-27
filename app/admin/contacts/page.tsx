@@ -19,6 +19,13 @@ import {
   Download,
   ShieldAlert,
   RotateCw,
+  Award,
+  Briefcase,
+  MapPin,
+  RotateCcw,
+  SlidersHorizontal,
+  Star,
+  Check,
 } from 'lucide-react';
 import { getTelUrl, getWhatsAppUrl } from '@/lib/utils/phone';
 
@@ -35,8 +42,11 @@ export default function AdminContactsPage() {
   // Technician Filters
   const [techDistrict, setTechDistrict] = useState('ALL');
   const [techService, setTechService] = useState('ALL');
+  const [techExperience, setTechExperience] = useState('ALL'); // 'ALL' | '1' | '3' | '5' | '10' | 'fresh'
   const [techAvailability, setTechAvailability] = useState('ALL');
   const [techActiveStatus, setTechActiveStatus] = useState('ALL');
+  const [techVerification, setTechVerification] = useState('ALL');
+  const [techSort, setTechSort] = useState<'exp_desc' | 'exp_asc' | 'name_asc' | 'default'>('exp_desc');
 
   // Selected Profile Modals
   const [selectedCustomer, setSelectedCustomer] = useState<{
@@ -205,27 +215,85 @@ export default function AdminContactsPage() {
     }
   }
 
-  const filteredTechnicians = Array.from(uniqueTechMap.values()).filter((t) => {
-    const q = search.toLowerCase();
-    const matchSearch =
-      t.full_name.toLowerCase().includes(q) ||
-      t.phone.includes(q) ||
-      (t.district && t.district.toLowerCase().includes(q)) ||
-      t.skills.some((s) => s.toLowerCase().includes(q));
+  // Available Districts (Combined from predefined + actual technicians)
+  const availableDistricts = React.useMemo(() => {
+    const list = new Set<string>(TAMIL_NADU_DISTRICTS);
+    technicians.forEach((t) => {
+      if (t.district && t.district.trim()) {
+        list.add(t.district.trim());
+      }
+    });
+    return Array.from(list).sort((a, b) => a.localeCompare(b));
+  }, [technicians]);
 
-    if (!matchSearch) return false;
-    if (techDistrict !== 'ALL' && t.district?.toLowerCase() !== techDistrict.toLowerCase()) return false;
-    if (techAvailability !== 'ALL' && t.availability !== techAvailability) return false;
-    if (techActiveStatus !== 'ALL' && t.active_status !== techActiveStatus) return false;
-    if (techService !== 'ALL') {
-      const sLower = techService.toLowerCase();
-      const hasService =
-        t.service_ids.some((id) => id.toLowerCase().includes(sLower)) ||
-        t.skills.some((s) => s.toLowerCase().includes(sLower));
-      if (!hasService) return false;
-    }
-    return true;
-  });
+  const activeTechFilterCount = [
+    techDistrict !== 'ALL',
+    techService !== 'ALL',
+    techExperience !== 'ALL',
+    techAvailability !== 'ALL',
+    techActiveStatus !== 'ALL',
+    techVerification !== 'ALL',
+    techSort !== 'exp_desc',
+  ].filter(Boolean).length;
+
+  const handleResetTechFilters = () => {
+    setTechDistrict('ALL');
+    setTechService('ALL');
+    setTechExperience('ALL');
+    setTechAvailability('ALL');
+    setTechActiveStatus('ALL');
+    setTechVerification('ALL');
+    setTechSort('exp_desc');
+    setSearch('');
+  };
+
+  const filteredTechnicians = Array.from(uniqueTechMap.values())
+    .filter((t) => {
+      const q = search.toLowerCase();
+      const matchSearch =
+        t.full_name.toLowerCase().includes(q) ||
+        t.phone.includes(q) ||
+        (t.district && t.district.toLowerCase().includes(q)) ||
+        (t.base_location_name && t.base_location_name.toLowerCase().includes(q)) ||
+        t.skills.some((s) => s.toLowerCase().includes(q));
+
+      if (!matchSearch) return false;
+      if (techDistrict !== 'ALL' && t.district?.toLowerCase() !== techDistrict.toLowerCase()) return false;
+      if (techAvailability !== 'ALL' && t.availability !== techAvailability) return false;
+      if (techActiveStatus !== 'ALL' && t.active_status !== techActiveStatus) return false;
+      if (techVerification !== 'ALL' && t.verification_status !== techVerification) return false;
+
+      // Filter based on experience
+      if (techExperience !== 'ALL') {
+        const exp = Number(t.experience_years) || 0;
+        if (techExperience === '1' && exp < 1) return false;
+        if (techExperience === '3' && exp < 3) return false;
+        if (techExperience === '5' && exp < 5) return false;
+        if (techExperience === '10' && exp < 10) return false;
+        if (techExperience === 'fresh' && exp >= 2) return false;
+      }
+
+      if (techService !== 'ALL') {
+        const sLower = techService.toLowerCase();
+        const hasService =
+          t.service_ids.some((id) => id.toLowerCase().includes(sLower)) ||
+          t.skills.some((s) => s.toLowerCase().includes(sLower));
+        if (!hasService) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (techSort === 'exp_desc') {
+        return (Number(b.experience_years) || 0) - (Number(a.experience_years) || 0);
+      }
+      if (techSort === 'exp_asc') {
+        return (Number(a.experience_years) || 0) - (Number(b.experience_years) || 0);
+      }
+      if (techSort === 'name_asc') {
+        return a.full_name.localeCompare(b.full_name);
+      }
+      return 0;
+    });
 
   const handleOpenCustomer = (customerId: string) => {
     const full = dataStore.getCustomerById(customerId);
@@ -344,72 +412,143 @@ export default function AdminContactsPage() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                District
-              </label>
-              <select
-                value={techDistrict}
-                onChange={(e) => setTechDistrict(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white"
-              >
-                <option value="ALL">All Districts</option>
-                {TAMIL_NADU_DISTRICTS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+              {/* 1. District Filter */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+                  <MapPin className="w-3 h-3 text-rose-500" />
+                  <span>District</span>
+                </label>
+                <select
+                  value={techDistrict}
+                  onChange={(e) => setTechDistrict(e.target.value)}
+                  className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                >
+                  <option value="ALL">All Districts ({availableDistricts.length})</option>
+                  {availableDistricts.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 2. Experience Filter */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+                  <Award className="w-3 h-3 text-amber-500" />
+                  <span>Experience</span>
+                </label>
+                <select
+                  value={techExperience}
+                  onChange={(e) => setTechExperience(e.target.value)}
+                  className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                >
+                  <option value="ALL">All Experience</option>
+                  <option value="1">1+ Years</option>
+                  <option value="3">3+ Years</option>
+                  <option value="5">5+ Years (Senior)</option>
+                  <option value="10">10+ Years (Master)</option>
+                  <option value="fresh">Fresh (&lt; 2 Yrs)</option>
+                </select>
+              </div>
+
+              {/* 3. Service / Skill Filter */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+                  <Briefcase className="w-3 h-3 text-emerald-500" />
+                  <span>Trade / Skill</span>
+                </label>
+                <select
+                  value={techService}
+                  onChange={(e) => setTechService(e.target.value)}
+                  className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                >
+                  <option value="ALL">All Trades</option>
+                  {STANDARDIZED_SERVICES.map((s) => (
+                    <option key={s.id} value={s.name}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 4. Availability Filter */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Availability
+                </label>
+                <select
+                  value={techAvailability}
+                  onChange={(e) => setTechAvailability(e.target.value)}
+                  className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                >
+                  <option value="ALL">All Availability</option>
+                  <option value="available">Available Now</option>
+                  <option value="busy">Busy on Job</option>
+                  <option value="offline">Offline / Off Duty</option>
+                </select>
+              </div>
+
+              {/* 5. Verification Status */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Verification
+                </label>
+                <select
+                  value={techVerification}
+                  onChange={(e) => setTechVerification(e.target.value)}
+                  className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                >
+                  <option value="ALL">All Verification</option>
+                  <option value="verified">Verified Only</option>
+                  <option value="pending_verification">Pending Review</option>
+                </select>
+              </div>
+
+              {/* 6. Sort By */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+                  <SlidersHorizontal className="w-3 h-3 text-slate-500" />
+                  <span>Sort By</span>
+                </label>
+                <select
+                  value={techSort}
+                  onChange={(e) => setTechSort(e.target.value as any)}
+                  className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                >
+                  <option value="exp_desc">Experience: High → Low</option>
+                  <option value="exp_asc">Experience: Low → High</option>
+                  <option value="name_asc">Name: A → Z</option>
+                  <option value="default">Default Order</option>
+                </select>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                Service
-              </label>
-              <select
-                value={techService}
-                onChange={(e) => setTechService(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white"
-              >
-                <option value="ALL">All Services</option>
-                {STANDARDIZED_SERVICES.map((s) => (
-                  <option key={s.id} value={s.name}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Filter Summary & Quick Reset Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-slate-600">
+                  Showing <span className="font-bold text-slate-900">{filteredTechnicians.length}</span> of {uniqueTechMap.size} technicians
+                </span>
+                {activeTechFilterCount > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                    {activeTechFilterCount} filter{activeTechFilterCount > 1 ? 's' : ''} active
+                  </span>
+                )}
+              </div>
 
-            <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                Availability
-              </label>
-              <select
-                value={techAvailability}
-                onChange={(e) => setTechAvailability(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white"
-              >
-                <option value="ALL">All Availability</option>
-                <option value="available">Available</option>
-                <option value="busy">Busy</option>
-                <option value="offline">Unavailable</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                Active Status
-              </label>
-              <select
-                value={techActiveStatus}
-                onChange={(e) => setTechActiveStatus(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white"
-              >
-                <option value="ALL">All Status</option>
-                <option value="active">Active Only</option>
-                <option value="inactive">Inactive</option>
-              </select>
+              {activeTechFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleResetTechFilters}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-xl transition-colors cursor-pointer"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Clear All Filters</span>
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -482,34 +621,84 @@ export default function AdminContactsPage() {
               <div
                 key={tech.id}
                 onClick={() => setSelectedTechnician(tech)}
-                className="bg-white rounded-2xl p-4 border border-slate-200 hover:border-emerald-500 hover:shadow-xs transition-all cursor-pointer flex items-center justify-between gap-3"
+                className="bg-white rounded-2xl p-4 border border-slate-200 hover:border-emerald-500 hover:shadow-xs transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
               >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-black text-slate-900">{tech.full_name}</h3>
+                <div className="space-y-1.5 flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                    <h3 className="text-sm font-black text-slate-900 group-hover:text-emerald-700 transition-colors">
+                      {tech.full_name}
+                    </h3>
+
+                    {/* Experience Badge */}
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200/80">
+                      <Award className="w-3 h-3 text-amber-600" />
+                      <span>{Number(tech.experience_years) || 0}+ Yrs Exp</span>
+                    </span>
+
+                    {/* Verification Badge */}
+                    {tech.verification_status === 'verified' ? (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        <Check className="w-2.5 h-2.5 text-emerald-600" />
+                        <span>Verified</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                        Pending
+                      </span>
+                    )}
+
+                    {/* Availability Badge */}
                     <span
-                      className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                      className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
                         tech.availability === 'available'
                           ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-amber-100 text-amber-800'
+                          : tech.availability === 'busy'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-slate-100 text-slate-600'
                       }`}
                     >
-                      {tech.availability.toUpperCase()}
+                      {tech.availability}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-600 mt-0.5">
-                    <span className="font-semibold text-emerald-700">{tech.skills[0] || 'Technician'}</span>
-                    {' • '}
-                    <span>{tech.district || 'Erode'}</span>
-                    {' • '}
+
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
+                    <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
+                      <Briefcase className="w-3 h-3 text-emerald-600" />
+                      <span>{tech.skills[0] || 'Technician'}</span>
+                    </span>
+                    <span className="text-slate-300">•</span>
+                    <span className="inline-flex items-center gap-1 text-slate-700">
+                      <MapPin className="w-3 h-3 text-rose-500" />
+                      <span className="font-medium">{tech.district || 'Erode'}</span>
+                    </span>
+                    <span className="text-slate-300">•</span>
                     <span className="font-mono text-slate-800">{tech.phone}</span>
-                  </p>
+                  </div>
+
+                  {/* Skills tags */}
+                  {tech.skills && tech.skills.length > 1 && (
+                    <div className="flex flex-wrap gap-1 pt-0.5">
+                      {tech.skills.slice(0, 3).map((s) => (
+                        <span
+                          key={s}
+                          className="text-[10px] font-medium px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md"
+                        >
+                          {s}
+                        </span>
+                      ))}
+                      {tech.skills.length > 3 && (
+                        <span className="text-[10px] font-medium text-slate-400">
+                          +{tech.skills.length - 3} more
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-2 self-end sm:self-auto shrink-0" onClick={(e) => e.stopPropagation()}>
                   <a
                     href={getTelUrl(tech.phone)}
-                    className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 transition-colors"
+                    className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 transition-colors"
                     title="Call Technician"
                   >
                     <PhoneCall className="w-4 h-4 text-emerald-600" />
@@ -518,12 +707,12 @@ export default function AdminContactsPage() {
                     href={getWhatsAppUrl(tech.phone, `Vanakkam ${tech.full_name}, VIKASA admin here.`)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 transition-colors"
+                    className="p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 transition-colors"
                     title="WhatsApp Technician"
                   >
                     <MessageCircle className="w-4 h-4 text-emerald-600" />
                   </a>
-                  <span className="text-slate-300">
+                  <span className="text-slate-300 pl-1">
                     <ChevronRight className="w-4 h-4" />
                   </span>
                 </div>

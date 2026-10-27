@@ -5,7 +5,7 @@ import { VIKASA_CONFIG } from '@/lib/constants';
 
 const inter = Inter({ subsets: ['latin'], display: 'swap' });
 
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://vikasainteriors.in';
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://vikasaservices.in';
 
 export const viewport: Viewport = {
   themeColor: '#059669',
@@ -17,12 +17,16 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
   title: {
-    default: 'Vikasa Interiors — Interior Design & Custom Plywood Work in Erode',
-    template: '%s | Vikasa Interiors Erode',
+    default: 'Vikasa Services & Interiors — Home Services, Interior Design & Plywood Works in Tamil Nadu',
+    template: '%s | Vikasa Services & Interiors',
   },
   description:
-    'Premier interior design and bespoke plywood craftsmanship in Erode, Tamil Nadu. Specialist in modular kitchens, designer wardrobes, false ceilings, and complete turnkey home interiors. Call/WhatsApp: +91 98656 52420.',
+    'Vikasa Services (vikasaservices.in) is Tamil Nadu\'s trusted destination for turnkey interior design, modular kitchens, custom plywood craftsmanship, and on-demand verified technicians (carpentry, electrical, plumbing, painting, and AC repairs). Serving Erode, Coimbatore, Salem, Tiruppur & across Tamil Nadu. Call/WhatsApp: +91 98656 52420.',
   keywords: [
+    'vikasa services',
+    'vikasaservices.in',
+    'vikasa interiors',
+    'vikasa interior erode',
     'interior designers in erode',
     'interior design erode',
     'home interiors erode',
@@ -30,16 +34,23 @@ export const metadata: Metadata = {
     'modular kitchen erode',
     'custom wardrobes erode',
     'false ceiling designers erode',
-    'vikasa interiors',
+    'home services tamil nadu',
+    'verified technicians erode',
+    'carpenter in erode',
+    'carpentry woodwork erode',
+    'electrician in erode',
+    'plumber in erode',
+    'ac service erode',
+    'painting contractors erode',
     'residential interiors erode',
     'commercial interiors erode',
-    'carpentry woodwork erode',
     'erode interior decorators',
     'tamil nadu home renovation',
+    'turnkey home interiors tamil nadu',
   ],
-  authors: [{ name: 'Vikasa Interiors' }],
-  creator: 'Vikasa Interiors',
-  publisher: 'Vikasa Interiors',
+  authors: [{ name: 'Vikasa Services & Interiors', url: baseUrl }],
+  creator: 'Vikasa Services',
+  publisher: 'Vikasa Services',
   formatDetection: {
     telephone: true,
     email: true,
@@ -53,11 +64,11 @@ export const metadata: Metadata = {
     apple: '/logo/vikasa_interior_logo.png',
   },
   openGraph: {
-    title: 'Vikasa Interiors — Interior Design & Plywood Craftsmanship in Erode',
+    title: 'Vikasa Services & Interiors — Home Services & Interior Design in Tamil Nadu',
     description:
-      'Turnkey interior design and custom plywood woodwork in Erode and surrounding regions. Modular kitchens, designer wardrobes, and home renovations. Call/WhatsApp: +91 98656 52420.',
+      'Turnkey interior design, custom plywood woodwork, and verified technicians for carpentry, electrical, plumbing, painting & AC services in Erode and Tamil Nadu. Visit vikasaservices.in.',
     url: baseUrl,
-    siteName: 'Vikasa Interiors',
+    siteName: 'Vikasa Services',
     locale: 'en_IN',
     type: 'website',
     images: [
@@ -65,15 +76,15 @@ export const metadata: Metadata = {
         url: '/logo/vikasa_interior_logo.png',
         width: 512,
         height: 512,
-        alt: 'Vikasa Interiors Erode Logo',
+        alt: 'Vikasa Services & Interiors Logo',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Vikasa Interiors — Interior Design & Plywood Work in Erode',
+    title: 'Vikasa Services & Interiors — Home Services & Plywood Craftsmanship',
     description:
-      'Expert modular kitchens, designer wardrobes, false ceilings & precision plywood work in Erode. Free consultation: +91 98656 52420.',
+      'Modular kitchens, custom wardrobes, false ceilings, and verified home technicians across Tamil Nadu. Call/WhatsApp: +91 98656 52420.',
     images: ['/logo/vikasa_interior_logo.png'],
   },
   robots: {
@@ -93,20 +104,20 @@ const structuredData = {
   '@context': 'https://schema.org',
   '@graph': [
     {
-      '@type': ['HomeAndConstructionBusiness', 'ProfessionalService'],
+      '@type': ['HomeAndConstructionBusiness', 'ProfessionalService', 'LocalBusiness'],
       '@id': `${baseUrl}/#business`,
-      name: 'Vikasa Interiors',
-      alternateName: 'Vikasa Interior & Plywood Works',
+      name: 'Vikasa Services & Interiors',
+      alternateName: ['Vikasa Services', 'Vikasa Interiors', 'Vikasa Services Tamil Nadu', 'vikasaservices.in'],
       url: baseUrl,
       logo: `${baseUrl}/logo/vikasa_interior_logo.png`,
       image: `${baseUrl}/logo/vikasa_interior_logo.png`,
       telephone: '+919865652420',
       priceRange: '₹₹',
       currenciesAccepted: 'INR',
-      paymentAccepted: 'Cash, UPI, Bank Transfer',
+      paymentAccepted: 'Cash, UPI, Bank Transfer, Online',
       address: {
         '@type': 'PostalAddress',
-        streetAddress: 'Erode City',
+        streetAddress: 'Perundurai Road',
         addressLocality: 'Erode',
         addressRegion: 'Tamil Nadu',
         postalCode: '638001',
@@ -125,12 +136,15 @@ const structuredData = {
         { '@type': 'City', name: 'Chithode' },
         { '@type': 'City', name: 'Modakkurichi' },
         { '@type': 'City', name: 'Thindal' },
+        { '@type': 'City', name: 'Coimbatore' },
+        { '@type': 'City', name: 'Salem' },
+        { '@type': 'City', name: 'Tiruppur' },
         { '@type': 'AdministrativeArea', name: 'Erode District' },
         { '@type': 'AdministrativeArea', name: 'Tamil Nadu' },
       ],
       hasOfferCatalog: {
         '@type': 'OfferCatalog',
-        name: 'Interior Design & Plywood Craftsmanship',
+        name: 'Vikasa Services & Interior Solutions',
         itemListElement: [
           {
             '@type': 'Offer',
@@ -168,6 +182,46 @@ const structuredData = {
             '@type': 'Offer',
             itemOffered: {
               '@type': 'Service',
+              name: 'Carpentry & Woodwork Services',
+              description: 'Door repairs, hardware fixing, custom furniture craftsmanship, and precision plywood fittings.',
+            },
+          },
+          {
+            '@type': 'Offer',
+            itemOffered: {
+              '@type': 'Service',
+              name: 'Electrical & Lighting Solutions',
+              description: 'Wiring installation, switchboard repair, fan/light fittings, and safety electrical checks.',
+            },
+          },
+          {
+            '@type': 'Offer',
+            itemOffered: {
+              '@type': 'Service',
+              name: 'Plumbing & Pipe Repair Services',
+              description: 'Tap replacements, leakage rectification, bathroom fittings, and water line diagnostics.',
+            },
+          },
+          {
+            '@type': 'Offer',
+            itemOffered: {
+              '@type': 'Service',
+              name: 'Painting & Surface Finishing',
+              description: 'Interior wall painting, waterproof putty coatings, primer finish, and exterior textures.',
+            },
+          },
+          {
+            '@type': 'Offer',
+            itemOffered: {
+              '@type': 'Service',
+              name: 'AC & Appliance Services',
+              description: 'Air conditioner servicing, gas charging, filter sanitization, and cooling maintenance.',
+            },
+          },
+          {
+            '@type': 'Offer',
+            itemOffered: {
+              '@type': 'Service',
               name: 'Turnkey Residential & Commercial Interiors',
               description: 'End-to-end design, woodwork fabrication, painting, electrical, and full space transformation.',
             },
@@ -187,10 +241,19 @@ const structuredData = {
       '@type': 'WebSite',
       '@id': `${baseUrl}/#website`,
       url: baseUrl,
-      name: 'Vikasa Interiors',
-      description: 'Interior Design & Custom Plywood Work in Erode, Tamil Nadu',
+      name: 'Vikasa Services',
+      alternateName: 'Vikasa Services & Interiors',
+      description: 'Home Services, Interior Design & Plywood Craftsmanship in Tamil Nadu (vikasaservices.in)',
       publisher: {
         '@id': `${baseUrl}/#business`,
+      },
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: {
+          '@type': 'EntryPoint',
+          urlTemplate: `${baseUrl}/request?q={search_term_string}`,
+        },
+        'query-input': 'required name=search_term_string',
       },
     },
   ],

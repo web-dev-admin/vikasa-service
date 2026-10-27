@@ -24,6 +24,8 @@ export const VIKASA_CONFIG = {
   whatsappUrl: 'https://wa.me/919865652420?text=Hello%20Vikasa%20Interiors%2C%20I%20would%20like%20to%20consult%20for%20an%20interior%20or%20plywood%20work%20project.',
   telUrl: 'tel:+919865652420',
   logoPath: '/logo/vikasa_interior_logo.png',
+  domain: 'vikasaservices.in',
+  websiteUrl: 'https://vikasaservices.in',
   serviceAreas: [
     'Erode City',
     'Perundurai',

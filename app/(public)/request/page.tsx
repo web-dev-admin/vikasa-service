@@ -7,15 +7,16 @@ import { ChevronLeft, ShieldCheck, PhoneCall, MessageCircle } from 'lucide-react
 import { VIKASA_CONFIG } from '@/lib/constants';
 
 export const metadata: Metadata = {
-  title: 'Book an Interior Consultation or Service | Vikasa Interiors Erode',
+  title: 'Book a Service or Interior Consultation | Vikasa Services',
   description:
-    'Request a free interior design consultation or home service in Erode, Perundurai, Bhavani, and surrounding regions. Fast coordination by Vikasa Interiors.',
+    'Book verified home service technicians (carpentry, plumbing, electrical, painting, AC service) and turnkey interior consultations in Erode and Tamil Nadu on vikasaservices.in.',
   alternates: {
     canonical: '/request',
   },
   openGraph: {
-    title: 'Book an Interior Consultation | Vikasa Interiors Erode',
-    description: 'Bespoke modular kitchens, custom wardrobes, and home interiors in Erode.',
+    title: 'Book a Service or Interior Consultation | Vikasa Services',
+    description:
+      'Verified technicians and bespoke interior design in Erode and Tamil Nadu. Fast coordination on vikasaservices.in.',
     url: '/request',
   },
 };
