@@ -82,34 +82,34 @@ export default function RequestSuccessPage() {
         {/* Request Summary Card */}
         {request && (
           <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3.5">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+            <h2 className="text-xs font-bold text-slate-600 uppercase tracking-wider">
               Request Summary
             </h2>
 
             <div className="flex items-start justify-between border-b border-slate-100 pb-2.5">
-              <span className="text-xs text-slate-500">Service</span>
+              <span className="text-xs text-slate-600">Service</span>
               <span className="text-xs font-bold text-slate-900 text-right">
                 {request.category_name} • {request.service_name}
               </span>
             </div>
 
             <div className="flex items-start justify-between border-b border-slate-100 pb-2.5">
-              <span className="text-xs text-slate-500">Preferred Time</span>
+              <span className="text-xs text-slate-600">Preferred Time</span>
               <span className="text-xs font-semibold text-slate-800 text-right">
                 {request.preferred_time_slot || 'ASAP'}
               </span>
             </div>
 
             <div className="flex items-start justify-between border-b border-slate-100 pb-2.5">
-              <span className="text-xs text-slate-500">Area</span>
-              <span className="text-xs text-slate-700 text-right max-w-[200px] truncate">
+              <span className="text-xs text-slate-600">Area</span>
+              <span className="text-xs text-slate-800 font-medium text-right max-w-[200px] truncate">
                 {request.general_area}
               </span>
             </div>
 
             <div className="flex items-start justify-between">
-              <span className="text-xs text-slate-500">Current Status</span>
-              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+              <span className="text-xs text-slate-600">Current Status</span>
+              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200">
                 Operator Reviewing
               </span>
             </div>
@@ -120,7 +120,7 @@ export default function RequestSuccessPage() {
         <div className="space-y-3">
           <Link
             href={`/track/${token}`}
-            className="w-full py-3.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold flex items-center justify-center gap-2 shadow-sm transition-all"
+            className="w-full min-h-[48px] py-3.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white text-sm font-semibold flex items-center justify-center gap-2 shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
           >
             <span>Track Request Status</span>
             <ArrowRight className="w-4 h-4" />
@@ -130,7 +130,7 @@ export default function RequestSuccessPage() {
             href={whatsappHelpUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full py-3 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200 flex items-center justify-center gap-2 transition-all"
+            className="w-full min-h-[44px] py-3 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-100 active:scale-[0.98] text-emerald-800 text-xs font-bold border border-emerald-200 flex items-center justify-center gap-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
           >
             <MessageCircle className="w-4 h-4 text-emerald-600" />
             <span>Chat with VIKASA on WhatsApp</span>
@@ -138,16 +138,19 @@ export default function RequestSuccessPage() {
 
           <Link
             href="/request"
-            className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-slate-50 text-slate-600 text-xs font-semibold border border-slate-200 flex items-center justify-center gap-1.5 transition-all"
+            className="w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-white hover:bg-slate-50 active:scale-[0.98] text-slate-700 text-xs font-semibold border border-slate-200 flex items-center justify-center gap-1.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
           >
             <span>Submit Another Request</span>
           </Link>
         </div>
 
         {/* Operator Support Contact */}
-        <div className="text-center text-xs text-slate-400">
+        <div className="text-center text-xs text-slate-600 font-medium">
           Helpline / WhatsApp:{' '}
-          <a href={VIKASA_CONFIG.telUrl} className="font-semibold text-emerald-600 hover:underline">
+          <a
+            href={VIKASA_CONFIG.telUrl}
+            className="font-bold text-emerald-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 rounded-sm"
+          >
             {VIKASA_CONFIG.phoneDisplay}
           </a>
         </div>

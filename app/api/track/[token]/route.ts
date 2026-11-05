@@ -7,15 +7,16 @@ export async function GET(
 ) {
   try {
     const { token } = await params;
+    const cleanToken = token ? token.trim() : '';
 
-    if (!token || token.length < 10) {
+    if (!cleanToken || cleanToken.length < 3) {
       return NextResponse.json(
-        { success: false, error: 'Valid tracking token is required' },
+        { success: false, error: 'Valid tracking token or request reference number is required' },
         { status: 400 }
       );
     }
 
-    const publicStatus = dataStore.getPublicTrackingStatus(token);
+    const publicStatus = dataStore.getPublicTrackingStatus(cleanToken);
 
     if (!publicStatus) {
       return NextResponse.json(

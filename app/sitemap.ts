@@ -1,45 +1,34 @@
 import { MetadataRoute } from 'next';
-import { INITIAL_CATEGORIES } from '@/lib/taxonomy/catalog';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://vikasaservices.in';
-  const currentDate = new Date().toISOString();
+  const productionUrl = 'https://vikasaservices.in';
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SITE_URL && !process.env.NEXT_PUBLIC_SITE_URL.includes('vercel.app')
+      ? process.env.NEXT_PUBLIC_SITE_URL
+      : productionUrl;
 
-  // Core Pages
-  const staticPages: MetadataRoute.Sitemap = [
+  // Meaningful content update timestamp for indexable public pages
+  const lastUpdated = new Date('2026-11-01T00:00:00.000Z');
+
+  // Intended, canonical, indexable public URLs only
+  return [
     {
       url: `${baseUrl}`,
-      lastModified: currentDate,
-      changeFrequency: 'daily',
+      lastModified: lastUpdated,
+      changeFrequency: 'weekly',
       priority: 1.0,
     },
     {
       url: `${baseUrl}/request`,
-      lastModified: currentDate,
-      changeFrequency: 'daily',
-      priority: 0.95,
+      lastModified: lastUpdated,
+      changeFrequency: 'weekly',
+      priority: 0.9,
     },
     {
       url: `${baseUrl}/worker-register`,
-      lastModified: currentDate,
-      changeFrequency: 'weekly',
-      priority: 0.85,
-    },
-    {
-      url: `${baseUrl}/technician`,
-      lastModified: currentDate,
-      changeFrequency: 'weekly',
-      priority: 0.7,
+      lastModified: lastUpdated,
+      changeFrequency: 'monthly',
+      priority: 0.8,
     },
   ];
-
-  // High-Intent Service Category Landing URLs for Google indexing
-  const categoryPages: MetadataRoute.Sitemap = INITIAL_CATEGORIES.map((cat) => ({
-    url: `${baseUrl}/request?cat=${cat.slug}`,
-    lastModified: currentDate,
-    changeFrequency: 'weekly',
-    priority: 0.8,
-  }));
-
-  return [...staticPages, ...categoryPages];
 }

@@ -7,6 +7,7 @@ import {
   TAMIL_NADU_DISTRICTS,
   VIKASA_CONFIG,
 } from '@/lib/constants';
+import { sanitizeIndianMobile10 } from '@/lib/utils/phone';
 import { ERODE_CENTER } from '@/lib/data/store';
 import {
   Briefcase,
@@ -119,7 +120,7 @@ export default function WorkerRegisterPage() {
       return;
     }
 
-    const cleanPhone = phone.replace(/\D/g, '');
+    const cleanPhone = sanitizeIndianMobile10(phone);
     if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
       setError('Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
       return;
@@ -132,7 +133,7 @@ export default function WorkerRegisterPage() {
 
     const cleanWhatsapp = sameAsPhone
       ? cleanPhone
-      : whatsapp.replace(/\D/g, '') || cleanPhone;
+      : sanitizeIndianMobile10(whatsapp) || cleanPhone;
 
     const skillNames = selectedServices.map(
       (sid) => STANDARDIZED_SERVICES.find((s) => s.id === sid)?.name || sid
@@ -206,7 +207,7 @@ export default function WorkerRegisterPage() {
           <div className="space-y-2 pt-2">
             <a
               href={VIKASA_CONFIG.telUrl}
-              className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-2xl shadow-md transition-all flex items-center justify-center gap-2"
+              className="w-full min-h-[44px] py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold text-xs rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
             >
               <PhoneCall className="w-4 h-4" />
               <span>Contact Coordinator: {VIKASA_CONFIG.phoneDisplay}</span>
@@ -214,7 +215,7 @@ export default function WorkerRegisterPage() {
 
             <Link
               href="/"
-              className="block w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-2xl transition-all text-center"
+              className="block w-full min-h-[44px] py-3 px-4 bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-800 font-bold text-xs rounded-2xl transition-all text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 flex items-center justify-center"
             >
               Back to Home
             </Link>
@@ -229,13 +230,17 @@ export default function WorkerRegisterPage() {
       <div className="max-w-xl mx-auto space-y-6">
         {/* Navigation Header */}
         <div className="flex items-center justify-between">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900"
-          >
-            <ChevronLeft className="w-4 h-4" /> Back to Home
-          </Link>
-          <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 rounded-lg"
+            >
+              <ChevronLeft className="w-4 h-4" /> Home
+            </Link>
+            <span className="text-slate-400">/</span>
+            <span className="text-slate-900 font-bold" aria-current="page">Join as Technician</span>
+          </nav>
+          <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
             Technician Registration
           </span>
         </div>
@@ -245,7 +250,7 @@ export default function WorkerRegisterPage() {
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
             Register as a Verified Technician
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500">
+          <p className="text-xs sm:text-sm text-slate-600">
             Join the VIKASA service network in Erode &amp; Tamil Nadu. Receive direct jobs from coordinators.
           </p>
         </div>
@@ -253,59 +258,66 @@ export default function WorkerRegisterPage() {
         {/* Form Card */}
         <form onSubmit={handleSubmit} className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xl shadow-slate-900/5 space-y-6">
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-2xl flex items-center gap-2">
+            <div role="alert" aria-live="assertive" className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-2xl flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
-              <span>{error}</span>
+              <span className="font-medium">{error}</span>
             </div>
           )}
 
           {/* 1. Contact Information */}
           <div className="space-y-4">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-2">
+            <h2 className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-2">
               <User className="w-3.5 h-3.5" /> 1. Contact Details
             </h2>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label htmlFor="worker-fullname" className="block text-xs font-semibold text-slate-700 mb-1">
                 Full Name <span className="text-red-500">*</span>
               </label>
               <input
+                id="worker-fullname"
                 type="text"
                 required
                 placeholder="e.g. Kumarasamy R."
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-slate-900"
+                className="w-full px-4 py-3 min-h-[46px] rounded-2xl border border-slate-200 text-base sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 focus-visible:border-emerald-600 transition-all text-slate-900"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label htmlFor="worker-calling-phone" className="block text-xs font-semibold text-slate-700 mb-1">
                 Mobile Number (Calls) <span className="text-red-500">*</span>
               </label>
               <div className="relative">
-                <span className="absolute left-4 top-2.5 text-sm font-semibold text-slate-400">
+                <span className="absolute left-4 top-3 text-sm font-semibold text-slate-600 pointer-events-none">
                   +91
                 </span>
                 <input
+                  id="worker-calling-phone"
                   type="tel"
                   required
                   placeholder="98427 11029"
-                  maxLength={10}
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                  className="w-full pl-14 pr-4 py-2.5 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-slate-900 font-mono"
+                  onChange={(e) => setPhone(sanitizeIndianMobile10(e.target.value))}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    const pasted = e.clipboardData.getData('text');
+                    setPhone(sanitizeIndianMobile10(pasted));
+                  }}
+                  className="w-full pl-14 pr-4 py-3 min-h-[46px] rounded-2xl border border-slate-200 text-base sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 focus-visible:border-emerald-600 transition-all text-slate-900 font-mono"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label htmlFor="worker-same-phone" className="flex items-center gap-2 cursor-pointer">
                 <input
+                  id="worker-same-phone"
                   type="checkbox"
                   checked={sameAsPhone}
                   onChange={(e) => setSameAsPhone(e.target.checked)}
-                  className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4"
+                  className="rounded text-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 w-4 h-4 cursor-pointer"
                 />
                 <span className="text-xs font-medium text-slate-700">
                   WhatsApp number is the same as calling number
@@ -314,16 +326,24 @@ export default function WorkerRegisterPage() {
 
               {!sameAsPhone && (
                 <div className="relative pt-1">
-                  <span className="absolute left-4 top-3.5 text-sm font-semibold text-slate-400">
+                  <label htmlFor="worker-whatsapp-phone" className="sr-only">
+                    WhatsApp Number
+                  </label>
+                  <span className="absolute left-4 top-4 text-sm font-semibold text-slate-600 pointer-events-none">
                     +91
                   </span>
                   <input
+                    id="worker-whatsapp-phone"
                     type="tel"
                     placeholder="WhatsApp number"
-                    maxLength={10}
                     value={whatsapp}
-                    onChange={(e) => setWhatsapp(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                    className="w-full pl-14 pr-4 py-2.5 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-slate-900 font-mono"
+                    onChange={(e) => setWhatsapp(sanitizeIndianMobile10(e.target.value))}
+                    onPaste={(e) => {
+                      e.preventDefault();
+                      const pasted = e.clipboardData.getData('text');
+                      setWhatsapp(sanitizeIndianMobile10(pasted));
+                    }}
+                    className="w-full pl-14 pr-4 py-3 min-h-[46px] rounded-2xl border border-slate-200 text-base sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 focus-visible:border-emerald-600 transition-all text-slate-900 font-mono"
                   />
                 </div>
               )}
@@ -332,30 +352,37 @@ export default function WorkerRegisterPage() {
 
           {/* 2. Trade & Experience */}
           <div className="space-y-4 pt-2">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-2">
+            <h2 className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-2">
               <Briefcase className="w-3.5 h-3.5" /> 2. Services &amp; Trade Skills
             </h2>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-2">
+              <span id="worker-trades-label" className="block text-xs font-semibold text-slate-700 mb-2">
                 Select Your Trades <span className="text-red-500">*</span>
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              </span>
+              <div
+                role="group"
+                aria-labelledby="worker-trades-label"
+                className="grid grid-cols-2 sm:grid-cols-4 gap-2"
+              >
                 {STANDARDIZED_SERVICES.filter((s) => s.id !== 'srv-other').map((s) => {
                   const isChecked = selectedServices.includes(s.id);
                   return (
                     <button
                       key={s.id}
                       type="button"
+                      role="checkbox"
+                      aria-checked={isChecked}
+                      aria-label={`${s.name}, ${isChecked ? 'selected' : 'not selected'}`}
                       onClick={() => toggleService(s.id)}
-                      className={`p-3 rounded-2xl border text-xs font-bold text-left transition-all flex flex-col justify-between cursor-pointer ${
+                      className={`min-h-[52px] p-3 rounded-2xl border text-xs font-bold text-left transition-all active:scale-[0.98] flex flex-col justify-between cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 ${
                         isChecked
                           ? 'bg-emerald-50 border-emerald-600 text-emerald-950 ring-2 ring-emerald-500/20'
                           : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                       }`}
                     >
                       <span className="text-sm block mb-1">{s.name}</span>
-                      <span className="text-[10px] text-slate-500">
+                      <span className={`text-[10px] font-semibold ${isChecked ? 'text-emerald-800' : 'text-slate-600'}`}>
                         {isChecked ? '✓ Selected' : '+ Add'}
                       </span>
                     </button>
@@ -366,13 +393,14 @@ export default function WorkerRegisterPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="worker-experience" className="block text-xs font-semibold text-slate-700 mb-1">
                   Years of Experience
                 </label>
                 <select
+                  id="worker-experience"
                   value={experienceYears}
                   onChange={(e) => setExperienceYears(Number(e.target.value))}
-                  className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold bg-white text-slate-900"
+                  className="w-full px-4 py-3 min-h-[46px] rounded-2xl border border-slate-200 text-base sm:text-sm font-semibold bg-white text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 focus-visible:border-emerald-600"
                 >
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20].map((yr) => (
                     <option key={yr} value={yr}>
@@ -383,13 +411,14 @@ export default function WorkerRegisterPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="worker-availability" className="block text-xs font-semibold text-slate-700 mb-1">
                   Current Availability
                 </label>
                 <select
+                  id="worker-availability"
                   value={availability}
                   onChange={(e) => setAvailability(e.target.value as 'available' | 'busy' | 'offline')}
-                  className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold bg-white text-slate-900"
+                  className="w-full px-4 py-3 min-h-[46px] rounded-2xl border border-slate-200 text-base sm:text-sm font-semibold bg-white text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 focus-visible:border-emerald-600"
                 >
                   <option value="available">Available (Ready for Jobs)</option>
                   <option value="busy">Busy (Currently on Job)</option>
@@ -399,34 +428,36 @@ export default function WorkerRegisterPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label htmlFor="worker-working-area" className="block text-xs font-semibold text-slate-700 mb-1">
                 Working Area / Localities
               </label>
               <input
+                id="worker-working-area"
                 type="text"
                 placeholder="e.g. Perundurai, Thindal, Bhavani, Chithode (Erode)"
                 value={workingArea}
                 onChange={(e) => setWorkingArea(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-slate-900"
+                className="w-full px-4 py-3 min-h-[46px] rounded-2xl border border-slate-200 text-base sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 focus-visible:border-emerald-600 transition-all text-slate-900"
               />
             </div>
           </div>
 
           {/* 3. Base Location */}
           <div className="space-y-4 pt-2">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-2">
+            <h2 className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-2">
               <MapPin className="w-3.5 h-3.5" /> 3. Base Location
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="worker-district" className="block text-xs font-semibold text-slate-700 mb-1">
                   Home District <span className="text-red-500">*</span>
                 </label>
                 <select
+                  id="worker-district"
                   value={district}
                   onChange={(e) => setDistrict(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold bg-white text-slate-900"
+                  className="w-full px-4 py-3 min-h-[46px] rounded-2xl border border-slate-200 text-base sm:text-sm font-semibold bg-white text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 focus-visible:border-emerald-600"
                 >
                   {TAMIL_NADU_DISTRICTS.map((d) => (
                     <option key={d} value={d}>
@@ -438,32 +469,34 @@ export default function WorkerRegisterPage() {
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-semibold text-slate-700">
+                  <label htmlFor="worker-address" className="block text-xs font-semibold text-slate-700">
                     Base Address / Landmark
                   </label>
                   <button
                     type="button"
                     onClick={handleUseCurrentLocation}
                     disabled={isLocating}
-                    className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    aria-label="Use device GPS to pinpoint location"
+                    className="min-h-[32px] px-2 py-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer disabled:opacity-50 active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 rounded-sm"
                   >
                     <Navigation className={`w-3 h-3 ${isLocating ? 'animate-spin' : ''}`} />
                     <span>{isLocating ? 'Locating...' : 'GPS Pin'}</span>
                   </button>
                 </div>
                 <input
+                  id="worker-address"
                   type="text"
                   placeholder="e.g. Near New Bus Stand, Meyyanur"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-slate-900"
+                  className="w-full px-4 py-3 min-h-[46px] rounded-2xl border border-slate-200 text-base sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 focus-visible:border-emerald-600 transition-all text-slate-900"
                 />
               </div>
             </div>
 
             {locationSuccess && (
-              <p className="text-xs text-emerald-600 font-medium flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" />
+              <p className="text-xs text-emerald-700 font-medium flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                 <span>{locationSuccess}</span>
               </p>
             )}
@@ -472,7 +505,7 @@ export default function WorkerRegisterPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60"
+            className="w-full min-h-[48px] py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold text-sm shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
           >
             {isSubmitting ? (
               <>

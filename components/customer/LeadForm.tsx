@@ -1,12 +1,15 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
   STANDARDIZED_SERVICES,
   TAMIL_NADU_DISTRICTS,
   VIKASA_CONFIG,
 } from '@/lib/constants';
+import { INITIAL_CATEGORIES } from '@/lib/taxonomy/catalog';
+import { sanitizeIndianMobile10 } from '@/lib/utils/phone';
 import { dataStore, ERODE_CENTER } from '@/lib/data/store';
 import {
   MapPin,
@@ -25,19 +28,108 @@ import {
 } from 'lucide-react';
 import { Language, TRANSLATIONS } from '@/lib/taxonomy/i18n';
 
+function resolveInitialService(catParam: string | null | undefined, initialService?: string): string {
+  if (initialService) {
+    const directMatch = STANDARDIZED_SERVICES.find(
+      (s) => s.name.toLowerCase() === initialService.toLowerCase() || s.slug.toLowerCase() === initialService.toLowerCase()
+    );
+    if (directMatch) return directMatch.name;
+  }
+
+  if (!catParam) return 'Interior Design';
+  const clean = catParam.trim().toLowerCase();
+
+  // 1. Direct slug or name match on STANDARDIZED_SERVICES
+  const stdMatch = STANDARDIZED_SERVICES.find(
+    (s) => s.slug.toLowerCase() === clean || s.name.toLowerCase() === clean
+  );
+  if (stdMatch) return stdMatch.name;
+
+  // 2. Direct slug, id or name match on INITIAL_CATEGORIES
+  const catMatch = INITIAL_CATEGORIES.find(
+    (c) => c.slug.toLowerCase() === clean || c.id.toLowerCase() === clean || c.name.toLowerCase() === clean
+  );
+  if (catMatch) {
+    switch (catMatch.slug) {
+      case 'interior-design':
+        return 'Interior Design';
+      case 'carpentry':
+        return 'Carpentry & Plywood Work';
+      case 'electrical':
+        return 'Electrical & Lighting';
+      case 'plumbing':
+        return 'Plumbing';
+      case 'painting':
+        return 'Painting & Wall Finish';
+      case 'ac-appliances':
+        return 'AC & Appliances';
+      case 'cleaning':
+        return 'Cleaning';
+      case 'other-services':
+        return 'Other Services';
+      default:
+        break;
+    }
+    const nameMatch = STANDARDIZED_SERVICES.find((s) =>
+      s.name.toLowerCase().includes(catMatch.name.toLowerCase()) ||
+      catMatch.name.toLowerCase().includes(s.name.toLowerCase())
+    );
+    if (nameMatch) return nameMatch.name;
+  }
+
+  // 3. Common aliases and synonyms
+  if (clean.includes('kitchen') || clean.includes('wardrobe') || clean.includes('interior')) {
+    return 'Interior Design';
+  }
+  if (clean.includes('wood') || clean.includes('plywood') || clean.includes('carpenter') || clean.includes('carpentry')) {
+    return 'Carpentry & Plywood Work';
+  }
+  if (clean.includes('electric') || clean.includes('light') || clean.includes('wiring')) {
+    return 'Electrical & Lighting';
+  }
+  if (clean.includes('plumb') || clean.includes('pipe') || clean.includes('leak') || clean.includes('tap')) {
+    return 'Plumbing';
+  }
+  if (clean.includes('paint') || clean.includes('putty') || clean.includes('whitewash')) {
+    return 'Painting & Wall Finish';
+  }
+  if (clean.includes('ac') || clean.includes('air') || clean.includes('appliance')) {
+    return 'AC & Appliances';
+  }
+  if (clean.includes('clean') || clean.includes('deep-clean')) {
+    return 'Cleaning';
+  }
+  if (clean.includes('other')) {
+    return 'Other Services';
+  }
+
+  return 'Interior Design';
+}
+
 interface LeadFormProps {
   onSuccess?: (trackingToken: string, requestNumber: number) => void;
   initialService?: string;
 }
 
 export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
+  const searchParams = useSearchParams();
+  const catParam = searchParams.get('cat') || searchParams.get('service');
+
   const [lang, setLang] = useState<Language>('en');
   const t = TRANSLATIONS[lang];
 
   // Default date to today
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [service, setService] = useState(initialService || 'Interior Design');
+  const [service, setService] = useState(() => resolveInitialService(catParam, initialService));
+  const [prevCatParam, setPrevCatParam] = useState(catParam);
+
+  if (catParam !== prevCatParam) {
+    setPrevCatParam(catParam);
+    if (catParam) {
+      setService(resolveInitialService(catParam, initialService));
+    }
+  }
   const [customServiceNote, setCustomServiceNote] = useState('');
   const [preferredDate, setPreferredDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [district, setDistrict] = useState('Erode');
@@ -149,7 +241,7 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
       errs.name = t.errNameRequired;
     }
 
-    const cleanPhone = phone.replace(/\D/g, '');
+    const cleanPhone = sanitizeIndianMobile10(phone);
     if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
       errs.phone = t.errPhoneInvalid;
     }
@@ -182,7 +274,7 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
     setErrors({});
 
     try {
-      const cleanPhone = phone.replace(/\D/g, '');
+      const cleanPhone = sanitizeIndianMobile10(phone);
       const formattedLocation = address.trim()
         ? `${address.trim()}, ${district}`
         : `${district}, Tamil Nadu`;
@@ -289,7 +381,7 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
         <div className="space-y-2 pt-2">
           <Link
             href={`/track/${submittedData.trackingToken}`}
-            className="w-full py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 transition-all"
+            className="w-full py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
           >
             <span>{t.trackButtonText}</span>
             <ArrowRight className="w-4 h-4" />
@@ -297,7 +389,7 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
 
           <a
             href={VIKASA_CONFIG.telUrl}
-            className="w-full py-2.5 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
+            className="w-full py-2.5 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center justify-center gap-1.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
           >
             <Phone className="w-4 h-4 text-emerald-600" />
             <span>{t.callCoordinatorText} ({VIKASA_CONFIG.phoneDisplay})</span>
@@ -305,7 +397,7 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
 
           <Link
             href="/"
-            className="block text-xs font-semibold text-slate-500 hover:text-slate-900 pt-2"
+            className="block text-xs font-semibold text-slate-600 hover:text-slate-900 pt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 rounded-lg"
           >
             ← {t.homeButtonText}
           </Link>
@@ -328,7 +420,7 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
         <button
           type="button"
           onClick={() => setLang(lang === 'en' ? 'ta' : 'en')}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1"
         >
           <Languages className="w-3.5 h-3.5 text-emerald-600" />
           <span>{t.switchLanguage}</span>
@@ -339,13 +431,13 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
         <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
           {t.formTitle}
         </h2>
-        <p className="text-xs text-slate-500 leading-relaxed">
+        <p className="text-xs text-slate-600 leading-relaxed">
           {t.formSubtitle}
         </p>
       </div>
 
       {errors.form && (
-        <div className="p-3 mb-4 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
+        <div role="alert" aria-live="assertive" className="p-3 mb-4 rounded-2xl bg-red-50 border border-red-200 text-red-800 text-xs font-semibold flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{errors.form}</span>
         </div>
@@ -354,59 +446,81 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
       <form onSubmit={handleSubmit} className="space-y-4 text-left">
         {/* 1. Name */}
         <div className="space-y-1">
-          <label className="block text-xs font-bold text-slate-700">
+          <label htmlFor="lead-name" className="block text-xs font-bold text-slate-700">
             {t.fullNameLabel} <span className="text-red-500">*</span>
           </label>
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
               <User className="w-4 h-4" />
             </div>
             <input
+              id="lead-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={t.fullNamePlaceholder}
-              className={`w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border bg-slate-50/50 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all ${
-                errors.name ? 'border-red-400 bg-red-50/20' : 'border-slate-200'
+              aria-invalid={!!errors.name}
+              aria-describedby={errors.name ? 'lead-name-error' : undefined}
+              className={`w-full pl-10 pr-4 py-2.5 text-base sm:text-sm rounded-xl border bg-slate-50/50 text-slate-900 focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 transition-all ${
+                errors.name ? 'border-red-400 bg-red-50/20' : 'border-slate-200 focus:border-emerald-600'
               }`}
             />
           </div>
-          {errors.name && <p className="text-[11px] text-red-600 font-medium">{errors.name}</p>}
+          {errors.name && (
+            <p id="lead-name-error" role="alert" className="text-[11px] text-red-700 font-medium">
+              {errors.name}
+            </p>
+          )}
         </div>
 
         {/* 2. Phone */}
         <div className="space-y-1">
-          <label className="block text-xs font-bold text-slate-700">
+          <label htmlFor="lead-phone" className="block text-xs font-bold text-slate-700">
             {t.mobileLabel} <span className="text-red-500">*</span>
           </label>
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 font-bold text-xs">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-700 font-bold text-xs">
               +91
             </div>
             <input
+              id="lead-phone"
               type="tel"
               value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              onChange={(e) => setPhone(sanitizeIndianMobile10(e.target.value))}
+              onPaste={(e) => {
+                e.preventDefault();
+                const pasted = e.clipboardData.getData('text');
+                setPhone(sanitizeIndianMobile10(pasted));
+              }}
               placeholder={t.mobilePlaceholder}
-              maxLength={10}
-              className={`w-full pl-12 pr-4 py-2.5 text-sm rounded-xl border bg-slate-50/50 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-mono ${
-                errors.phone ? 'border-red-400 bg-red-50/20' : 'border-slate-200'
+              aria-invalid={!!errors.phone}
+              aria-describedby={errors.phone ? 'lead-phone-error' : 'lead-phone-hint'}
+              className={`w-full pl-12 pr-4 py-2.5 text-base sm:text-sm rounded-xl border bg-slate-50/50 text-slate-900 focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 transition-all font-mono ${
+                errors.phone ? 'border-red-400 bg-red-50/20' : 'border-slate-200 focus:border-emerald-600'
               }`}
             />
           </div>
           {errors.phone ? (
-            <p className="text-[11px] text-red-600 font-medium">{errors.phone}</p>
+            <p id="lead-phone-error" role="alert" className="text-[11px] text-red-700 font-medium">
+              {errors.phone}
+            </p>
           ) : (
-            <p className="text-[11px] text-slate-400">{t.mobileHint}</p>
+            <p id="lead-phone-hint" className="text-[11px] text-slate-600 font-medium">
+              {t.mobileHint}
+            </p>
           )}
         </div>
 
         {/* 3. Service Selector */}
         <div className="space-y-1.5">
-          <label className="block text-xs font-bold text-slate-700">
+          <span id="lead-service-label" className="block text-xs font-bold text-slate-700">
             {t.serviceLabel} <span className="text-red-500">*</span>
-          </label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          </span>
+          <div
+            role="radiogroup"
+            aria-labelledby="lead-service-label"
+            className="grid grid-cols-2 sm:grid-cols-4 gap-2"
+          >
             {STANDARDIZED_SERVICES.map((s) => {
               const localizedName = t.services[s.name]?.name || s.name;
               const isSelected = service.toLowerCase() === s.name.toLowerCase();
@@ -415,8 +529,17 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
                 <button
                   key={s.id}
                   type="button"
+                  role="radio"
+                  aria-checked={isSelected}
+                  tabIndex={isSelected ? 0 : -1}
                   onClick={() => setService(s.name)}
-                  className={`p-2.5 rounded-xl border text-left text-xs font-bold transition-all flex flex-col justify-between cursor-pointer ${
+                  onKeyDown={(e) => {
+                    if (e.key === ' ' || e.key === 'Enter') {
+                      e.preventDefault();
+                      setService(s.name);
+                    }
+                  }}
+                  className={`min-h-[46px] p-2.5 rounded-xl border text-left text-xs font-bold transition-all flex flex-col justify-between cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 ${
                     isSelected
                       ? 'bg-emerald-50 border-emerald-600 text-emerald-950 ring-2 ring-emerald-500/20'
                       : 'bg-slate-50/70 border-slate-200 text-slate-700 hover:bg-slate-100'
@@ -427,26 +550,35 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
               );
             })}
           </div>
-          {errors.service && <p className="text-[11px] text-red-600 font-medium">{errors.service}</p>}
+          {errors.service && (
+            <p id="lead-service-error" role="alert" className="text-[11px] text-red-700 font-medium">
+              {errors.service}
+            </p>
+          )}
         </div>
 
         {/* 3b. Custom Service Input (if "Other" selected) */}
         {isOtherSelected && (
           <div className="space-y-1 p-3 bg-amber-50/70 border border-amber-200 rounded-2xl animate-in fade-in duration-150">
-            <label className="block text-xs font-bold text-amber-950">
+            <label htmlFor="lead-custom-service" className="block text-xs font-bold text-amber-950">
               {t.customServiceLabel} <span className="text-red-500">*</span>
             </label>
             <input
+              id="lead-custom-service"
               type="text"
               value={customServiceNote}
               onChange={(e) => setCustomServiceNote(e.target.value)}
               placeholder={t.customServicePlaceholder}
-              className="w-full px-3 py-2 text-sm rounded-xl border border-amber-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+              aria-invalid={!!errors.customService}
+              aria-describedby={errors.customService ? 'lead-custom-error' : undefined}
+              className="w-full px-3 py-2 text-base sm:text-sm rounded-xl border border-amber-300 bg-white text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600 focus-visible:ring-offset-1"
             />
             {errors.customService && (
-              <p className="text-[11px] text-red-600 font-medium">{errors.customService}</p>
+              <p id="lead-custom-error" role="alert" className="text-[11px] text-red-700 font-medium">
+                {errors.customService}
+              </p>
             )}
-            <p className="text-[11px] text-amber-800">
+            <p className="text-[11px] text-amber-900 font-medium">
               {lang === 'ta'
                 ? 'எங்கள் ஒருங்கிணைப்பாளர் உங்கள் தேவைக்கேற்ப தகுந்த நிபுணரை கண்டறிந்து உங்களை அழைப்பார்.'
                 : 'Our coordinator will manually review your custom requirement and match an appropriate specialist.'}
@@ -457,13 +589,16 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
         {/* 4. District and Date Row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1">
-            <label className="block text-xs font-bold text-slate-700">
+            <label htmlFor="lead-district" className="block text-xs font-bold text-slate-700">
               {t.districtLabel} <span className="text-red-500">*</span>
             </label>
             <select
+              id="lead-district"
               value={district}
               onChange={(e) => setDistrict(e.target.value)}
-              className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              aria-invalid={!!errors.district}
+              aria-describedby={errors.district ? 'lead-district-error' : undefined}
+              className="w-full px-3 py-2.5 text-base sm:text-sm rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 font-semibold focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 focus:border-emerald-600"
             >
               {TAMIL_NADU_DISTRICTS.map((d) => (
                 <option key={d} value={d}>
@@ -471,35 +606,49 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
                 </option>
               ))}
             </select>
+            {errors.district && (
+              <p id="lead-district-error" role="alert" className="text-[11px] text-red-700 font-medium">
+                {errors.district}
+              </p>
+            )}
           </div>
 
           <div className="space-y-1">
-            <label className="block text-xs font-bold text-slate-700">
+            <label htmlFor="lead-preferred-date" className="block text-xs font-bold text-slate-700">
               {t.preferredDateLabel} <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <input
+                id="lead-preferred-date"
                 type="date"
                 value={preferredDate}
                 min={new Date().toISOString().split('T')[0]}
                 onChange={(e) => setPreferredDate(e.target.value)}
-                className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                aria-invalid={!!errors.preferredDate}
+                aria-describedby={errors.preferredDate ? 'lead-date-error' : undefined}
+                className="w-full px-3 py-2.5 text-base sm:text-sm rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 font-medium focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 focus:border-emerald-600"
               />
             </div>
+            {errors.preferredDate && (
+              <p id="lead-date-error" role="alert" className="text-[11px] text-red-700 font-medium">
+                {errors.preferredDate}
+              </p>
+            )}
           </div>
         </div>
 
         {/* 5. Address & GPS */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <label className="block text-xs font-bold text-slate-700">
+            <label htmlFor="lead-address" className="block text-xs font-bold text-slate-700">
               {t.addressLabel}
             </label>
             <button
               type="button"
               onClick={handleUseCurrentLocation}
               disabled={isLocating}
-              className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer disabled:opacity-50"
+              aria-label="Use device GPS location"
+              className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 rounded-sm active:scale-95 transition-transform"
             >
               <Navigation className={`w-3 h-3 ${isLocating ? 'animate-spin' : ''}`} />
               <span>{isLocating ? t.gpsLocatingText : t.useGpsButton}</span>
@@ -507,41 +656,47 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
           </div>
 
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
               <MapPin className="w-4 h-4" />
             </div>
             <input
+              id="lead-address"
               type="text"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               placeholder={t.addressPlaceholder}
-              className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              className="w-full pl-10 pr-4 py-2.5 text-base sm:text-sm rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 focus:border-emerald-600"
             />
           </div>
-          {errors.location && <p className="text-[11px] text-amber-600 font-medium">{errors.location}</p>}
+          {errors.location && (
+            <p role="alert" className="text-[11px] text-amber-800 font-medium">
+              {errors.location}
+            </p>
+          )}
           {locationSuccessText && (
-            <p className="text-[11px] text-emerald-600 font-medium flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" /> {locationSuccessText}
+            <p className="text-[11px] text-emerald-700 font-medium flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3 text-emerald-600" /> {locationSuccessText}
             </p>
           )}
         </div>
 
         {/* 6. Description */}
         <div className="space-y-1">
-          <label className="block text-xs font-bold text-slate-700">
+          <label htmlFor="lead-description" className="block text-xs font-bold text-slate-700">
             {t.descriptionLabel}
           </label>
           <textarea
+            id="lead-description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder={t.descriptionPlaceholder}
             rows={2}
-            className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none"
+            className="w-full px-3.5 py-2 text-base sm:text-sm rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 focus:border-emerald-600 resize-none"
           />
         </div>
 
         {/* Privacy Assurance */}
-        <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-500 leading-snug flex items-start gap-2">
+        <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 leading-snug flex items-start gap-2">
           <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
           <span>{t.privacyNotice}</span>
         </div>
@@ -550,7 +705,7 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-bold text-sm shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60"
+          className="min-h-[48px] w-full py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold text-sm shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
         >
           {isSubmitting ? (
             <>

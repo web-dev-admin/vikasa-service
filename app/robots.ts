@@ -1,24 +1,32 @@
 import { MetadataRoute } from 'next';
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://vikasaservices.in';
+  const productionUrl = 'https://vikasaservices.in';
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SITE_URL && !process.env.NEXT_PUBLIC_SITE_URL.includes('vercel.app')
+      ? process.env.NEXT_PUBLIC_SITE_URL
+      : productionUrl;
 
   return {
     rules: [
       {
         userAgent: '*',
-        allow: ['/', '/request', '/worker-register', '/technician'],
+        allow: ['/'],
         disallow: [
           '/admin',
-          '/admin/',
           '/admin/*',
-          '/api/',
+          '/api',
           '/api/*',
-          '/track',
-          '/track/',
-          '/track/*',
-          '/request/success/',
-          '/request/success/*',
+        ],
+      },
+      {
+        userAgent: ['OAI-SearchBot', 'PerplexityBot', 'ClaudeBot', 'Google-Extended', 'Applebot-Extended'],
+        allow: ['/'],
+        disallow: [
+          '/admin',
+          '/admin/*',
+          '/api',
+          '/api/*',
         ],
       },
     ],

@@ -1,9 +1,7 @@
-'use client';
-
-import React, { useState } from 'react';
+import React from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 import {
   Wrench,
   Zap,
@@ -17,15 +15,28 @@ import {
   Phone,
   Layout,
   HelpCircle,
-  CheckCircle2,
   MapPin,
-  Star,
   Layers,
-  Ruler,
-  Clock,
 } from 'lucide-react';
 import { INITIAL_CATEGORIES } from '@/lib/taxonomy/catalog';
 import { VIKASA_CONFIG } from '@/lib/constants';
+import HeroEstimateWidget from '@/components/customer/HeroEstimateWidget';
+import HeaderNav from '@/components/navigation/HeaderNav';
+
+export const metadata: Metadata = {
+  title: 'Vikasa Services & Interiors — Home Services, Interior Design & Plywood Works in Tamil Nadu',
+  description:
+    'Vikasa Services (vikasaservices.in) is Tamil Nadu\'s trusted destination for turnkey interior design, modular kitchens, custom plywood craftsmanship, and on-demand verified technicians (carpentry, electrical, plumbing, painting, and AC repairs). Serving Erode, Coimbatore, Salem, Tiruppur & across Tamil Nadu. Call/WhatsApp: +91 98656 52420.',
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    title: 'Vikasa Services & Interiors — Home Services & Interior Design in Tamil Nadu',
+    description:
+      'Turnkey interior design, custom plywood woodwork, and verified technicians for carpentry, electrical, plumbing, painting & AC services in Erode and Tamil Nadu. Visit vikasaservices.in.',
+    url: '/',
+  },
+};
 
 const iconMap: { [key: string]: React.ElementType } = {
   Wrench,
@@ -71,22 +82,9 @@ const PROJECT_SHOWCASE = [
 ];
 
 export default function LandingPage() {
-  const router = useRouter();
-  const [selectedServiceCategory, setSelectedServiceCategory] = useState(INITIAL_CATEGORIES[0]?.id || 'cat-interior');
-  const [quickArea, setQuickArea] = useState('Thindal');
-
-  const openBookingForService = (catSlug?: string) => {
-    router.push(`/request${catSlug ? `?cat=${catSlug}` : ''}`);
-  };
-
-  const handleHeroQuickSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const cat = INITIAL_CATEGORIES.find((c) => c.id === selectedServiceCategory);
-    router.push(`/request?cat=${cat?.slug || 'interior-design'}`);
-  };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-emerald-600 selection:text-white pb-20 sm:pb-0">
+    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-emerald-600 selection:text-white pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))] sm:pb-0">
       {/* 1. Top Announcement & Direct Helpline Bar */}
       <div className="bg-slate-900 text-slate-300 text-xs py-2 px-4 border-b border-slate-800">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-1.5 text-center sm:text-left">
@@ -121,82 +119,8 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* 2. Navigation Header with Real Vikasa Logo */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
-        <div className="max-w-6xl mx-auto px-4 h-20 flex items-center justify-between">
-          {/* Logo & Brand Identity */}
-          <Link href="/" className="flex items-center gap-3 group" aria-label="Vikasa Interiors Home">
-            <div className="relative w-12 h-12 rounded-2xl overflow-hidden shadow-md ring-2 ring-emerald-600/20 group-hover:scale-105 transition-transform shrink-0 bg-slate-900 flex items-center justify-center">
-              <Image
-                src={VIKASA_CONFIG.logoPath}
-                alt="Vikasa Interiors Logo"
-                width={48}
-                height={48}
-                className="object-cover w-full h-full"
-                priority
-              />
-            </div>
-            <div>
-              <span className="text-xl font-black tracking-tight text-slate-900 block leading-tight group-hover:text-emerald-700 transition-colors">
-                VIKASA SERVICES
-              </span>
-              <span className="text-[11px] font-bold text-emerald-700 tracking-wider uppercase block">
-                vikasaservices.in • Interiors &amp; Home Services
-              </span>
-            </div>
-          </Link>
-
-          {/* Center Navigation Links (Desktop) */}
-          <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-600" aria-label="Primary Navigation">
-            <a href="#portfolio" className="hover:text-emerald-700 transition-colors">
-              Portfolio
-            </a>
-            <a href="#services" className="hover:text-emerald-700 transition-colors">
-              Services
-            </a>
-            <a href="#process" className="hover:text-emerald-700 transition-colors">
-              Our Process
-            </a>
-            <Link href="/track" className="hover:text-emerald-700 transition-colors">
-              Track Request
-            </Link>
-          </nav>
-
-          {/* Right Header CTAs */}
-          <div className="flex items-center gap-2.5">
-            {/* Phone Button */}
-            <a
-              href={VIKASA_CONFIG.telUrl}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors"
-              aria-label={`Call ${VIKASA_CONFIG.phoneDisplay}`}
-            >
-              <PhoneCall className="w-3.5 h-3.5 text-emerald-600" />
-              <span>{VIKASA_CONFIG.phone}</span>
-            </a>
-
-            {/* WhatsApp Button */}
-            <a
-              href={VIKASA_CONFIG.whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden lg:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors"
-              aria-label="WhatsApp enquiry"
-            >
-              <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
-              <span>WhatsApp</span>
-            </a>
-
-            {/* Main Consultation Button */}
-            <Link
-              href="/request"
-              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-emerald-600/20 active:scale-[0.98] transition-all flex items-center gap-1.5"
-            >
-              <span>Book Consultation</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-        </div>
-      </header>
+      {/* 2. Navigation Header with Real Vikasa Logo & Responsive Mobile Drawer */}
+      <HeaderNav />
 
       {/* 3. Hero Section with Quick Consultation Form */}
       <section className="relative overflow-hidden pt-8 pb-16 px-4 bg-gradient-to-b from-emerald-50/70 via-white to-slate-50 border-b border-slate-200/60">
@@ -209,7 +133,7 @@ export default function LandingPage() {
                 <span>Erode&apos;s Trusted Interior & Plywood Specialists</span>
               </div>
 
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight leading-[1.18]">
+              <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight leading-[1.18]">
                 Bespoke Interior Design & <br className="hidden sm:inline" />
                 <span className="text-emerald-700">Master Plywood Craftsmanship</span> in Erode
               </h1>
@@ -220,17 +144,17 @@ export default function LandingPage() {
 
               {/* Trust Badges */}
               <div className="grid grid-cols-3 gap-2 pt-2 max-w-md mx-auto lg:mx-0">
-                <div className="p-3 bg-white rounded-2xl border border-slate-200 text-center shadow-xs">
-                  <span className="block text-emerald-700 font-black text-base sm:text-lg">IS:710</span>
-                  <span className="text-[11px] text-slate-500 font-medium">BWP Marine Ply</span>
+                <div className="p-2.5 sm:p-3 bg-white rounded-2xl border border-slate-200 text-center shadow-xs">
+                  <span className="block text-emerald-700 font-black text-sm sm:text-lg">IS:710</span>
+                  <span className="text-[10px] sm:text-[11px] text-slate-600 font-medium truncate block">BWP Marine Ply</span>
                 </div>
-                <div className="p-3 bg-white rounded-2xl border border-slate-200 text-center shadow-xs">
-                  <span className="block text-emerald-700 font-black text-base sm:text-lg">Factory</span>
-                  <span className="text-[11px] text-slate-500 font-medium">Machine Finish</span>
+                <div className="p-2.5 sm:p-3 bg-white rounded-2xl border border-slate-200 text-center shadow-xs">
+                  <span className="block text-emerald-700 font-black text-sm sm:text-lg">Factory</span>
+                  <span className="text-[10px] sm:text-[11px] text-slate-600 font-medium truncate block">Machine Finish</span>
                 </div>
-                <div className="p-3 bg-white rounded-2xl border border-slate-200 text-center shadow-xs">
-                  <span className="block text-emerald-700 font-black text-base sm:text-lg">Turnkey</span>
-                  <span className="text-[11px] text-slate-500 font-medium">Erode & Beyond</span>
+                <div className="p-2.5 sm:p-3 bg-white rounded-2xl border border-slate-200 text-center shadow-xs">
+                  <span className="block text-emerald-700 font-black text-sm sm:text-lg">Turnkey</span>
+                  <span className="text-[10px] sm:text-[11px] text-slate-600 font-medium truncate block">Erode & Beyond</span>
                 </div>
               </div>
 
@@ -245,89 +169,7 @@ export default function LandingPage() {
 
             {/* Hero Right: Fast Enquiry & Estimate Widget */}
             <div className="lg:col-span-6">
-              <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xl shadow-emerald-950/5 relative">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-base font-black text-slate-900">
-                    Get Free Design Consultation & Estimate
-                  </h2>
-                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                    Zero Obligation
-                  </span>
-                </div>
-
-                <form onSubmit={handleHeroQuickSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-700">
-                      Select Interior Scope or Service:
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {INITIAL_CATEGORIES.map((cat) => {
-                        const Icon = iconMap[cat.icon || 'Wrench'] || Layout;
-                        const isSelected = selectedServiceCategory === cat.id;
-                        return (
-                          <button
-                            key={cat.id}
-                            type="button"
-                            onClick={() => setSelectedServiceCategory(cat.id)}
-                            className={`p-2.5 rounded-xl border text-left text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
-                              isSelected
-                                ? 'bg-emerald-50 border-emerald-600 text-emerald-950 ring-1 ring-emerald-500/20'
-                                : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                            }`}
-                          >
-                            <Icon className={`w-4 h-4 shrink-0 ${isSelected ? 'text-emerald-700' : 'text-slate-400'}`} />
-                            <span className="truncate">{cat.name}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Area Quick Selection */}
-                  <div className="space-y-1.5 pt-1">
-                    <label className="text-xs font-bold text-slate-700">
-                      Your Erode Project Location:
-                    </label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {VIKASA_CONFIG.serviceAreas.slice(0, 6).map((loc) => (
-                        <button
-                          key={loc}
-                          type="button"
-                          onClick={() => setQuickArea(loc)}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors cursor-pointer ${
-                            quickArea === loc
-                              ? 'bg-emerald-600 text-white font-bold'
-                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                          }`}
-                        >
-                          {loc}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="pt-2 space-y-2">
-                    <button
-                      type="submit"
-                      className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 active:scale-[0.99] transition-all cursor-pointer"
-                    >
-                      <span>Continue With Selected Scope</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-
-                    <a
-                      href={VIKASA_CONFIG.whatsappUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full py-2.5 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200 flex items-center justify-center gap-1.5 transition-all text-center"
-                    >
-                      <MessageCircle className="w-4 h-4 text-emerald-600" />
-                      <span>Instant Consultation via WhatsApp ({VIKASA_CONFIG.phone})</span>
-                    </a>
-                  </div>
-                </form>
-              </div>
+              <HeroEstimateWidget />
             </div>
           </div>
         </div>
@@ -351,7 +193,7 @@ export default function LandingPage() {
 
           <Link
             href="/request"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 self-start md:self-auto"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 self-start md:self-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 rounded-lg"
           >
             <span>Request Custom 3D Design</span>
             <ArrowRight className="w-4 h-4" />
@@ -402,7 +244,7 @@ export default function LandingPage() {
                 <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between">
                   <Link
                     href={`/request?cat=${project.categorySlug}`}
-                    className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
+                    className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 rounded-lg"
                   >
                     <span>Enquire For This Concept</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -424,14 +266,14 @@ export default function LandingPage() {
             <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">
               Interior Design & Home Trade Solutions
             </h2>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            <p className="text-xs sm:text-sm text-slate-600 mt-1">
               From complete turnkey villa interiors to individual trade works in Erode and surrounding districts.
             </p>
           </div>
 
           <Link
             href="/request"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 self-start md:self-auto"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 self-start md:self-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 rounded-lg"
           >
             <span>View All Services</span>
             <ArrowRight className="w-4 h-4" />
@@ -443,11 +285,10 @@ export default function LandingPage() {
             const Icon = iconMap[cat.icon || 'Wrench'] || Layout;
 
             return (
-              <button
+              <Link
                 key={cat.id}
-                type="button"
-                onClick={() => openBookingForService(cat.slug)}
-                className="group bg-white rounded-2xl p-5 border border-slate-200 hover:border-emerald-500 hover:shadow-lg transition-all flex flex-col justify-between text-left cursor-pointer"
+                href={`/request?cat=${cat.slug}`}
+                className="group bg-white rounded-2xl p-5 border border-slate-200 hover:border-emerald-500 hover:shadow-lg transition-all flex flex-col justify-between text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
               >
                 <div>
                   <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors shrink-0 mb-3">
@@ -456,15 +297,15 @@ export default function LandingPage() {
                   <h3 className="text-sm font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
                     {cat.name}
                   </h3>
-                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  <p className="text-xs text-slate-600 mt-1 leading-relaxed">
                     {cat.description}
                   </p>
                 </div>
                 <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-emerald-700">
-                  <span>Explore & Book</span>
+                  <span>Explore &amp; Book</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
-              </button>
+              </Link>
             );
           })}
         </div>
@@ -527,6 +368,84 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* 6b. Frequently Asked Questions (AEO & GEO Optimization) */}
+      <section id="faq" className="py-16 px-4 max-w-5xl mx-auto border-t border-slate-200/70">
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold mb-2 border border-emerald-200">
+            <HelpCircle className="w-3.5 h-3.5" />
+            <span>Answers to Common Inquiries</span>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Frequently Asked Questions
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-xl mx-auto">
+            Everything you need to know about our turnkey interior execution, marine plywood specifications, technician verification, and service coverage in Erode.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs">
+            <h3 className="text-base font-bold text-slate-900 mb-2 flex items-start gap-2.5">
+              <span className="text-emerald-600 font-black">Q1.</span>
+              What grade of plywood and hardware does Vikasa Interiors use for modular kitchens and wardrobes in Erode?
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed pl-7">
+              We strictly utilize 100% IS:710 certified Boiling Waterproof (BWP) marine-grade plywood with calibrated cores for all kitchen and wardrobe frameworks. Surfaces are finished with scratch-resistant acrylic or high-pressure laminates with factory CNC edge-banding. For hardware, we integrate premium soft-close tandem boxes, concealed hydraulic hinges, and anti-warp aluminum profiles from trusted brands like Hafele, Hettich, and Ebco.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs">
+            <h3 className="text-base font-bold text-slate-900 mb-2 flex items-start gap-2.5">
+              <span className="text-emerald-600 font-black">Q2.</span>
+              What is the difference between turnkey interior design and on-demand home trade repairs?
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed pl-7">
+              Turnkey interior design is an end-to-end service where our team manages the complete space transformation—from initial 3D design and space planning to factory woodwork, false ceiling, lighting, painting, and handover in Erode and across Tamil Nadu. In contrast, on-demand home services dispatch verified individual technicians (carpenters, electricians, plumbers, painters, or AC mechanics) for specific repair or installation tasks via our coordinator-managed dispatch pool.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs">
+            <h3 className="text-base font-bold text-slate-900 mb-2 flex items-start gap-2.5">
+              <span className="text-emerald-600 font-black">Q3.</span>
+              Which areas in Erode and Tamil Nadu does Vikasa Services cover?
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed pl-7">
+              Our primary operational base covers all areas in Erode, including Perundurai Road, Thindal, Bhavani, Gobichettipalayam, Chithode, Modakkurichi, Veerappanchatram, Surampatti, Solar, and Komarapalayam. We also execute complete residential turnkey interior projects across western and central Tamil Nadu, including Coimbatore, Salem, Tiruppur, and Namakkal upon prior consultation.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs">
+            <h3 className="text-base font-bold text-slate-900 mb-2 flex items-start gap-2.5">
+              <span className="text-emerald-600 font-black">Q4.</span>
+              How does Vikasa protect customer privacy and ensure technician quality?
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed pl-7">
+              Unlike open contractor listing portals that broadcast your phone number to multiple random vendors, Vikasa operates on a 100% human-coordinated dispatch model. A dedicated operations coordinator verifies your requirement over the phone and assigns a background-verified specialist from our internal pool. Your contact details remain confidential with our coordination desk.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs">
+            <h3 className="text-base font-bold text-slate-900 mb-2 flex items-start gap-2.5">
+              <span className="text-emerald-600 font-black">Q5.</span>
+              How can I get a 3D design consultation and cost estimate for my home in Erode?
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed pl-7">
+              You can request a free consultation either online through our Book a Service form or by contacting our helpline directly via Phone or WhatsApp at +91 98656 52420. Our coordinator will schedule a convenient site measurement visit in Erode, after which we deliver a detailed 3D layout, material specifications, and transparent itemized pricing.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs">
+            <h3 className="text-base font-bold text-slate-900 mb-2 flex items-start gap-2.5">
+              <span className="text-emerald-600 font-black">Q6.</span>
+              What warranties are provided on interior woodwork and installations?
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed pl-7">
+              Our BWP 710 marine plywood carries up to a 10-year warranty against borer infestation and delamination under standard residential usage. All functional hardware components (hydraulic hinges, drawer runners) carry respective manufacturer warranties, and our installation workmanship is backed by post-handover support.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* 7. Call & WhatsApp Direct Consultation Banner */}
       <section className="py-12 px-4 max-w-6xl mx-auto">
         <div className="bg-gradient-to-r from-emerald-800 via-emerald-900 to-slate-900 text-white rounded-3xl p-8 sm:p-12 relative overflow-hidden shadow-xl">
@@ -544,7 +463,7 @@ export default function LandingPage() {
             <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
               <a
                 href={VIKASA_CONFIG.telUrl}
-                className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-white text-slate-900 font-bold text-sm shadow-md hover:bg-emerald-50 transition-all flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-white text-slate-900 font-bold text-sm shadow-md hover:bg-emerald-50 transition-all flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2"
                 aria-label={`Call Vikasa helpline at ${VIKASA_CONFIG.phoneDisplay}`}
               >
                 <PhoneCall className="w-4 h-4 text-emerald-700" />
@@ -555,7 +474,7 @@ export default function LandingPage() {
                 href={VIKASA_CONFIG.whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2"
                 aria-label="Direct WhatsApp consultation"
               >
                 <MessageCircle className="w-4 h-4" />
@@ -627,6 +546,11 @@ export default function LandingPage() {
                   </a>
                 </li>
                 <li>
+                  <a href="#faq" className="hover:text-emerald-400 transition-colors">
+                    Frequently Asked Questions
+                  </a>
+                </li>
+                <li>
                   <Link href="/track" className="hover:text-emerald-400 transition-colors">
                     Track Your Project
                   </Link>
@@ -653,23 +577,23 @@ export default function LandingPage() {
           <div className="pt-8 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between gap-3 text-slate-500 text-[11px]">
             <p>© {new Date().getFullYear()} Vikasa Services &amp; Interiors (vikasaservices.in). All rights reserved.</p>
             <div className="flex items-center gap-4">
-              <Link href="/track" className="hover:text-white transition-colors">Track Request</Link>
-              <Link href="/technician" className="hover:text-amber-400 transition-colors">Technician Portal</Link>
-              <Link href="/worker-register" className="hover:text-white transition-colors">Join as Worker</Link>
-              <Link href="/admin/dashboard" className="hover:text-white transition-colors">Admin Login</Link>
+              <Link href="/track" className="hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded-sm">Track Request</Link>
+              <Link href="/technician" className="hover:text-amber-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded-sm">Technician Portal</Link>
+              <Link href="/worker-register" className="hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded-sm">Join as Worker</Link>
+              <Link href="/admin/dashboard" className="hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded-sm">Admin Login</Link>
             </div>
           </div>
         </div>
       </footer>
 
-      {/* 9. Mobile Sticky Bottom Quick-Bar */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 py-2.5 flex items-center justify-between gap-2 shadow-lg">
+      {/* 9. Mobile Sticky Bottom Quick-Bar with Safe Area Inset Support */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-3 pt-2 pb-[max(0.625rem,env(safe-area-inset-bottom))] flex items-center justify-between gap-2 shadow-xl">
         <a
           href={VIKASA_CONFIG.telUrl}
-          className="flex-1 py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+          className="min-h-[44px] flex-1 py-2 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1"
           aria-label={`Call ${VIKASA_CONFIG.phoneDisplay}`}
         >
-          <Phone className="w-3.5 h-3.5 text-emerald-600" />
+          <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
           <span>Call Us</span>
         </a>
 
@@ -677,19 +601,19 @@ export default function LandingPage() {
           href={VIKASA_CONFIG.whatsappUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="py-2.5 px-3 rounded-xl bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200 flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+          className="min-h-[44px] flex-1 py-2 px-2.5 rounded-xl bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200 flex items-center justify-center gap-1.5 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1"
           aria-label="WhatsApp Us"
         >
-          <MessageCircle className="w-4 h-4 text-emerald-600" />
+          <MessageCircle className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>WhatsApp</span>
         </a>
 
         <Link
           href="/request"
-          className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1 shadow-md shadow-emerald-600/20 active:scale-95 transition-all"
+          className="min-h-[44px] flex-1 py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1 shadow-md shadow-emerald-600/20 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1"
         >
-          <span>Consultation</span>
-          <ArrowRight className="w-3.5 h-3.5" />
+          <span>Book</span>
+          <ArrowRight className="w-3.5 h-3.5 shrink-0" />
         </Link>
       </div>
     </div>

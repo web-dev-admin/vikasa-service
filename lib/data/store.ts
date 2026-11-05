@@ -429,7 +429,18 @@ class VikasaDataStore {
   getPublicTrackingStatus(token: string): PublicTrackingData | null {
     this.init();
     if (!token) return null;
-    const req = this.requests.find((r) => r.tracking_token === token);
+    const cleanToken = token.trim();
+    const cleanLower = cleanToken.toLowerCase();
+    const digitsOnly = cleanToken.replace(/\D/g, '');
+
+    const req = this.requests.find((r) => {
+      if (r.tracking_token && r.tracking_token.toLowerCase() === cleanLower) return true;
+      if (String(r.request_number) === cleanToken) return true;
+      if (r.id && r.id.toLowerCase() === cleanLower) return true;
+      if (digitsOnly && String(r.request_number) === digitsOnly) return true;
+      return false;
+    });
+
     if (!req) return null;
 
     return {

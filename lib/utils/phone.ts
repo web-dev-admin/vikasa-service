@@ -5,6 +5,43 @@
  */
 
 /**
+ * Sanitizes and normalizes an Indian phone number to exactly 10 digits for local UI inputs.
+ * Strips formatting (spaces, hyphens, parentheses, plus signs).
+ * Handles pasted strings with "+91", "91", or leading "0" without truncating the actual number.
+ * Preserves progressive manual typing (e.g. "9", "98", "986"...).
+ */
+export function sanitizeIndianMobile10(input: string): string {
+  if (!input) return '';
+  let digits = input.replace(/\D/g, '');
+
+  // If user pasted a number with international country code +91 or 91 (length > 10)
+  if (digits.startsWith('91') && digits.length > 10) {
+    const candidate = digits.slice(2);
+    if (/^[6-9]/.test(candidate)) {
+      digits = candidate;
+    }
+  }
+
+  // If user pasted a number with trunk prefix 0 (length > 10)
+  if (digits.startsWith('0') && digits.length > 10) {
+    const candidate = digits.slice(1);
+    if (/^[6-9]/.test(candidate)) {
+      digits = candidate;
+    }
+  }
+
+  // Safety fallback for exact 11 or 12 digit pasted strings
+  if (digits.length === 11 && digits.startsWith('0')) {
+    digits = digits.slice(1);
+  } else if (digits.length === 12 && digits.startsWith('91')) {
+    digits = digits.slice(2);
+  }
+
+  // Cap at 10 digits for standard Indian mobile
+  return digits.slice(0, 10);
+}
+
+/**
  * Normalizes an Indian phone number to 12-digit format with country code (91XXXXXXXXXX)
  */
 export function normalizeIndianPhone(phone: string): string {

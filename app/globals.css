@@ -6,10 +6,54 @@
   --foreground: #0f172a;
 }
 
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Eliminate 300ms tap delay and double-tap zoom delay on interactive controls */
+button,
+a,
+[role="button"],
+[role="radio"],
+[role="checkbox"] {
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+}
+
+/* Prevent accidental text selection on interactive controls during touch and drag */
+button,
+[role="button"],
+[role="radio"],
+[role="checkbox"] {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Mobile Safari: Prevent page zooming into inputs by guaranteeing 16px minimum text size on touch devices */
+@media (pointer: coarse), (max-width: 640px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Physical tactile press feedback for interactive touch surfaces */
+.press-feedback {
+  transition: transform 120ms ease-out, opacity 120ms ease-out;
+}
+.press-feedback:active {
+  transform: scale(0.97);
 }
 
 /* Fix Leaflet map z-index and markers */

@@ -5,13 +5,23 @@ import { VIKASA_CONFIG } from '@/lib/constants';
 
 const inter = Inter({ subsets: ['latin'], display: 'swap' });
 
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://vikasaservices.in';
+const productionUrl = 'https://vikasaservices.in';
+// Ensure canonical URLs always resolve against the production domain, never preview deployments
+const baseUrl =
+  process.env.NEXT_PUBLIC_SITE_URL && !process.env.NEXT_PUBLIC_SITE_URL.includes('vercel.app')
+    ? process.env.NEXT_PUBLIC_SITE_URL
+    : productionUrl;
 
 export const viewport: Viewport = {
-  themeColor: '#059669',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0f172a' },
+  ],
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
+  viewportFit: 'cover',
+  interactiveWidget: 'resizes-content',
 };
 
 export const metadata: Metadata = {
@@ -55,9 +65,6 @@ export const metadata: Metadata = {
     telephone: true,
     email: true,
     address: true,
-  },
-  alternates: {
-    canonical: '/',
   },
   icons: {
     icon: '/logo/vikasa_interior_logo.png',
@@ -115,6 +122,26 @@ const structuredData = {
       priceRange: '₹₹',
       currenciesAccepted: 'INR',
       paymentAccepted: 'Cash, UPI, Bank Transfer, Online',
+      contactPoint: {
+        '@type': 'ContactPoint',
+        telephone: '+919865652420',
+        contactType: 'customer service',
+        areaServed: 'IN',
+        availableLanguage: ['English', 'Tamil'],
+      },
+      knowsAbout: [
+        'Modular Kitchen Design',
+        'Turnkey Interior Design',
+        'Custom Plywood Wardrobes',
+        'Living Room TV Entertainment Units',
+        'False Ceiling Design',
+        'IS:710 Marine Grade Plywood',
+        'Carpentry & Woodwork',
+        'Residential Electrical Wiring',
+        'Plumbing & Sanitary Solutions',
+        'Wall Painting & Texture Coatings',
+        'AC Service & Repair',
+      ],
       address: {
         '@type': 'PostalAddress',
         streetAddress: 'Perundurai Road',
