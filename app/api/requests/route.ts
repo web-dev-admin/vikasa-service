@@ -4,6 +4,7 @@ import { RequestStatus } from '@/types';
 import { authenticateAdmin, unauthorizedResponse } from '@/lib/auth/admin';
 import { STANDARDIZED_SERVICES } from '@/lib/constants';
 import { supabase } from '@/lib/supabase/client';
+import { dispatchAdminNotification } from '@/lib/notifications/dispatcher';
 
 // GET: Privileged Admin Queue Retrieval
 export async function GET(request: NextRequest) {
@@ -175,6 +176,15 @@ export async function POST(request: NextRequest) {
         console.warn('Supabase request sync warning:', dbErr);
       }
     }
+
+    // Trigger Admin Web Push & In-App Notification (non-blocking)
+    dispatchAdminNotification({
+      type: 'service_request',
+      title: 'New Customer Service Request',
+      message: `${newRequest.customer_name} requested ${newRequest.service_name} in ${newRequest.district}.`,
+      relatedId: newRequest.id,
+      relatedType: 'request',
+    }).catch((err) => console.warn('Admin notification warning:', err));
 
     // Return safe public reference and tracking token to the customer, plus full_request for store sync
     return NextResponse.json({

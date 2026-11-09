@@ -170,6 +170,15 @@ export default function AdminRequestsPage() {
     loadData();
   };
 
+  const handleCancelRequest = (requestId: string) => {
+    dataStore.updateRequestStatus(requestId, 'CANCELLED', 'Archived by Admin');
+    showToast('Booking archived as Cancelled.');
+    if (selectedRequest && selectedRequest.id === requestId) {
+      setSelectedRequest(null);
+    }
+    loadData();
+  };
+
   const filtered = requests.filter((r) => {
     const matchSearch =
       r.request_number.toString().includes(search) ||
@@ -562,6 +571,20 @@ export default function AdminRequestsPage() {
                 </button>
               )}
             </div>
+
+            {selectedRequest.status !== 'CANCELLED' && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm(`Are you sure you want to cancel and archive booking #${selectedRequest.request_number}?`)) {
+                    handleCancelRequest(selectedRequest.id);
+                  }
+                }}
+                className="w-full py-2 px-3 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 text-xs font-bold transition-colors min-h-[38px]"
+              >
+                Cancel &amp; Archive Booking
+              </button>
+            )}
           </div>
         </div>
       )}

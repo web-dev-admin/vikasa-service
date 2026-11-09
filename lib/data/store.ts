@@ -8,8 +8,12 @@ import {
   RequestStatus,
   ContactResult,
   PublicTrackingData,
+  WebsiteContent,
+  AdminNotification,
+  AdminDeviceToken,
 } from '@/types';
 import { INITIAL_CATEGORIES, INITIAL_SERVICES } from '@/lib/taxonomy/catalog';
+import { DEFAULT_WEBSITE_CONTENT } from '@/lib/data/website_content';
 
 // Primary Headquarters: Erode, Tamil Nadu, India (11.3410° N, 77.7172° E)
 export const ERODE_CENTER = {
@@ -36,6 +40,9 @@ class VikasaDataStore {
   private requests: ServiceRequest[] = [];
   private contactAttempts: WorkerContactAttempt[] = [];
   private auditLogs: AuditLog[] = [];
+  private notifications: AdminNotification[] = [];
+  private deviceTokens: AdminDeviceToken[] = [];
+  private websiteContent: WebsiteContent = { ...DEFAULT_WEBSITE_CONTENT };
   private initialized = false;
 
   private init() {
@@ -108,6 +115,21 @@ class VikasaDataStore {
 
         const savedLogs = localStorage.getItem('vikasa_logs');
         if (savedLogs) this.auditLogs = JSON.parse(savedLogs);
+
+        const savedNotifs = localStorage.getItem('vikasa_notifications');
+        if (savedNotifs) this.notifications = JSON.parse(savedNotifs);
+
+        const savedTokens = localStorage.getItem('vikasa_device_tokens');
+        if (savedTokens) this.deviceTokens = JSON.parse(savedTokens);
+
+        const savedContent = localStorage.getItem('vikasa_website_content');
+        if (savedContent) {
+          try {
+            this.websiteContent = { ...DEFAULT_WEBSITE_CONTENT, ...JSON.parse(savedContent) };
+          } catch {
+            this.websiteContent = { ...DEFAULT_WEBSITE_CONTENT };
+          }
+        }
       } catch (e) {
         console.error('Failed to load local database state:', e);
       }
@@ -123,6 +145,9 @@ class VikasaDataStore {
         localStorage.setItem('vikasa_customers', JSON.stringify(this.customers));
         localStorage.setItem('vikasa_attempts', JSON.stringify(this.contactAttempts));
         localStorage.setItem('vikasa_logs', JSON.stringify(this.auditLogs));
+        localStorage.setItem('vikasa_notifications', JSON.stringify(this.notifications));
+        localStorage.setItem('vikasa_device_tokens', JSON.stringify(this.deviceTokens));
+        localStorage.setItem('vikasa_website_content', JSON.stringify(this.websiteContent));
         window.dispatchEvent(new Event('vikasa_data_updated'));
       } catch (e) {
         console.error('Failed to persist database state:', e);
@@ -824,6 +849,129 @@ class VikasaDataStore {
       created_at: new Date().toISOString(),
     };
     this.auditLogs.unshift(log);
+  }
+
+  // --- Website Content (CMS) ---
+  getWebsiteContent(): WebsiteContent {
+    this.init();
+    return { ...this.websiteContent };
+  }
+
+  updateWebsiteContent(partial: Partial<WebsiteContent>): WebsiteContent {
+    this.init();
+    this.websiteContent = {
+      ...this.websiteContent,
+      ...partial,
+      hero: { ...this.websiteContent.hero, ...(partial.hero || {}) },
+      contact: { ...this.websiteContent.contact, ...(partial.contact || {}) },
+      about: { ...this.websiteContent.about, ...(partial.about || {}) },
+    };
+    this.addAuditLog('UPDATE_WEBSITE_CONTENT', 'website_content', 'global');
+    this.persist();
+    return { ...this.websiteContent };
+  }
+
+  // --- Notifications Center ---
+  getNotifications(): AdminNotification[] {
+    this.init();
+    return [...this.notifications].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }
+
+  addNotification(notif: Omit<AdminNotification, 'id' | 'created_at' | 'is_read'>): AdminNotification {
+    this.init();
+    const newNotif: AdminNotification = {
+      id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      ...notif,
+      is_read: false,
+      created_at: new Date().toISOString(),
+    };
+    this.notifications.unshift(newNotif);
+    // Keep max 100 notifications in memory
+    if (this.notifications.length > 100) {
+      this.notifications = this.notifications.slice(0, 100);
+    }
+    this.persist();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('vikasa_notification_received', { detail: newNotif }));
+    }
+    return newNotif;
+  }
+
+  markNotificationAsRead(id: string): boolean {
+    this.init();
+    const target = this.notifications.find((n) => n.id === id);
+    if (target) {
+      target.is_read = true;
+      this.persist();
+      return true;
+    }
+    return false;
+  }
+
+  markAllNotificationsAsRead() {
+    this.init();
+    for (const n of this.notifications) {
+      n.is_read = true;
+    }
+    this.persist();
+  }
+
+  deleteNotification(id: string): boolean {
+    this.init();
+    const prevLen = this.notifications.length;
+    this.notifications = this.notifications.filter((n) => n.id !== id);
+    if (this.notifications.length !== prevLen) {
+      this.persist();
+      return true;
+    }
+    return false;
+  }
+
+  // --- FCM Device Tokens (Android PWA Push) ---
+  getDeviceTokens(): AdminDeviceToken[] {
+    this.init();
+    return [...this.deviceTokens];
+  }
+
+  registerDeviceToken(tokenData: Omit<AdminDeviceToken, 'id' | 'created_at' | 'updated_at'>): AdminDeviceToken {
+    this.init();
+    const now = new Date().toISOString();
+    const existingIndex = this.deviceTokens.findIndex((t) => t.fcm_token === tokenData.fcm_token);
+
+    if (existingIndex >= 0) {
+      const updated: AdminDeviceToken = {
+        ...this.deviceTokens[existingIndex],
+        ...tokenData,
+        is_active: true,
+        updated_at: now,
+      };
+      this.deviceTokens[existingIndex] = updated;
+      this.persist();
+      return updated;
+    }
+
+    const created: AdminDeviceToken = {
+      id: `tok-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      ...tokenData,
+      created_at: now,
+      updated_at: now,
+    };
+    this.deviceTokens.push(created);
+    this.persist();
+    return created;
+  }
+
+  removeDeviceToken(fcmToken: string): boolean {
+    this.init();
+    const prevLen = this.deviceTokens.length;
+    this.deviceTokens = this.deviceTokens.filter((t) => t.fcm_token !== fcmToken);
+    if (this.deviceTokens.length !== prevLen) {
+      this.persist();
+      return true;
+    }
+    return false;
   }
 
   resetDemoData() {

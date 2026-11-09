@@ -26,7 +26,11 @@ import {
   Radio,
   BookOpen,
   Sparkles,
+  Globe,
+  Settings,
 } from 'lucide-react';
+import NotificationCenter from '@/components/admin/NotificationCenter';
+import PWAInstallButton from '@/components/pwa/PWAInstallButton';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -154,10 +158,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const navItems = [
     { label: 'Overview', shortLabel: 'Overview', href: '/admin/dashboard', icon: LayoutDashboard },
     { label: 'Bookings & Requests', shortLabel: 'Bookings', href: '/admin/requests', icon: FileText, badge: stats.newLeads },
-    { label: 'Contacts Directory', shortLabel: 'Contacts', href: '/admin/contacts', icon: PhoneCall },
-    { label: 'Service Team', shortLabel: 'Team', href: '/admin/workers', icon: Users },
+    { label: 'Technicians', shortLabel: 'Technicians', href: '/admin/workers', icon: Users },
     { label: 'Services Catalog', shortLabel: 'Services', href: '/admin/services', icon: Briefcase },
-    { label: 'Admin User Guide', shortLabel: 'Guide', href: '/admin/guide', icon: HelpCircle },
+    { label: 'Website Editor (CMS)', shortLabel: 'CMS', href: '/admin/website-editor', icon: Globe },
+    { label: 'Contacts', shortLabel: 'Contacts', href: '/admin/contacts', icon: PhoneCall },
+    { label: 'Settings & Push', shortLabel: 'Settings', href: '/admin/settings', icon: Settings },
+    { label: 'Admin Guide', shortLabel: 'Guide', href: '/admin/guide', icon: HelpCircle },
   ];
 
   return (
@@ -228,6 +234,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <HelpCircle className="w-3.5 h-3.5 text-emerald-400" />
               <span>How To Use</span>
             </Link>
+
+            {/* Notification Center with live alerts */}
+            <NotificationCenter adminEmail={adminUser} />
+
+            {/* PWA Install Button */}
+            <PWAInstallButton className="hidden md:inline-flex" />
 
             {/* Refresh Data */}
             <button

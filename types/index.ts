@@ -233,3 +233,85 @@ export interface AuditLog {
   metadata?: Record<string, unknown>;
   created_at: string;
 }
+
+export type NotificationType =
+  | 'service_request'
+  | 'technician_application'
+  | 'contact_inquiry'
+  | 'status_update';
+
+export interface AdminNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  related_id?: string;
+  related_type?: 'request' | 'worker' | 'contact';
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface AdminDeviceToken {
+  id: string;
+  admin_email: string;
+  fcm_token: string;
+  device_name?: string;
+  platform: 'android' | 'ios' | 'web';
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FAQItem {
+  id: string;
+  question: string;
+  answer: string;
+  order: number;
+}
+
+export interface ShowcaseProject {
+  id: string;
+  title: string;
+  subtitle: string;
+  image: string;
+  alt: string;
+  tags: string[];
+  description: string;
+  categorySlug: string;
+}
+
+export interface WebsiteContent {
+  hero: {
+    badge: string;
+    heading: string;
+    headingHighlight: string;
+    description: string;
+    callout: string;
+    trustBadge1Number: string;
+    trustBadge1Label: string;
+    trustBadge2Number: string;
+    trustBadge2Label: string;
+    trustBadge3Number: string;
+    trustBadge3Label: string;
+  };
+  contact: {
+    phone: string;
+    phoneDisplay: string;
+    whatsappNumber: string;
+    whatsappDisplay: string;
+    email: string;
+    addressStreet: string;
+    addressCity: string;
+    addressState: string;
+    addressPostalCode: string;
+    officeHours: string;
+  };
+  about: {
+    title: string;
+    description: string;
+    highlights: string[];
+  };
+  faqs: FAQItem[];
+  showcase: ShowcaseProject[];
+}
+

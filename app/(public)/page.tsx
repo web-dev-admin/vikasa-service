@@ -22,6 +22,7 @@ import { INITIAL_CATEGORIES } from '@/lib/taxonomy/catalog';
 import { VIKASA_CONFIG } from '@/lib/constants';
 import HeroEstimateWidget from '@/components/customer/HeroEstimateWidget';
 import HeaderNav from '@/components/navigation/HeaderNav';
+import CompactServiceDiscovery from '@/components/customer/CompactServiceDiscovery';
 
 export const metadata: Metadata = {
   title: 'Vikasa Services & Interiors — Home Services, Interior Design & Plywood Works in Tamil Nadu',
@@ -256,18 +257,18 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 5. Comprehensive Services Grid */}
+      {/* 5. Compact Service Discovery */}
       <section id="services" className="py-16 px-4 max-w-6xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
           <div>
             <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">
-              Comprehensive Capabilities
+              Service Discovery &amp; Booking
             </span>
             <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">
-              Interior Design & Home Trade Solutions
+              Find &amp; Book Your Service
             </h2>
             <p className="text-xs sm:text-sm text-slate-600 mt-1">
-              From complete turnkey villa interiors to individual trade works in Erode and surrounding districts.
+              Select or search below. Direct coordinator verification for Erode and across Tamil Nadu.
             </p>
           </div>
 
@@ -275,40 +276,12 @@ export default function LandingPage() {
             href="/request"
             className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 self-start md:self-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 rounded-lg"
           >
-            <span>View All Services</span>
+            <span>Custom Requirement</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {INITIAL_CATEGORIES.map((cat) => {
-            const Icon = iconMap[cat.icon || 'Wrench'] || Layout;
-
-            return (
-              <Link
-                key={cat.id}
-                href={`/request?cat=${cat.slug}`}
-                className="group bg-white rounded-2xl p-5 border border-slate-200 hover:border-emerald-500 hover:shadow-lg transition-all flex flex-col justify-between text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
-              >
-                <div>
-                  <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors shrink-0 mb-3">
-                    <Icon className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
-                    {cat.name}
-                  </h3>
-                  <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                    {cat.description}
-                  </p>
-                </div>
-                <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-emerald-700">
-                  <span>Explore &amp; Book</span>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+        <CompactServiceDiscovery />
       </section>
 
       {/* 6. Simple 4-Step Working Process */}

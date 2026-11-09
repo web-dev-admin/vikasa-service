@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dataStore, ERODE_CENTER } from '@/lib/data/store';
 import { authenticateAdmin, unauthorizedResponse } from '@/lib/auth/admin';
 import { supabase } from '@/lib/supabase/client';
+import { dispatchAdminNotification } from '@/lib/notifications/dispatcher';
 
 // GET: Admin only technician directory
 export async function GET(request: NextRequest) {
@@ -153,6 +154,15 @@ export async function POST(request: NextRequest) {
         console.warn('Supabase worker insert warning:', dbErr);
       }
     }
+
+    // Trigger Admin Web Push & In-App Notification (non-blocking)
+    dispatchAdminNotification({
+      type: 'technician_application',
+      title: 'New Technician Application',
+      message: `${technician.full_name} applied for technician role in ${technician.district}.`,
+      relatedId: technician.id,
+      relatedType: 'worker',
+    }).catch((err) => console.warn('Admin technician notification warning:', err));
 
     return NextResponse.json({
       success: true,

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { VIKASA_CONFIG } from '@/lib/constants';
+import PWARegistration from '@/components/pwa/PWARegistration';
 
 const inter = Inter({ subsets: ['latin'], display: 'swap' });
 
@@ -68,7 +69,13 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: '/logo/vikasa_interior_logo.png',
-    apple: '/logo/vikasa_interior_logo.png',
+    apple: '/icons/icon-192x192.png',
+  },
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Vikasa Admin',
   },
   openGraph: {
     title: 'Vikasa Services & Interiors — Home Services & Interior Design in Tamil Nadu',
@@ -300,6 +307,7 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.className} min-h-full flex flex-col`} suppressHydrationWarning>
+        <PWARegistration />
         {children}
       </body>
     </html>

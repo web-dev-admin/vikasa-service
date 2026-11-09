@@ -3,142 +3,138 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Wrench,
-  Zap,
-  Hammer,
-  Tv,
   Sparkles,
-  Layout,
-  HelpCircle,
   ArrowRight,
-  MessageCircle,
+  ShieldCheck,
+  Phone,
+  MapPin,
+  CheckCircle2,
 } from 'lucide-react';
-import { INITIAL_CATEGORIES } from '@/lib/taxonomy/catalog';
-import { VIKASA_CONFIG } from '@/lib/constants';
-
-const iconMap: { [key: string]: React.ElementType } = {
-  Wrench,
-  Zap,
-  Hammer,
-  Tv,
-  Sparkles,
-  Layout,
-  HelpCircle,
-};
+import { STANDARDIZED_SERVICES, VIKASA_CONFIG } from '@/lib/constants';
+import { sanitizeIndianMobile10 } from '@/lib/utils/phone';
 
 export default function HeroEstimateWidget() {
   const router = useRouter();
-  const [selectedServiceCategory, setSelectedServiceCategory] = useState(
-    INITIAL_CATEGORIES[0]?.id || 'cat-interior'
-  );
-  const [quickArea, setQuickArea] = useState('Thindal');
+  const [selectedService, setSelectedService] = useState('srv-interior');
+  const [phone, setPhone] = useState('');
+  const [area, setArea] = useState('Erode City');
+  const [error, setError] = useState<string | null>(null);
 
-  const handleHeroQuickSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const cat = INITIAL_CATEGORIES.find((c) => c.id === selectedServiceCategory);
-    router.push(`/request?cat=${cat?.slug || 'interior-design'}`);
+    const serviceObj = STANDARDIZED_SERVICES.find((s) => s.id === selectedService);
+    const slug = serviceObj?.slug || 'interior-design';
+
+    const clean = sanitizeIndianMobile10(phone);
+    if (phone.trim() && !/^[6-9]\d{9}$/.test(clean)) {
+      setError('Please enter a valid 10-digit mobile number');
+      return;
+    }
+
+    const params = new URLSearchParams();
+    params.set('cat', slug);
+    if (clean) params.set('phone', clean);
+    if (area) params.set('district', area);
+
+    router.push(`/request?${params.toString()}`);
   };
 
   return (
-    <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xl shadow-emerald-950/5 relative">
+    <div className="bg-white rounded-3xl p-5 sm:p-7 border border-slate-200/90 shadow-xl shadow-emerald-950/5 relative">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-black text-slate-900">
-          Get Free Design Consultation &amp; Estimate
-        </h2>
-        <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-          Zero Obligation
+        <div>
+          <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+            Quick Consultation &amp; Booking
+          </h2>
+          <p className="text-[11px] text-slate-500">Verified specialists in Erode • Zero obligation</p>
+        </div>
+        <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/70 px-2.5 py-1 rounded-full border border-emerald-200 shrink-0">
+          Fast Dispatch
         </span>
       </div>
 
-      <form onSubmit={handleHeroQuickSubmit} className="space-y-4">
-        <div className="space-y-2">
-          <span id="hero-service-scope-label" className="block text-xs font-bold text-slate-700">
-            Select Interior Scope or Service:
-          </span>
-          <div
-            role="radiogroup"
-            aria-labelledby="hero-service-scope-label"
-            className="grid grid-cols-2 sm:grid-cols-3 gap-2"
-          >
-            {INITIAL_CATEGORIES.map((cat) => {
-              const Icon = iconMap[cat.icon || 'Wrench'] || Layout;
-              const isSelected = selectedServiceCategory === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={isSelected}
-                  onClick={() => setSelectedServiceCategory(cat.id)}
-                  className={`min-h-[44px] p-2.5 rounded-xl border text-left text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 ${
-                    isSelected
-                      ? 'bg-emerald-50 border-emerald-600 text-emerald-950 ring-1 ring-emerald-500/20'
-                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <Icon
-                    className={`w-4 h-4 shrink-0 ${
-                      isSelected ? 'text-emerald-700' : 'text-slate-500'
-                    }`}
-                  />
-                  <span className="truncate">{cat.name}</span>
-                </button>
-              );
-            })}
+      <form onSubmit={handleSubmit} className="space-y-3.5">
+        {/* Service Select */}
+        <div className="space-y-1">
+          <label htmlFor="hero-service-select" className="block text-xs font-bold text-slate-700">
+            Select Service:
+          </label>
+          <div className="relative">
+            <select
+              id="hero-service-select"
+              value={selectedService}
+              onChange={(e) => setSelectedService(e.target.value)}
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 min-h-[44px]"
+            >
+              {STANDARDIZED_SERVICES.map((srv) => (
+                <option key={srv.id} value={srv.id}>
+                  {srv.name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
-        {/* Area Quick Selection */}
-        <div className="space-y-1.5 pt-1">
-          <span id="hero-project-location-label" className="block text-xs font-bold text-slate-700">
-            Your Erode Project Location:
-          </span>
-          <div
-            role="radiogroup"
-            aria-labelledby="hero-project-location-label"
-            className="flex flex-wrap gap-1.5"
-          >
-            {VIKASA_CONFIG.serviceAreas.slice(0, 6).map((loc) => (
-              <button
-                key={loc}
-                type="button"
-                role="radio"
-                aria-checked={quickArea === loc}
-                onClick={() => setQuickArea(loc)}
-                className={`min-h-[32px] px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-transform active:scale-95 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 ${
-                  quickArea === loc
-                    ? 'bg-emerald-600 text-white font-bold'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                {loc}
-              </button>
-            ))}
+        {/* Location Dropdown */}
+        <div className="space-y-1">
+          <label htmlFor="hero-area-select" className="block text-xs font-bold text-slate-700">
+            Location in Erode:
+          </label>
+          <div className="relative">
+            <select
+              id="hero-area-select"
+              value={area}
+              onChange={(e) => setArea(e.target.value)}
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 min-h-[44px]"
+            >
+              {VIKASA_CONFIG.serviceAreas.map((loc) => (
+                <option key={loc} value={loc}>
+                  {loc}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="pt-2 space-y-2">
-          <button
-            type="submit"
-            className="w-full min-h-[48px] py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
-          >
-            <span>Continue With Selected Scope</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
+        {/* Mobile Number */}
+        <div className="space-y-1">
+          <label htmlFor="hero-phone-input" className="block text-xs font-bold text-slate-700">
+            Your Mobile Number (Optional for instant call):
+          </label>
+          <div className="relative">
+            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+              +91
+            </span>
+            <input
+              id="hero-phone-input"
+              type="tel"
+              placeholder="98656 52420"
+              value={phone}
+              onChange={(e) => {
+                setPhone(e.target.value);
+                if (error) setError(null);
+              }}
+              className="w-full pl-12 pr-4 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 min-h-[44px]"
+              maxLength={14}
+            />
+          </div>
+          {error && <span className="text-[10px] text-rose-600 font-bold block">{error}</span>}
+        </div>
 
-          <a
-            href={VIKASA_CONFIG.whatsappUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-100 active:scale-[0.98] text-emerald-800 text-xs font-bold border border-emerald-200 flex items-center justify-center gap-1.5 transition-all text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
-          >
-            <MessageCircle className="w-4 h-4 text-emerald-600" />
-            <span>Instant Consultation via WhatsApp ({VIKASA_CONFIG.phone})</span>
-          </a>
+        {/* Submit Button */}
+        <button
+          type="submit"
+          className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-emerald-700/20 active:scale-[0.98] transition-all min-h-[46px]"
+        >
+          <span>Continue to Book in 30 Seconds</span>
+          <ArrowRight className="w-4 h-4" />
+        </button>
+
+        <div className="pt-2 flex items-center justify-center gap-2 text-[11px] text-slate-500">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+          <span>No spam guarantee • Dedicated coordinator callback</span>
         </div>
       </form>
     </div>
   );
 }
-
