@@ -78,6 +78,22 @@ const technician = dataStore.registerWorker({
 });
 
 assert(technician.verification_status === 'pending_verification', 'Public worker registration strictly sets pending_verification');
+assert(Boolean(technician.application_token), 'Technician assigned secure application tracking token');
+assert(Boolean(technician.application_token?.startsWith('app-tok-')), 'Application token has secure prefix');
+
+// Verify token-based technician query without leaking PII
+const queriedWorker = dataStore.getWorkers().find((w) => w.application_token === technician.application_token);
+assert(Boolean(queriedWorker), 'Worker retrievable via application token');
+const technicianStatusProjection = {
+  applicationReference: queriedWorker?.application_token,
+  verificationStatus: queriedWorker?.verification_status,
+  trade: queriedWorker?.skills?.[0],
+  district: queriedWorker?.district,
+  appliedAt: queriedWorker?.created_at,
+};
+assert(!('phone' in technicianStatusProjection), 'Technician status projection: Zero phone leaked');
+assert(!('full_name' in technicianStatusProjection), 'Technician status projection: Zero technician full name leaked');
+assert(!('aadhar_number' in technicianStatusProjection), 'Technician status projection: Zero identification documents leaked');
 
 // 4. Admin Auth Token Signing & Verification
 const adminToken = signAdminToken('admin@vikasa.com', 'admin');

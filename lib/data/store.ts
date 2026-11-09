@@ -741,9 +741,10 @@ class VikasaDataStore {
     const newWorker: Worker = {
       ...data,
       id: data.id || `w-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      application_token: data.application_token || `app-tok-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
       whatsapp: data.whatsapp || data.phone,
       active_status: data.active_status || 'active',
-      district: data.district || 'Salem',
+      district: data.district || 'Erode',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

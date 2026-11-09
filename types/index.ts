@@ -90,6 +90,7 @@ export interface Worker {
   
   id_document_url?: string;
   service_ids: string[];
+  application_token?: string;
   created_at: string;
   updated_at: string;
 }

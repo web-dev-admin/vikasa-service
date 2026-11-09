@@ -22,6 +22,8 @@ import {
   Clock,
   ShieldCheck,
   Image as ImageIcon,
+  Upload,
+  Edit2,
 } from 'lucide-react';
 
 export default function WebsiteEditorPage() {
@@ -151,6 +153,35 @@ export default function WebsiteEditorPage() {
     setNewShowcaseSubtitle('');
     setNewShowcaseDesc('');
     showToast('Showcase project added.');
+  };
+
+  const handleImageUpload = (file: File, targetShowcaseId?: string) => {
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image file (PNG, JPG, WebP)', 'error');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('Image size exceeds 2MB limit. Please choose a smaller photo.', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (targetShowcaseId) {
+        setContent((prev) => ({
+          ...prev,
+          showcase: prev.showcase.map((p) =>
+            p.id === targetShowcaseId ? { ...p, image: result } : p
+          ),
+        }));
+        showToast('Showcase project image replaced.');
+      } else {
+        setNewShowcaseImg(result);
+        showToast('Showcase image uploaded.');
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleDeleteShowcase = (id: string) => {
@@ -745,15 +776,57 @@ export default function WebsiteEditorPage() {
               />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[11px] text-slate-500">Image URL or Path</label>
-              <input
-                type="text"
-                placeholder="/showcase/modular_kitchen_erode.webp"
-                value={newShowcaseImg}
-                onChange={(e) => setNewShowcaseImg(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-              />
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-700 flex items-center justify-between">
+                <span>Project Image</span>
+                <span className="text-slate-400 font-normal">Presets or upload</span>
+              </label>
+
+              {/* Presets */}
+              <div className="flex flex-wrap gap-1.5 mb-1.5">
+                {[
+                  { name: 'Kitchen', path: '/showcase/modular_kitchen_erode.webp' },
+                  { name: 'Living Room', path: '/showcase/living_room_erode.webp' },
+                  { name: 'Wardrobe', path: '/showcase/custom_wardrobe_erode.webp' },
+                ].map((preset) => (
+                  <button
+                    key={preset.path}
+                    type="button"
+                    onClick={() => setNewShowcaseImg(preset.path)}
+                    className={`px-2 py-1 rounded-md text-[10px] font-bold border transition-colors ${
+                      newShowcaseImg === preset.path
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {preset.name}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="/showcase/modular_kitchen_erode.webp or https://..."
+                  value={newShowcaseImg}
+                  onChange={(e) => setNewShowcaseImg(e.target.value)}
+                  className="flex-1 px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+
+                <label className="cursor-pointer px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors border border-slate-200 shrink-0">
+                  <Upload className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Upload</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file);
+                    }}
+                  />
+                </label>
+              </div>
             </div>
 
             <textarea
@@ -780,7 +853,7 @@ export default function WebsiteEditorPage() {
                 key={item.id}
                 className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs flex flex-col justify-between"
               >
-                <div className="relative h-44 w-full bg-slate-100 overflow-hidden">
+                <div className="relative h-44 w-full bg-slate-100 overflow-hidden group">
                   <Image
                     src={item.image}
                     alt={item.title}
@@ -792,14 +865,47 @@ export default function WebsiteEditorPage() {
                     <MapPin className="w-3 h-3 text-emerald-400" />
                     <span>{item.subtitle}</span>
                   </div>
+
+                  {/* Replace Photo Overlay */}
+                  <label className="absolute bottom-2 right-2 cursor-pointer bg-slate-900/80 hover:bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded-lg backdrop-blur-xs flex items-center gap-1 transition-all">
+                    <Upload className="w-3 h-3" />
+                    <span>Change Image</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImageUpload(file, item.id);
+                      }}
+                    />
+                  </label>
                 </div>
 
                 <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900">{item.title}</h4>
-                    <p className="text-xs text-slate-600 line-clamp-3 mt-1 leading-snug">
-                      {item.description}
-                    </p>
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={item.title}
+                      onChange={(e) => {
+                        const updated = content.showcase.map((p) =>
+                          p.id === item.id ? { ...p, title: e.target.value } : p
+                        );
+                        setContent({ ...content, showcase: updated });
+                      }}
+                      className="w-full px-2 py-1 rounded-md border border-slate-200 text-xs font-bold text-slate-900 focus:border-emerald-500"
+                    />
+                    <textarea
+                      rows={3}
+                      value={item.description}
+                      onChange={(e) => {
+                        const updated = content.showcase.map((p) =>
+                          p.id === item.id ? { ...p, description: e.target.value } : p
+                        );
+                        setContent({ ...content, showcase: updated });
+                      }}
+                      className="w-full px-2 py-1 rounded-md border border-slate-200 text-xs text-slate-600 focus:border-emerald-500"
+                    />
                   </div>
 
                   <div className="pt-2 border-t border-slate-100 flex items-center justify-between">

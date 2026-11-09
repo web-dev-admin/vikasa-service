@@ -45,6 +45,7 @@ export default function WorkerRegisterPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [appToken, setAppToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const toggleService = (id: string) => {
@@ -168,6 +169,7 @@ export default function WorkerRegisterPage() {
         throw new Error(json.error || 'Failed to submit registration');
       }
 
+      setAppToken(json.data?.application_token || null);
       setSubmitted(true);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to submit registration. Please try again.');
@@ -196,6 +198,20 @@ export default function WorkerRegisterPage() {
           <p className="text-xs text-slate-600 leading-relaxed">
             Your technician profile has been successfully registered and is <strong>pending verification</strong>.
           </p>
+
+          {appToken && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-left space-y-1">
+              <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
+                Your Confidential Application Token
+              </span>
+              <p className="font-mono text-xs font-black text-slate-900 select-all">
+                {appToken}
+              </p>
+              <p className="text-[10px] text-emerald-700">
+                Save this token to securely track your verification stage without exposing your personal information.
+              </p>
+            </div>
+          )}
 
           <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 text-left text-xs space-y-2 text-slate-700">
             <p className="font-semibold text-slate-900">What happens next?</p>

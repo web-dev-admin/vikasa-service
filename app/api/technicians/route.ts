@@ -147,6 +147,7 @@ export async function POST(request: NextRequest) {
           service_radius_km: technician.service_radius_km,
           service_area_names: technician.service_area_names,
           service_ids: technician.service_ids,
+          application_token: technician.application_token,
           created_at: technician.created_at,
           updated_at: technician.updated_at,
         }]);
@@ -169,6 +170,7 @@ export async function POST(request: NextRequest) {
       message: 'Technician registration submitted successfully. Your profile is pending coordinator verification.',
       data: {
         id: technician.id,
+        application_token: technician.application_token,
         full_name: technician.full_name,
         verification_status: technician.verification_status,
         district: technician.district,
