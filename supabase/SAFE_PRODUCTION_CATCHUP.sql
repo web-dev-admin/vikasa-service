@@ -185,3 +185,4 @@ FROM information_schema.tables
 WHERE table_schema = 'public' 
   AND table_name IN ('website_content', 'admin_device_tokens', 'notifications', 'service_requests', 'workers', 'customers', 'services')
 ORDER BY table_name;
+

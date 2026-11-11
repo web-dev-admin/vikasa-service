@@ -21,7 +21,7 @@ export const VIKASA_CONFIG = {
   phone: '9865652420',
   phoneDisplay: '+91 98656 52420',
   whatsappNumber: '919865652420',
-  whatsappUrl: 'https://wa.me/919865652420?text=Hello%20Vikasa%20Interiors%2C%20I%20would%20like%20to%20consult%20for%20an%20interior%20or%20plywood%20work%20project.',
+  whatsappUrl: 'https://wa.me/919865652420?text=Hello%20Vikasa%20Services!%0A%0AI%20would%20like%20to%20enquire%20about%20a%20home%20service.%0A%0AName:%20%0ARequired%20Service:%20%0ALocation:%20%0AService%20Details:%20%0A%0APlease%20contact%20me%20and%20help%20me%20with%20my%20service%20requirement.%0A%0AThank%20you!',
   telUrl: 'tel:+919865652420',
   logoPath: '/logo/vikasa_interior_logo.png',
   domain: 'vikasaservices.in',

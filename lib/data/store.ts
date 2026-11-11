@@ -384,7 +384,7 @@ class VikasaDataStore {
 
     if (changed) {
       this.customers = Array.from(uniqueMap.values());
-      this.persist();
+      // In-memory update only during read queries to prevent re-entrant event loops
     }
 
     let result = Array.from(uniqueMap.values());
@@ -418,7 +418,17 @@ class VikasaDataStore {
 
   getCustomerById(id: string): { customer: Customer; requests: ServiceRequest[] } | null {
     this.init();
-    const customer = this.customers.find((c) => c.id === id);
+    const cleanId = id.replace(/\D/g, '').slice(-10);
+    const customer =
+      this.customers.find((c) => {
+        const cClean = c.phone ? c.phone.replace(/\D/g, '').slice(-10) : '';
+        return c.id === id || (Boolean(cleanId) && cClean === cleanId);
+      }) ||
+      this.getCustomers().find((c) => {
+        const cClean = c.phone ? c.phone.replace(/\D/g, '').slice(-10) : '';
+        return c.id === id || (Boolean(cleanId) && cClean === cleanId);
+      });
+
     if (!customer) return null;
 
     const cleanPhone = customer.phone.replace(/\D/g, '').slice(-10);
@@ -427,6 +437,37 @@ class VikasaDataStore {
     );
 
     return { customer, requests };
+  }
+
+  deleteCustomer(id: string): boolean {
+    this.init();
+    const cleanId = id.replace(/\D/g, '').slice(-10);
+    const initialLen = this.customers.length;
+    this.customers = this.customers.filter((c) => {
+      const cClean = c.phone ? c.phone.replace(/\D/g, '').slice(-10) : '';
+      return c.id !== id && (!cleanId || cClean !== cleanId);
+    });
+    // Also remove requests associated with this customer
+    this.requests = this.requests.filter((r) => {
+      const rClean = r.customer_phone ? r.customer_phone.replace(/\D/g, '').slice(-10) : '';
+      return r.customer_id !== id && (!cleanId || rClean !== cleanId);
+    });
+    this.persist();
+    return this.customers.length !== initialLen;
+  }
+
+  deleteRequest(id: string): boolean {
+    this.init();
+    const initialLen = this.requests.length;
+    this.requests = this.requests.filter(
+      (r) => r.id !== id && r.tracking_token !== id && String(r.request_number) !== id
+    );
+    this.contactAttempts = this.contactAttempts.filter((a) => a.request_id !== id);
+    const changed = this.requests.length !== initialLen;
+    if (changed) {
+      this.persist();
+    }
+    return changed;
   }
 
   // --- Requests ---
@@ -784,6 +825,17 @@ class VikasaDataStore {
     const index = this.workers.findIndex((w) => w.id === id);
     if (index !== -1) {
       this.workers.splice(index, 1);
+      // Unassign worker from any active requests
+      for (const r of this.requests) {
+        if (r.assigned_worker_id === id) {
+          r.assigned_worker_id = undefined;
+          r.assigned_worker_name = undefined;
+          r.assigned_worker_phone = undefined;
+          if (r.status === 'ASSIGNED' || r.status === 'WORKER_ACCEPTED') {
+            r.status = 'CUSTOMER_CONFIRMED';
+          }
+        }
+      }
       this.persist();
       return true;
     }

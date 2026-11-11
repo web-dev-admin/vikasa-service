@@ -26,7 +26,10 @@ import {
   SlidersHorizontal,
   Star,
   Check,
+  Trash2,
+  AlertCircle,
 } from 'lucide-react';
+import DeleteConfirmationModal from '@/components/admin/DeleteConfirmationModal';
 import { getTelUrl, getWhatsAppUrl } from '@/lib/utils/phone';
 
 export default function AdminContactsPage() {
@@ -56,11 +59,38 @@ export default function AdminContactsPage() {
 
   const [selectedTechnician, setSelectedTechnician] = useState<Worker | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Deletion Modal State
+  const [deleteTarget, setDeleteTarget] = useState<{
+    type: 'customer' | 'technician';
+    id: string;
+    name: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const isFetchingRef = React.useRef(false);
+  const abortControllerRef = React.useRef<AbortController | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   const loadData = React.useCallback(() => {
     // 1. Immediately hydrate from local store
     setCustomers(dataStore.getCustomers());
     setTechnicians(dataStore.getWorkers());
+
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
 
     // 2. Fetch from server API with admin authentication
     const token = typeof window !== 'undefined'
@@ -75,11 +105,12 @@ export default function AdminContactsPage() {
     setIsLoading(true);
 
     Promise.all([
-      fetch('/api/customers', { headers }).then((r) => (r.ok ? r.json() : null)),
-      fetch('/api/technicians', { headers }).then((r) => (r.ok ? r.json() : null)),
-      fetch('/api/requests', { headers }).then((r) => (r.ok ? r.json() : null)),
+      fetch('/api/customers', { headers, signal: controller.signal }).then((r) => (r.ok ? r.json() : null)),
+      fetch('/api/technicians', { headers, signal: controller.signal }).then((r) => (r.ok ? r.json() : null)),
+      fetch('/api/requests', { headers, signal: controller.signal }).then((r) => (r.ok ? r.json() : null)),
     ])
       .then(([custRes, techRes, reqRes]) => {
+        clearTimeout(timeoutId);
         // If requests arrived, merge them first (which auto-synthesizes customer profiles)
         if (reqRes?.success && Array.isArray(reqRes.data)) {
           dataStore.mergeRequests(reqRes.data);
@@ -100,12 +131,81 @@ export default function AdminContactsPage() {
         setTechnicians(dataStore.getWorkers());
       })
       .catch((err) => {
-        console.warn('Admin contacts sync warning:', err);
+        if (err?.name !== 'AbortError') {
+          console.warn('Admin contacts sync warning:', err);
+        }
       })
       .finally(() => {
         setIsLoading(false);
+        isFetchingRef.current = false;
       });
   }, []);
+
+  const handleDeleteCustomerClick = (customer: Customer) => {
+    setDeleteTarget({
+      type: 'customer',
+      id: customer.id,
+      name: customer.full_name || customer.phone,
+    });
+  };
+
+  const handleDeleteTechnicianClick = (tech: Worker) => {
+    setDeleteTarget({
+      type: 'technician',
+      id: tech.id,
+      name: tech.full_name || tech.phone,
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+
+    const token = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
+      : null;
+
+    const headers: Record<string, string> = {
+      'x-admin-portal': 'true',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+
+    try {
+      const endpoint = deleteTarget.type === 'customer'
+        ? `/api/customers/${encodeURIComponent(deleteTarget.id)}`
+        : `/api/technicians/${encodeURIComponent(deleteTarget.id)}`;
+
+      const res = await fetch(endpoint, { method: 'DELETE', headers });
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to delete record');
+      }
+
+      // Update local state immediately
+      if (deleteTarget.type === 'customer') {
+        dataStore.deleteCustomer(deleteTarget.id);
+        setCustomers((prev) => prev.filter((c) => c.id !== deleteTarget.id));
+        if (selectedCustomer?.customer.id === deleteTarget.id) {
+          setSelectedCustomer(null);
+        }
+        showToast(`Customer enquiry record for "${deleteTarget.name}" deleted permanently.`);
+      } else {
+        dataStore.deleteWorker(deleteTarget.id);
+        setTechnicians((prev) => prev.filter((t) => t.id !== deleteTarget.id));
+        if (selectedTechnician?.id === deleteTarget.id) {
+          setSelectedTechnician(null);
+        }
+        showToast(`Technician "${deleteTarget.name}" deleted permanently.`);
+      }
+      setDeleteTarget(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete record';
+      showToast(msg, 'error');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   React.useEffect(() => {
     loadData();
@@ -295,9 +395,16 @@ export default function AdminContactsPage() {
       return 0;
     });
 
-  const handleOpenCustomer = (customerId: string) => {
-    const full = dataStore.getCustomerById(customerId);
-    if (full) setSelectedCustomer(full);
+  const handleOpenCustomer = (customer: Customer) => {
+    const full = dataStore.getCustomerById(customer.id) || {
+      customer,
+      requests: dataStore.getRequests().filter(
+        (r) =>
+          r.customer_id === customer.id ||
+          (r.customer_phone && customer.phone && r.customer_phone.replace(/\D/g, '').slice(-10) === customer.phone.replace(/\D/g, '').slice(-10))
+      ),
+    };
+    setSelectedCustomer(full);
   };
 
   return (
@@ -568,7 +675,7 @@ export default function AdminContactsPage() {
             filteredCustomers.map((cust) => (
               <div
                 key={cust.id}
-                onClick={() => handleOpenCustomer(cust.id)}
+                onClick={() => handleOpenCustomer(cust)}
                 className="bg-white rounded-2xl p-4 border border-slate-200 hover:border-emerald-500 hover:shadow-xs transition-all cursor-pointer flex items-center justify-between gap-3"
               >
                 <div>
@@ -582,7 +689,7 @@ export default function AdminContactsPage() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-1.5 sm:gap-2" onClick={(e) => e.stopPropagation()}>
                   <a
                     href={getTelUrl(cust.phone)}
                     className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 transition-colors"
@@ -599,6 +706,18 @@ export default function AdminContactsPage() {
                   >
                     <MessageCircle className="w-4 h-4 text-emerald-600" />
                   </a>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteCustomerClick(cust);
+                    }}
+                    className="p-2 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                    title="Delete Customer Record"
+                    aria-label={`Delete customer enquiry for ${cust.full_name}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                   <span className="text-slate-300">
                     <ChevronRight className="w-4 h-4" />
                   </span>
@@ -695,7 +814,7 @@ export default function AdminContactsPage() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 self-end sm:self-auto shrink-0" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-1.5 sm:gap-2 self-end sm:self-auto shrink-0" onClick={(e) => e.stopPropagation()}>
                   <a
                     href={getTelUrl(tech.phone)}
                     className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 transition-colors"
@@ -712,6 +831,18 @@ export default function AdminContactsPage() {
                   >
                     <MessageCircle className="w-4 h-4 text-emerald-600" />
                   </a>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteTechnicianClick(tech);
+                    }}
+                    className="p-2.5 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                    title="Delete Technician Record"
+                    aria-label={`Delete technician ${tech.full_name}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                   <span className="text-slate-300 pl-1">
                     <ChevronRight className="w-4 h-4" />
                   </span>
@@ -794,24 +925,35 @@ export default function AdminContactsPage() {
             </div>
 
             {/* Direct Actions */}
-            <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-2">
-              <a
-                href={getTelUrl(selectedCustomer.customer.phone)}
-                className="py-3 px-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-900 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors text-center"
-              >
-                <PhoneCall className="w-4 h-4 text-emerald-600" />
-                <span>Call Customer</span>
-              </a>
+            <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
+              <div className="grid grid-cols-2 gap-2">
+                <a
+                  href={getTelUrl(selectedCustomer.customer.phone)}
+                  className="py-3 px-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-900 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors text-center"
+                >
+                  <PhoneCall className="w-4 h-4 text-emerald-600" />
+                  <span>Call Customer</span>
+                </a>
 
-              <a
-                href={getWhatsAppUrl(selectedCustomer.customer.phone, `Vanakkam ${selectedCustomer.customer.full_name}, this is VIKASA coordination.`)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="py-3 px-3 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200 flex items-center justify-center gap-1.5 transition-colors text-center"
+                <a
+                  href={getWhatsAppUrl(selectedCustomer.customer.phone, `Vanakkam ${selectedCustomer.customer.full_name}, this is VIKASA coordination.`)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="py-3 px-3 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200 flex items-center justify-center gap-1.5 transition-colors text-center"
+                >
+                  <MessageCircle className="w-4 h-4 text-emerald-600" />
+                  <span>WhatsApp</span>
+                </a>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleDeleteCustomerClick(selectedCustomer.customer)}
+                className="w-full py-2.5 px-3 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
-                <MessageCircle className="w-4 h-4 text-emerald-600" />
-                <span>WhatsApp</span>
-              </a>
+                <Trash2 className="w-4 h-4" />
+                <span>Delete Customer Enquiry Record</span>
+              </button>
             </div>
           </div>
         </div>
@@ -885,26 +1027,65 @@ export default function AdminContactsPage() {
             </div>
 
             {/* Direct Actions */}
-            <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-2">
-              <a
-                href={getTelUrl(selectedTechnician.phone)}
-                className="py-3 px-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-900 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors text-center"
-              >
-                <PhoneCall className="w-4 h-4 text-emerald-600" />
-                <span>Call Technician</span>
-              </a>
+            <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
+              <div className="grid grid-cols-2 gap-2">
+                <a
+                  href={getTelUrl(selectedTechnician.phone)}
+                  className="py-3 px-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-900 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors text-center"
+                >
+                  <PhoneCall className="w-4 h-4 text-emerald-600" />
+                  <span>Call Technician</span>
+                </a>
 
-              <a
-                href={getWhatsAppUrl(selectedTechnician.phone, `Vanakkam ${selectedTechnician.full_name}, this is VIKASA coordination.`)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="py-3 px-3 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200 flex items-center justify-center gap-1.5 transition-colors text-center"
+                <a
+                  href={getWhatsAppUrl(selectedTechnician.phone, `Vanakkam ${selectedTechnician.full_name}, this is VIKASA coordination.`)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="py-3 px-3 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200 flex items-center justify-center gap-1.5 transition-colors text-center"
+                >
+                  <MessageCircle className="w-4 h-4 text-emerald-600" />
+                  <span>WhatsApp</span>
+                </a>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleDeleteTechnicianClick(selectedTechnician)}
+                className="w-full py-2.5 px-3 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
-                <MessageCircle className="w-4 h-4 text-emerald-600" />
-                <span>WhatsApp</span>
-              </a>
+                <Trash2 className="w-4 h-4" />
+                <span>Delete Technician Profile</span>
+              </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={Boolean(deleteTarget)}
+        title={deleteTarget?.type === 'customer' ? 'Delete this record?' : 'Delete technician profile?'}
+        message={
+          deleteTarget?.type === 'customer'
+            ? 'Are you sure you want to permanently delete this customer enquiry? This action cannot be undone.'
+            : 'Are you sure you want to permanently delete this technician record and application? This action cannot be undone.'
+        }
+        recordName={deleteTarget?.name}
+        isDeleting={isDeleting}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
+
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          role="status"
+          className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl shadow-xl text-xs font-bold text-white transition-all animate-in fade-in slide-in-from-bottom-2 ${
+            toast.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'
+          }`}
+        >
+          {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+          <span>{toast.message}</span>
         </div>
       )}
     </div>

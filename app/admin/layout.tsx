@@ -55,9 +55,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     totalWorkers: 0,
   });
 
-  // Check server-side authentication
+  // Check server-side authentication once or when navigating away from login
   useEffect(() => {
     if (isLoginPage) {
+      return;
+    }
+
+    if (isAuthenticated === true) {
       return;
     }
 
@@ -88,7 +92,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return () => {
       isMounted = false;
     };
-  }, [pathname, isLoginPage, router]);
+  }, [isLoginPage, isAuthenticated, router]);
 
   const refreshStats = useCallback(() => {
     const all = dataStore.getRequests();

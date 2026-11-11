@@ -75,3 +75,71 @@ export async function PATCH(
     );
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await authenticateAdmin(request);
+    if (!session) {
+      return unauthorizedResponse('Administrator authorization required to delete technician records');
+    }
+
+    const { id } = await params;
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: 'Valid technician ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // 1. Delete from Supabase if configured
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      try {
+        const { supabase } = await import('@/lib/supabase/client');
+
+        // Check if technician had an ID document stored
+        const { data: dbWorker } = await supabase.from('workers').select('id_document_url, avatar_url').eq('id', id).maybeSingle();
+        if (dbWorker?.id_document_url && dbWorker.id_document_url.includes('/storage/v1/object/public/technician-documents/')) {
+          const filePath = dbWorker.id_document_url.split('/technician-documents/')[1];
+          if (filePath) {
+            await supabase.storage.from('technician-documents').remove([filePath]);
+          }
+        }
+
+        // Clean up foreign key references
+        await supabase.from('worker_contact_attempts').delete().eq('worker_id', id);
+        await supabase.from('worker_services').delete().eq('worker_id', id);
+        await supabase.from('service_requests').update({
+          assigned_worker_id: null,
+          assigned_worker_name: null,
+          assigned_worker_phone: null,
+        }).eq('assigned_worker_id', id);
+
+        // Delete main worker record
+        const { error: dbError } = await supabase.from('workers').delete().eq('id', id);
+        if (dbError) {
+          console.warn('Supabase worker delete warning:', dbError.message);
+        }
+      } catch (dbErr) {
+        console.warn('Could not delete worker from Supabase:', dbErr);
+      }
+    }
+
+    // 2. Delete from local dataStore
+    dataStore.deleteWorker(id);
+
+    return NextResponse.json({
+      success: true,
+      message: 'Technician record and application permanently deleted',
+      deletedId: id,
+    });
+  } catch (error) {
+    console.error('Delete technician error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to delete technician' },
+      { status: 500 }
+    );
+  }
+}

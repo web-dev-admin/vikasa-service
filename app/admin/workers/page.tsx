@@ -158,13 +158,37 @@ export default function AdminWorkersPage() {
     setView('list');
   };
 
-  const confirmDelete = () => {
-    if (selectedWorker) {
+  const confirmDelete = async () => {
+    if (!selectedWorker) return;
+
+    const token = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
+      : null;
+
+    const headers: Record<string, string> = {
+      'x-admin-portal': 'true',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+
+    try {
+      const res = await fetch(`/api/technicians/${encodeURIComponent(selectedWorker.id)}`, {
+        method: 'DELETE',
+        headers,
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to delete technician');
+      }
       dataStore.deleteWorker(selectedWorker.id);
       refreshWorkers();
-      showToast(`Technician ${selectedWorker.full_name} archived.`);
+      showToast(`Technician "${selectedWorker.full_name}" permanently deleted from database.`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete technician';
+      showToast(msg);
+    } finally {
+      setView('list');
+      setSelectedWorker(null);
     }
-    setView('list');
   };
 
   const filteredWorkers = workers.filter((w) => {
@@ -535,24 +559,24 @@ export default function AdminWorkersPage() {
           </div>
 
           <div className="space-y-1">
-            <h2 className="text-base font-black text-slate-900">Archive Technician?</h2>
+            <h2 className="text-base font-black text-slate-900">Delete technician profile?</h2>
             <p className="text-xs text-slate-600">
-              Are you sure you want to remove <strong>{selectedWorker.full_name}</strong> from the active technician directory? Historical records will remain preserved in audit logs.
+              Are you sure you want to permanently delete <strong>{selectedWorker.full_name}</strong> and all associated technician records? This action cannot be undone.
             </p>
           </div>
 
           <div className="flex items-center gap-2 pt-2">
             <button
               onClick={() => setView('list')}
-              className="flex-1 py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold min-h-[42px]"
+              className="flex-1 py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold min-h-[42px] cursor-pointer"
             >
               Cancel
             </button>
             <button
               onClick={confirmDelete}
-              className="flex-1 py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold min-h-[42px]"
+              className="flex-1 py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold min-h-[42px] cursor-pointer"
             >
-              Confirm Remove
+              Delete Permanently
             </button>
           </div>
         </div>

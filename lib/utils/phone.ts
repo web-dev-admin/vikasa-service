@@ -94,6 +94,58 @@ export function getWhatsAppUrl(phone: string, message: string): string {
   return `https://wa.me/${norm}?text=${encodeURIComponent(message)}`;
 }
 
+export interface WhatsAppMessageOptions {
+  service?: string;
+  serviceName?: string;
+  name?: string;
+  customerName?: string;
+  location?: string;
+  district?: string;
+  address?: string;
+  details?: string;
+  problemDescription?: string;
+  lang?: 'en' | 'ta';
+  targetPhone?: string;
+}
+
+/**
+ * Standardized VIKASA Home Services WhatsApp URL Generator
+ * Generates clean bilingual pre-filled home-service enquiry messages
+ * with dynamic service injection and proper URL encoding.
+ */
+export function getHomeServiceWhatsAppUrl(options: WhatsAppMessageOptions = {}): string {
+  const service = options.service || options.serviceName || '';
+  const name = options.name || options.customerName || '';
+  const location = options.location || [options.address, options.district].filter(Boolean).join(', ') || options.district || '';
+  const details = options.details || options.problemDescription || '';
+  const lang = options.lang || 'en';
+  const targetPhone = options.targetPhone || '9865652420';
+
+  let serviceDisplay = service.trim();
+  if (serviceDisplay) {
+    const sLower = serviceDisplay.toLowerCase();
+    if (!sLower.includes('enquiry') && !serviceDisplay.includes('சேவை')) {
+      if (sLower.includes('electric')) serviceDisplay = lang === 'ta' ? 'மின்சார வேலை (Electrical)' : 'Electrical service enquiry';
+      else if (sLower.includes('plumb')) serviceDisplay = lang === 'ta' ? 'குழாய் பழுது (Plumbing)' : 'Plumbing service enquiry';
+      else if (sLower.includes('carpent') || sLower.includes('wood')) serviceDisplay = lang === 'ta' ? 'மர வேலை (Carpentry)' : 'Carpentry service enquiry';
+      else if (sLower.includes('paint')) serviceDisplay = lang === 'ta' ? 'பெயிண்டிங் (Painting)' : 'Painting service enquiry';
+      else if (sLower.includes('interior') || sLower.includes('kitchen')) serviceDisplay = lang === 'ta' ? 'உள் அலங்காரம் (Interior Design)' : 'Interior design enquiry';
+      else if (sLower.includes('ac') || sLower.includes('appliance')) serviceDisplay = lang === 'ta' ? 'ஏசி & உபகரணங்கள் (AC Service)' : 'AC & Appliance service enquiry';
+      else if (sLower.includes('clean')) serviceDisplay = lang === 'ta' ? 'சுத்தம் செய்தல் (Cleaning)' : 'Cleaning service enquiry';
+      else serviceDisplay = lang === 'ta' ? `${serviceDisplay} சேவை` : `${serviceDisplay} service enquiry`;
+    }
+  }
+
+  let text = '';
+  if (lang === 'ta') {
+    text = `வணக்கம் Vikasa Services!\n\nஎனக்கு வீட்டிற்கான ஒரு சேவை தேவைப்படுகிறது.\n\nபெயர்: ${name || 'வாடிக்கையாளர்'}\nதேவையான சேவை: ${serviceDisplay || 'பொதுவான வீட்டு சேவை'}\nஇடம்: ${location || 'தமிழ்நாடு'}\nசேவை பற்றிய விவரங்கள்: ${details || 'நேரடி அழைப்பில் விவரிக்கப்படும்'}\n\nதயவுசெய்து என்னைத் தொடர்புகொண்டு உதவவும்.\n\nநன்றி!`;
+  } else {
+    text = `Hello Vikasa Services!\n\nI would like to enquire about a home service.\n\nName: ${name || 'Customer'}\nRequired Service: ${serviceDisplay || 'General Home Service'}\nLocation: ${location || 'Tamil Nadu'}\nService Details: ${details || 'Will explain on call'}\n\nPlease contact me and help me with my home service requirement.\n\nThank you!`;
+  }
+
+  return getWhatsAppUrl(targetPhone, text);
+}
+
 /**
  * Pre-formatted operational message for customer verification
  * NOTE: Contains ONLY safe public metadata (request number, service).

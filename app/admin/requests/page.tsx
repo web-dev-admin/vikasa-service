@@ -31,7 +31,9 @@ import {
   Check,
   AlertCircle,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
+import DeleteConfirmationModal from '@/components/admin/DeleteConfirmationModal';
 import { getTelUrl, getWhatsAppUrl } from '@/lib/utils/phone';
 
 export default function AdminRequestsPage() {
@@ -51,6 +53,56 @@ export default function AdminRequestsPage() {
   const [techFilterAvailability, setTechFilterAvailability] = useState<string>('ALL');
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Deletion State
+  const [deleteTarget, setDeleteTarget] = useState<ServiceRequest | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteRequestClick = (req: ServiceRequest) => {
+    setDeleteTarget(req);
+  };
+
+  const handleConfirmDeleteRequest = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+
+    const token = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
+      : null;
+
+    const headers: Record<string, string> = {
+      'x-admin-portal': 'true',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+
+    try {
+      const res = await fetch(`/api/requests/${encodeURIComponent(deleteTarget.id)}`, {
+        method: 'DELETE',
+        headers,
+      });
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to delete service request');
+      }
+
+      dataStore.deleteRequest(deleteTarget.id);
+      setRequests((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+      if (selectedRequest?.id === deleteTarget.id) {
+        setSelectedRequest(null);
+      }
+      if (assigningRequest?.id === deleteTarget.id) {
+        setAssigningRequest(null);
+      }
+      showToast(`Service enquiry #${deleteTarget.request_number} deleted permanently.`);
+      setDeleteTarget(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete request';
+      showToast(msg);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const loadData = useCallback(() => {
     // 1. Immediately hydrate from local store
@@ -391,9 +443,23 @@ export default function AdminRequestsPage() {
                     </div>
                   </div>
 
-                  <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${badge.className}`}>
-                    {badge.label}
-                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${badge.className}`}>
+                      {badge.label}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteRequestClick(req);
+                      }}
+                      className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                      title="Delete Service Enquiry"
+                      aria-label={`Delete enquiry #${req.request_number}`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {isAssigned && req.assigned_worker_name && (
@@ -585,6 +651,15 @@ export default function AdminRequestsPage() {
                 Cancel &amp; Archive Booking
               </button>
             )}
+
+            <button
+              type="button"
+              onClick={() => handleDeleteRequestClick(selectedRequest)}
+              className="w-full py-2.5 px-3 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Delete Service Enquiry Record</span>
+            </button>
           </div>
         </div>
       )}
@@ -774,6 +849,21 @@ export default function AdminRequestsPage() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={Boolean(deleteTarget)}
+        title="Delete this record?"
+        message="Are you sure you want to permanently delete this customer enquiry? This action cannot be undone."
+        recordName={
+          deleteTarget
+            ? `#${deleteTarget.request_number} — ${deleteTarget.customer_name} (${deleteTarget.service_name})`
+            : undefined
+        }
+        isDeleting={isDeleting}
+        onConfirm={handleConfirmDeleteRequest}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 import { VIKASA_CONFIG } from '@/lib/constants';
 import PWARegistration from '@/components/pwa/PWARegistration';
 
-const inter = Inter({ subsets: ['latin'], display: 'swap' });
+// High-performance system typography stack with zero font-download latency
+const inter = { className: 'font-sans' };
 
 const productionUrl = 'https://vikasaservices.in';
 // Ensure canonical URLs always resolve against the production domain, never preview deployments
