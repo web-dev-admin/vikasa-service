@@ -66,8 +66,11 @@ export default function AdminContactsPage() {
     type: 'customer' | 'technician';
     id: string;
     name: string;
+    phone?: string;
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const deletedCustomerIdsRef = React.useRef<Set<string>>(new Set());
+  const deletedWorkerIdsRef = React.useRef<Set<string>>(new Set());
 
   const isFetchingRef = React.useRef(false);
   const abortControllerRef = React.useRef<AbortController | null>(null);
@@ -78,9 +81,19 @@ export default function AdminContactsPage() {
   };
 
   const loadData = React.useCallback(() => {
-    // 1. Immediately hydrate from local store
-    setCustomers(dataStore.getCustomers());
-    setTechnicians(dataStore.getWorkers());
+    // 1. Immediately hydrate from local store filtering out blacklisted deleted entries
+    setCustomers(
+      dataStore.getCustomers().filter((c) => {
+        const cleanP = c.phone ? c.phone.replace(/\D/g, '').slice(-10) : '';
+        return !deletedCustomerIdsRef.current.has(c.id) && (!cleanP || !deletedCustomerIdsRef.current.has(cleanP));
+      })
+    );
+    setTechnicians(
+      dataStore.getWorkers().filter((w) => {
+        const cleanP = w.phone ? w.phone.replace(/\D/g, '').slice(-10) : '';
+        return !deletedWorkerIdsRef.current.has(w.id) && (!cleanP || !deletedWorkerIdsRef.current.has(cleanP));
+      })
+    );
 
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
@@ -126,9 +139,19 @@ export default function AdminContactsPage() {
           dataStore.mergeWorkers(techRes.data);
         }
 
-        // Re-read finalized unified state
-        setCustomers(dataStore.getCustomers());
-        setTechnicians(dataStore.getWorkers());
+        // Re-read finalized unified state, strictly applying deleted filter
+        setCustomers(
+          dataStore.getCustomers().filter((c) => {
+            const cleanP = c.phone ? c.phone.replace(/\D/g, '').slice(-10) : '';
+            return !deletedCustomerIdsRef.current.has(c.id) && (!cleanP || !deletedCustomerIdsRef.current.has(cleanP));
+          })
+        );
+        setTechnicians(
+          dataStore.getWorkers().filter((w) => {
+            const cleanP = w.phone ? w.phone.replace(/\D/g, '').slice(-10) : '';
+            return !deletedWorkerIdsRef.current.has(w.id) && (!cleanP || !deletedWorkerIdsRef.current.has(cleanP));
+          })
+        );
       })
       .catch((err) => {
         if (err?.name !== 'AbortError') {
@@ -146,6 +169,7 @@ export default function AdminContactsPage() {
       type: 'customer',
       id: customer.id,
       name: customer.full_name || customer.phone,
+      phone: customer.phone,
     });
   };
 
@@ -154,12 +178,24 @@ export default function AdminContactsPage() {
       type: 'technician',
       id: tech.id,
       name: tech.full_name || tech.phone,
+      phone: tech.phone,
     });
   };
 
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
     setIsDeleting(true);
+
+    const targetId = deleteTarget.id;
+    const targetPhone = deleteTarget.phone ? deleteTarget.phone.replace(/\D/g, '').slice(-10) : '';
+
+    if (deleteTarget.type === 'customer') {
+      deletedCustomerIdsRef.current.add(targetId);
+      if (targetPhone) deletedCustomerIdsRef.current.add(targetPhone);
+    } else {
+      deletedWorkerIdsRef.current.add(targetId);
+      if (targetPhone) deletedWorkerIdsRef.current.add(targetPhone);
+    }
 
     const token = typeof window !== 'undefined'
       ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
@@ -172,8 +208,8 @@ export default function AdminContactsPage() {
 
     try {
       const endpoint = deleteTarget.type === 'customer'
-        ? `/api/customers/${encodeURIComponent(deleteTarget.id)}`
-        : `/api/technicians/${encodeURIComponent(deleteTarget.id)}`;
+        ? `/api/customers/${encodeURIComponent(targetId)}`
+        : `/api/technicians/${encodeURIComponent(targetId)}`;
 
       const res = await fetch(endpoint, { method: 'DELETE', headers });
       const json = await res.json();
@@ -184,22 +220,29 @@ export default function AdminContactsPage() {
 
       // Update local state immediately
       if (deleteTarget.type === 'customer') {
-        dataStore.deleteCustomer(deleteTarget.id);
-        setCustomers((prev) => prev.filter((c) => c.id !== deleteTarget.id));
-        if (selectedCustomer?.customer.id === deleteTarget.id) {
+        dataStore.deleteCustomer(targetId);
+        setCustomers((prev) => prev.filter((c) => c.id !== targetId && (!targetPhone || !c.phone.includes(targetPhone))));
+        if (selectedCustomer?.customer.id === targetId) {
           setSelectedCustomer(null);
         }
         showToast(`Customer enquiry record for "${deleteTarget.name}" deleted permanently.`);
       } else {
-        dataStore.deleteWorker(deleteTarget.id);
-        setTechnicians((prev) => prev.filter((t) => t.id !== deleteTarget.id));
-        if (selectedTechnician?.id === deleteTarget.id) {
+        dataStore.deleteWorker(targetId);
+        setTechnicians((prev) => prev.filter((t) => t.id !== targetId && (!targetPhone || !t.phone.includes(targetPhone))));
+        if (selectedTechnician?.id === targetId) {
           setSelectedTechnician(null);
         }
         showToast(`Technician "${deleteTarget.name}" deleted permanently.`);
       }
       setDeleteTarget(null);
     } catch (err) {
+      if (deleteTarget.type === 'customer') {
+        deletedCustomerIdsRef.current.delete(targetId);
+        if (targetPhone) deletedCustomerIdsRef.current.delete(targetPhone);
+      } else {
+        deletedWorkerIdsRef.current.delete(targetId);
+        if (targetPhone) deletedWorkerIdsRef.current.delete(targetPhone);
+      }
       const msg = err instanceof Error ? err.message : 'Failed to delete record';
       showToast(msg, 'error');
     } finally {

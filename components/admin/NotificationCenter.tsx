@@ -24,6 +24,7 @@ import {
   getNotificationPermissionStatus,
   enableAdminPushNotifications,
 } from '@/lib/notifications/fcmClient';
+import { audioAlert } from '@/lib/utils/audioAlert';
 
 export default function NotificationCenter({ adminEmail }: { adminEmail: string }) {
   const router = useRouter();
@@ -76,6 +77,7 @@ export default function NotificationCenter({ adminEmail }: { adminEmail: string 
       if (customEvent.detail) {
         setNotifications((prev) => [customEvent.detail, ...prev]);
         setUnreadCount((c) => c + 1);
+        audioAlert.triggerFullAlert();
       }
     };
 

@@ -61,11 +61,26 @@ export async function DELETE(
     // 1. Delete from Supabase if configured
     if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       try {
+        // Find request IDs to delete child references
+        const { data: relatedReqs } = await supabase
+          .from('service_requests')
+          .select('id')
+          .or(`customer_id.eq.${id}${cleanPhone ? `,customer_phone.ilike.%${cleanPhone}%` : ''}`);
+
+        if (Array.isArray(relatedReqs) && relatedReqs.length > 0) {
+          const reqIds = relatedReqs.map((r) => r.id);
+          for (const reqId of reqIds) {
+            await supabase.from('assignments').delete().eq('request_id', reqId);
+            await supabase.from('worker_contact_attempts').delete().eq('request_id', reqId);
+          }
+        }
+
         // Delete related requests from Supabase
         if (cleanPhone) {
           await supabase.from('service_requests').delete().ilike('customer_phone', `%${cleanPhone}%`);
         }
         await supabase.from('service_requests').delete().eq('customer_id', id);
+
         // Delete customer record
         await supabase.from('customers').delete().eq('id', id);
         if (cleanPhone) {

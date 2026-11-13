@@ -11,8 +11,10 @@ import {
   WebsiteContent,
   AdminNotification,
   AdminDeviceToken,
+  ServiceItem,
 } from '@/types';
 import { INITIAL_CATEGORIES, INITIAL_SERVICES } from '@/lib/taxonomy/catalog';
+import { STANDARDIZED_SERVICES } from '@/lib/constants';
 import { DEFAULT_WEBSITE_CONTENT } from '@/lib/data/website_content';
 
 // Primary Headquarters: Erode, Tamil Nadu, India (11.3410° N, 77.7172° E)
@@ -42,6 +44,7 @@ class VikasaDataStore {
   private auditLogs: AuditLog[] = [];
   private notifications: AdminNotification[] = [];
   private deviceTokens: AdminDeviceToken[] = [];
+  private customServices: ServiceItem[] = [];
   private websiteContent: WebsiteContent = { ...DEFAULT_WEBSITE_CONTENT };
   private initialized = false;
 
@@ -122,6 +125,13 @@ class VikasaDataStore {
         const savedTokens = localStorage.getItem('vikasa_device_tokens');
         if (savedTokens) this.deviceTokens = JSON.parse(savedTokens);
 
+        const savedServices = localStorage.getItem('vikasa_custom_services');
+        if (savedServices) {
+          try {
+            this.customServices = JSON.parse(savedServices);
+          } catch {}
+        }
+
         const savedContent = localStorage.getItem('vikasa_website_content');
         if (savedContent) {
           try {
@@ -147,6 +157,7 @@ class VikasaDataStore {
         localStorage.setItem('vikasa_logs', JSON.stringify(this.auditLogs));
         localStorage.setItem('vikasa_notifications', JSON.stringify(this.notifications));
         localStorage.setItem('vikasa_device_tokens', JSON.stringify(this.deviceTokens));
+        localStorage.setItem('vikasa_custom_services', JSON.stringify(this.customServices));
         localStorage.setItem('vikasa_website_content', JSON.stringify(this.websiteContent));
         window.dispatchEvent(new Event('vikasa_data_updated'));
       } catch (e) {
@@ -1042,7 +1053,115 @@ class VikasaDataStore {
     this.customers = [];
     this.contactAttempts = [];
     this.auditLogs = [];
+    this.notifications = [];
     this.persist();
+  }
+
+  // --- Dynamic Service Management ---
+  getAllServices(): (ServiceItem & { price_estimate?: string })[] {
+    this.init();
+
+    // Standard base services
+    const standardDescriptions: Record<string, string> = {
+      'Interior Design': 'Modular kitchens, false ceiling, wardrobes, woodwork & 3D planning',
+      'Carpentry & Plywood Work': 'Door locks, hinges, wood furniture repairs, custom fittings',
+      'Painting & Wall Finish': 'Interior touch-up, wall crack repair, full house repaint & putty',
+      'Electrical & Lighting': 'Switchboards, MCB, ceiling fans, lighting, wiring & safety checks',
+      'Plumbing': 'Taps, pipe leaks, flush tanks, water tank fittings & motor repair',
+      'AC & Appliances': 'AC jet cleaning, gas charging, cooling faults & domestic appliance repair',
+      'Cleaning': 'Bathroom deep clean, water tank cleaning & comprehensive sanitization',
+      'Other Services': 'Custom specialized home requirements and on-demand repairs',
+    };
+
+    const standard: (ServiceItem & { price_estimate?: string })[] = STANDARDIZED_SERVICES.map((s, idx) => ({
+      id: s.id,
+      category_id: s.slug || 'cat-general',
+      name: s.name,
+      slug: s.slug,
+      description: standardDescriptions[s.name] || `${s.name} doorstep service`,
+      price_estimate: s.id === 'srv-interior' ? 'Free Consultation' : 'From ₹199',
+      is_active: s.active !== false,
+      sort_order: idx + 1,
+      created_at: '2026-01-01T00:00:00.000Z',
+    }));
+
+    // Merge custom services (custom services take priority or append)
+    const customMap = new Map<string, ServiceItem & { price_estimate?: string }>();
+    for (const cs of this.customServices) {
+      customMap.set(cs.id, cs);
+      customMap.set(cs.name.toLowerCase(), cs);
+    }
+
+    const merged: (ServiceItem & { price_estimate?: string })[] = [];
+    for (const std of standard) {
+      if (customMap.has(std.id)) {
+        merged.push(customMap.get(std.id)!);
+      } else if (customMap.has(std.name.toLowerCase())) {
+        merged.push(customMap.get(std.name.toLowerCase())!);
+      } else {
+        merged.push(std);
+      }
+    }
+
+    for (const cs of this.customServices) {
+      if (!merged.some((m) => m.id === cs.id || m.name.toLowerCase() === cs.name.toLowerCase())) {
+        merged.push(cs);
+      }
+    }
+
+    return merged;
+  }
+
+  addCustomService(serviceData: {
+    id?: string;
+    name: string;
+    category_id?: string;
+    description?: string;
+    price_estimate?: string;
+    is_active?: boolean;
+    sort_order?: number;
+  }): ServiceItem & { price_estimate?: string } {
+    this.init();
+    const cleanName = serviceData.name.trim();
+    const cleanSlug = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const newService: ServiceItem & { price_estimate?: string } = {
+      id: serviceData.id || `srv-${cleanSlug}-${Date.now().toString().slice(-4)}`,
+      category_id: serviceData.category_id || 'cat-other',
+      name: cleanName,
+      slug: cleanSlug,
+      description: serviceData.description?.trim() || `${cleanName} professional doorstep service`,
+      price_estimate: serviceData.price_estimate?.trim() || 'Custom Quote',
+      is_active: serviceData.is_active !== false,
+      sort_order: serviceData.sort_order || this.customServices.length + 10,
+      created_at: new Date().toISOString(),
+    };
+
+    // Remove existing if replacing by ID or name
+    this.customServices = this.customServices.filter(
+      (s) => s.id !== newService.id && s.name.toLowerCase() !== newService.name.toLowerCase()
+    );
+    this.customServices.push(newService);
+    this.persist();
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('vikasa_services_updated', { detail: newService }));
+    }
+
+    return newService;
+  }
+
+  deleteCustomService(id: string): boolean {
+    this.init();
+    const prevLen = this.customServices.length;
+    this.customServices = this.customServices.filter((s) => s.id !== id);
+    const changed = this.customServices.length !== prevLen;
+    if (changed) {
+      this.persist();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('vikasa_services_updated'));
+      }
+    }
+    return changed;
   }
 }
 

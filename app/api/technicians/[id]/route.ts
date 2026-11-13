@@ -109,6 +109,7 @@ export async function DELETE(
         }
 
         // Clean up foreign key references
+        await supabase.from('assignments').delete().eq('worker_id', id);
         await supabase.from('worker_contact_attempts').delete().eq('worker_id', id);
         await supabase.from('worker_services').delete().eq('worker_id', id);
         await supabase.from('service_requests').update({
@@ -117,10 +118,12 @@ export async function DELETE(
           assigned_worker_phone: null,
         }).eq('assigned_worker_id', id);
 
+        const cleanPhone = id.replace(/\D/g, '').slice(-10);
+
         // Delete main worker record
-        const { error: dbError } = await supabase.from('workers').delete().eq('id', id);
-        if (dbError) {
-          console.warn('Supabase worker delete warning:', dbError.message);
+        await supabase.from('workers').delete().eq('id', id);
+        if (cleanPhone) {
+          await supabase.from('workers').delete().ilike('phone', `%${cleanPhone}%`);
         }
       } catch (dbErr) {
         console.warn('Could not delete worker from Supabase:', dbErr);

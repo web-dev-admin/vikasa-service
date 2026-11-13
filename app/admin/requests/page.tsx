@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { dataStore } from '@/lib/data/store';
 import {
@@ -57,6 +57,7 @@ export default function AdminRequestsPage() {
   // Deletion State
   const [deleteTarget, setDeleteTarget] = useState<ServiceRequest | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const deletedIdsRef = useRef<Set<string>>(new Set());
 
   const handleDeleteRequestClick = (req: ServiceRequest) => {
     setDeleteTarget(req);
@@ -65,6 +66,15 @@ export default function AdminRequestsPage() {
   const handleConfirmDeleteRequest = async () => {
     if (!deleteTarget) return;
     setIsDeleting(true);
+
+    const targetId = deleteTarget.id;
+    const targetToken = deleteTarget.tracking_token;
+    const targetNum = String(deleteTarget.request_number);
+
+    // Register into memory blacklist immediately to prevent any polling race reintroduction
+    deletedIdsRef.current.add(targetId);
+    if (targetToken) deletedIdsRef.current.add(targetToken);
+    if (targetNum) deletedIdsRef.current.add(targetNum);
 
     const token = typeof window !== 'undefined'
       ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
@@ -76,7 +86,7 @@ export default function AdminRequestsPage() {
     };
 
     try {
-      const res = await fetch(`/api/requests/${encodeURIComponent(deleteTarget.id)}`, {
+      const res = await fetch(`/api/requests/${encodeURIComponent(targetId)}`, {
         method: 'DELETE',
         headers,
       });
@@ -86,17 +96,20 @@ export default function AdminRequestsPage() {
         throw new Error(json.error || 'Failed to delete service request');
       }
 
-      dataStore.deleteRequest(deleteTarget.id);
-      setRequests((prev) => prev.filter((r) => r.id !== deleteTarget.id));
-      if (selectedRequest?.id === deleteTarget.id) {
+      dataStore.deleteRequest(targetId);
+      setRequests((prev) => prev.filter((r) => r.id !== targetId && r.tracking_token !== targetToken));
+      if (selectedRequest?.id === targetId || selectedRequest?.tracking_token === targetToken) {
         setSelectedRequest(null);
       }
-      if (assigningRequest?.id === deleteTarget.id) {
+      if (assigningRequest?.id === targetId) {
         setAssigningRequest(null);
       }
-      showToast(`Service enquiry #${deleteTarget.request_number} deleted permanently.`);
+      showToast(`Service enquiry #${targetNum} deleted permanently.`);
       setDeleteTarget(null);
     } catch (err) {
+      deletedIdsRef.current.delete(targetId);
+      if (targetToken) deletedIdsRef.current.delete(targetToken);
+      if (targetNum) deletedIdsRef.current.delete(targetNum);
       const msg = err instanceof Error ? err.message : 'Failed to delete request';
       showToast(msg);
     } finally {
@@ -105,8 +118,10 @@ export default function AdminRequestsPage() {
   };
 
   const loadData = useCallback(() => {
-    // 1. Immediately hydrate from local store
-    const allRequests = dataStore.getRequests();
+    // 1. Immediately hydrate from local store, strictly filtering deleted records
+    const allRequests = dataStore.getRequests().filter(
+      (r) => !deletedIdsRef.current.has(r.id) && !deletedIdsRef.current.has(r.tracking_token)
+    );
     const allWorkers = dataStore.getWorkers();
     setRequests(allRequests);
     setWorkers(allWorkers);
@@ -130,11 +145,14 @@ export default function AdminRequestsPage() {
       .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
         if (json?.success && Array.isArray(json.data)) {
-          dataStore.setRequests(json.data);
-          setRequests(json.data);
+          const cleanList = json.data.filter(
+            (r: ServiceRequest) => !deletedIdsRef.current.has(r.id) && !deletedIdsRef.current.has(r.tracking_token)
+          );
+          dataStore.setRequests(cleanList);
+          setRequests(cleanList);
           setSelectedRequest((prev) => {
             if (!prev) return null;
-            return json.data.find((r: ServiceRequest) => r.id === prev.id) || null;
+            return cleanList.find((r: ServiceRequest) => r.id === prev.id) || null;
           });
         }
       })

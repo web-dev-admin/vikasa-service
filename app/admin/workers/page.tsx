@@ -29,6 +29,7 @@ export default function AdminWorkersPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const deletedWorkerIdsRef = React.useRef<Set<string>>(new Set());
 
   // Form state
   const [formData, setFormData] = useState({
@@ -47,8 +48,10 @@ export default function AdminWorkersPage() {
   };
 
   const refreshWorkers = useCallback(() => {
-    // 1. Immediate local hydration
-    setWorkers(dataStore.getWorkers());
+    // 1. Immediate local hydration, filtering deleted
+    setWorkers(
+      dataStore.getWorkers().filter((w) => !deletedWorkerIdsRef.current.has(w.id))
+    );
 
     // 2. Server API fetch
     const token = typeof window !== 'undefined'
@@ -64,8 +67,11 @@ export default function AdminWorkersPage() {
       .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
         if (json?.success && Array.isArray(json.data)) {
-          dataStore.mergeWorkers(json.data);
-          setWorkers(dataStore.getWorkers());
+          const cleanWorkers = json.data.filter(
+            (w: Worker) => !deletedWorkerIdsRef.current.has(w.id)
+          );
+          dataStore.mergeWorkers(cleanWorkers);
+          setWorkers(cleanWorkers);
         }
       })
       .catch((err) => {
@@ -160,6 +166,9 @@ export default function AdminWorkersPage() {
 
   const confirmDelete = async () => {
     if (!selectedWorker) return;
+    const workerId = selectedWorker.id;
+    const workerName = selectedWorker.full_name;
+    deletedWorkerIdsRef.current.add(workerId);
 
     const token = typeof window !== 'undefined'
       ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
@@ -171,7 +180,7 @@ export default function AdminWorkersPage() {
     };
 
     try {
-      const res = await fetch(`/api/technicians/${encodeURIComponent(selectedWorker.id)}`, {
+      const res = await fetch(`/api/technicians/${encodeURIComponent(workerId)}`, {
         method: 'DELETE',
         headers,
       });
@@ -179,10 +188,11 @@ export default function AdminWorkersPage() {
       if (!res.ok || !json.success) {
         throw new Error(json.error || 'Failed to delete technician');
       }
-      dataStore.deleteWorker(selectedWorker.id);
+      dataStore.deleteWorker(workerId);
       refreshWorkers();
-      showToast(`Technician "${selectedWorker.full_name}" permanently deleted from database.`);
+      showToast(`Technician "${workerName}" permanently deleted from database.`);
     } catch (err) {
+      deletedWorkerIdsRef.current.delete(workerId);
       const msg = err instanceof Error ? err.message : 'Failed to delete technician';
       showToast(msg);
     } finally {

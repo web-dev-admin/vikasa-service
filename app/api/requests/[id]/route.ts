@@ -53,12 +53,15 @@ export async function DELETE(
     // 1. Delete from Supabase if configured
     if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       try {
-        // First delete any associated worker contact attempts to maintain referential integrity
+        // Delete child assignments first
+        await supabase.from('assignments').delete().eq('request_id', id);
+        // Delete associated contact attempts
         await supabase.from('worker_contact_attempts').delete().eq('request_id', id);
-        // Then delete the main service request record
-        const { error: dbError } = await supabase.from('service_requests').delete().eq('id', id);
-        if (dbError) {
-          console.warn('Supabase service_requests delete warning:', dbError.message);
+        // Delete main service request record by id or tracking token
+        await supabase.from('service_requests').delete().or(`id.eq.${id},tracking_token.eq.${id}`);
+        // If numeric request number was provided
+        if (/^\d+$/.test(id)) {
+          await supabase.from('service_requests').delete().eq('request_number', Number(id));
         }
       } catch (dbErr) {
         console.warn('Could not delete service request from Supabase:', dbErr);
@@ -66,7 +69,7 @@ export async function DELETE(
     }
 
     // 2. Delete from local dataStore
-    const deleted = dataStore.deleteRequest(id);
+    dataStore.deleteRequest(id);
 
     return NextResponse.json({
       success: true,

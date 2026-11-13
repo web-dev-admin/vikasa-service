@@ -1,5 +1,7 @@
 'use client';
 
+import { audioAlert } from '@/lib/utils/audioAlert';
+
 export interface PushSubscriptionResult {
   success: boolean;
   token?: string;
@@ -98,6 +100,9 @@ export async function enableAdminPushNotifications(adminEmail: string): Promise<
     if (!res.ok || !json.success) {
       throw new Error(json.error || 'Failed to save device token on server');
     }
+
+    // Play activation chime and tactile vibration confirmation
+    audioAlert.triggerFullAlert();
 
     return {
       success: true,

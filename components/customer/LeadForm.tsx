@@ -25,6 +25,8 @@ import {
   ShieldCheck,
   Languages,
   Sparkles,
+  Info,
+  X,
 } from 'lucide-react';
 import { Language, TRANSLATIONS } from '@/lib/taxonomy/i18n';
 
@@ -135,6 +137,31 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
   const [district, setDistrict] = useState('Erode');
   const [address, setAddress] = useState('');
   const [description, setDescription] = useState('');
+
+  const [availableServices, setAvailableServices] = useState(() => dataStore.getAllServices());
+  const [showServiceInfo, setShowServiceInfo] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/services')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json?.success && Array.isArray(json.data) && json.data.length > 0) {
+          setAvailableServices(json.data);
+        }
+      })
+      .catch(() => {});
+
+    const handleServicesUpdate = () => {
+      setAvailableServices(dataStore.getAllServices());
+    };
+
+    window.addEventListener('vikasa_services_updated', handleServicesUpdate);
+    window.addEventListener('vikasa_data_updated', handleServicesUpdate);
+    return () => {
+      window.removeEventListener('vikasa_services_updated', handleServicesUpdate);
+      window.removeEventListener('vikasa_data_updated', handleServicesUpdate);
+    };
+  }, []);
 
   // Location Coordinates & Geolocation State
   const [latitude, setLatitude] = useState(ERODE_CENTER.lat);
@@ -511,51 +538,115 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
           )}
         </div>
 
-        {/* 3. Service Selector */}
-        <div className="space-y-1.5">
-          <span id="lead-service-label" className="block text-xs font-bold text-slate-700">
-            {t.serviceLabel} <span className="text-red-500">*</span>
-          </span>
-          <div
-            role="radiogroup"
-            aria-labelledby="lead-service-label"
-            className="grid grid-cols-2 sm:grid-cols-4 gap-2"
-          >
-            {STANDARDIZED_SERVICES.map((s) => {
-              const localizedName = t.services[s.name]?.name || s.name;
-              const isSelected = service.toLowerCase() === s.name.toLowerCase();
+        {/* 3. Service Selector Dropdown & "i" Info Tooltip */}
+        {(() => {
+          const activeServiceObj = availableServices.find(
+            (s) => s.name.toLowerCase() === service.toLowerCase() || s.id === service
+          );
+          const localizedServiceName = t.services[service]?.name || activeServiceObj?.name || service;
+          const currentServiceDescription =
+            t.services[service]?.description ||
+            activeServiceObj?.description ||
+            (lang === 'ta'
+              ? 'விகாசா சரிபார்க்கப்பட்ட தொழில் வல்லுநர்கள் வழங்கும் நம்பகமான சேவை.'
+              : 'Verified Vikasa technician doorstep service with transparent rates.');
+          const currentServicePrice = activeServiceObj?.price_estimate;
 
-              return (
+          return (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label htmlFor="lead-service" className="block text-xs font-bold text-slate-700">
+                  {t.serviceLabel} <span className="text-red-500">*</span>
+                </label>
+                <span className="text-[11px] text-slate-500 font-medium">
+                  {lang === 'ta' ? 'ஒரு சேவையை மட்டும் தேர்வு செய்யவும்' : 'Select one service'}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <select
+                    id="lead-service"
+                    value={service}
+                    onChange={(e) => {
+                      setService(e.target.value);
+                      setShowServiceInfo(true);
+                    }}
+                    aria-invalid={Boolean(errors.service)}
+                    aria-describedby={errors.service ? 'lead-service-error' : undefined}
+                    className={`w-full px-4 py-3 min-h-[48px] rounded-2xl border text-sm font-semibold transition-all bg-white text-slate-900 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 focus-visible:border-emerald-600 ${
+                      errors.service ? 'border-red-400 bg-red-50/20' : 'border-slate-200'
+                    }`}
+                  >
+                    <option value="" disabled>
+                      {lang === 'ta' ? '-- சேவையைத் தேர்ந்தெடுக்கவும் --' : '-- Choose a Service --'}
+                    </option>
+                    {availableServices
+                      .filter((s) => s.is_active !== false)
+                      .map((s) => {
+                        const displayName = t.services[s.name]?.name || s.name;
+                        return (
+                          <option key={s.id} value={s.name}>
+                            {displayName}
+                          </option>
+                        );
+                      })}
+                  </select>
+                </div>
+
                 <button
-                  key={s.id}
                   type="button"
-                  role="radio"
-                  aria-checked={isSelected}
-                  tabIndex={isSelected ? 0 : -1}
-                  onClick={() => setService(s.name)}
-                  onKeyDown={(e) => {
-                    if (e.key === ' ' || e.key === 'Enter') {
-                      e.preventDefault();
-                      setService(s.name);
-                    }
-                  }}
-                  className={`min-h-[46px] p-2.5 rounded-xl border text-left text-xs font-bold transition-all flex flex-col justify-between cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 ${
-                    isSelected
-                      ? 'bg-emerald-50 border-emerald-600 text-emerald-950 ring-2 ring-emerald-500/20'
-                      : 'bg-slate-50/70 border-slate-200 text-slate-700 hover:bg-slate-100'
+                  onClick={() => setShowServiceInfo((prev) => !prev)}
+                  aria-label={lang === 'ta' ? 'சேவை விவரங்களைப் பார்க்க' : 'View service details'}
+                  title={lang === 'ta' ? 'சேவை விளக்கம்' : 'Click for service details'}
+                  className={`min-h-[48px] min-w-[48px] rounded-2xl border flex items-center justify-center transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 active:scale-95 shadow-xs ${
+                    showServiceInfo
+                      ? 'bg-emerald-600 text-white border-emerald-600'
+                      : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border-emerald-200'
                   }`}
                 >
-                  <span className="truncate">{localizedName}</span>
+                  <Info className="w-5 h-5" />
                 </button>
-              );
-            })}
-          </div>
-          {errors.service && (
-            <p id="lead-service-error" role="alert" className="text-[11px] text-red-700 font-medium">
-              {errors.service}
-            </p>
-          )}
-        </div>
+              </div>
+
+              {/* "i" Info Card displaying short description */}
+              {showServiceInfo && service && (
+                <div className="p-3.5 bg-emerald-50/90 border border-emerald-200 rounded-2xl text-xs space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-emerald-950 flex items-center gap-1.5">
+                      <Info className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                      <span>{localizedServiceName}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowServiceInfo(false)}
+                      className="text-slate-400 hover:text-slate-700 p-0.5 rounded-md cursor-pointer"
+                      aria-label="Close"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-slate-700 leading-relaxed">
+                    {currentServiceDescription}
+                  </p>
+                  {currentServicePrice && (
+                    <div className="pt-0.5">
+                      <span className="inline-block text-[10px] font-bold text-emerald-800 bg-white px-2 py-0.5 rounded-lg border border-emerald-200">
+                        {currentServicePrice}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {errors.service && (
+                <p id="lead-service-error" role="alert" className="text-[11px] text-red-700 font-medium">
+                  {errors.service}
+                </p>
+              )}
+            </div>
+          );
+        })()}
 
         {/* 3b. Custom Service Input (if "Other" selected) */}
         {isOtherSelected && (
