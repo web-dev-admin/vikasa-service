@@ -527,6 +527,15 @@ export default function AdminRequestsPage() {
               {technicianReqsCount}
             </span>
           </button>
+
+          <Link
+            href="/admin/suggestions"
+            className="ml-auto px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap bg-indigo-50 text-indigo-800 border border-indigo-200 hover:bg-indigo-100 flex items-center gap-1.5 transition-all shadow-2xs"
+            title="View dedicated suggestions and custom trade requests hub"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Dedicated Suggestions Hub &rarr;</span>
+          </Link>
         </div>
 
         <div className="relative">

@@ -53,6 +53,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     inProgress: 0,
     completed: 0,
     totalWorkers: 0,
+    suggestions: 0,
   });
 
   // Check server-side authentication once or when navigating away from login
@@ -97,6 +98,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const refreshStats = useCallback(() => {
     const all = dataStore.getRequests();
     const workers = dataStore.getWorkers();
+
+    const suggestionsCount =
+      all.filter(
+        (r) =>
+          r.service_id === 'srv-other' ||
+          Boolean(r.custom_service_note) ||
+          r.service_name.toLowerCase().includes('other')
+      ).length +
+      workers.filter(
+        (w) =>
+          Boolean(w.has_custom_skill) ||
+          Boolean(w.custom_trade_note) ||
+          w.skills.some((s) => s.toLowerCase().includes('other'))
+      ).length;
+
     setStats({
       newLeads: all.filter((r) => r.status === 'NEW' || r.status === 'CUSTOMER_TO_CALL').length,
       inProgress: all.filter(
@@ -109,6 +125,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       ).length,
       completed: all.filter((r) => r.status === 'COMPLETED').length,
       totalWorkers: workers.length,
+      suggestions: suggestionsCount,
     });
   }, []);
 
@@ -162,6 +179,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const navItems = [
     { label: 'Overview', shortLabel: 'Overview', href: '/admin/dashboard', icon: LayoutDashboard },
     { label: 'Bookings & Requests', shortLabel: 'Bookings', href: '/admin/requests', icon: FileText, badge: stats.newLeads },
+    { label: 'Suggestions & Custom', shortLabel: 'Suggestions', href: '/admin/suggestions', icon: Sparkles, badge: stats.suggestions },
     { label: 'Technicians', shortLabel: 'Technicians', href: '/admin/workers', icon: Users },
     { label: 'Services Catalog', shortLabel: 'Services', href: '/admin/services', icon: Briefcase },
     { label: 'Website Editor (CMS)', shortLabel: 'CMS', href: '/admin/website-editor', icon: Globe },
