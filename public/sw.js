@@ -122,7 +122,7 @@ self.addEventListener('push', (event) => {
     body: data.body,
     icon: '/icons/icon-192x192.png',
     badge: '/icons/icon-192x192.png',
-    vibrate: [200, 100, 200, 100, 200],
+    vibrate: [250, 70, 250, 70, 250, 70, 450],
     tag: 'vikasa-urgent-alert',
     renotify: true,
     silent: false,

@@ -1,6 +1,11 @@
 import { dataStore } from '../data/store';
 import { audioAlert } from '../utils/audioAlert';
 import { STANDARDIZED_SERVICES } from '../constants';
+import {
+  getGoogleMapsUrl,
+  generateShareableJobLocationWhatsAppMessage,
+  getUniversalWhatsAppShareUrl,
+} from '../utils/phone';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -24,10 +29,12 @@ function assert(condition: boolean, testName: string) {
 // ==========================================
 console.log('\n--- 1. Audio Alert & Vibration Tests ---');
 assert(typeof audioAlert.playAlertChime === 'function', 'audioAlert has playAlertChime method');
+assert(typeof audioAlert.playAlarmBuzzer === 'function', 'audioAlert has playAlarmBuzzer method');
 assert(typeof audioAlert.triggerVibration === 'function', 'audioAlert has triggerVibration method');
 assert(typeof audioAlert.triggerFullAlert === 'function', 'audioAlert has triggerFullAlert method');
 
 // Verify safe execution in Node.js environment without throwing
+audioAlert.playAlarmBuzzer();
 audioAlert.triggerFullAlert();
 assert(true, 'audioAlert runs safely in non-browser/SSR environment without throwing');
 
@@ -130,6 +137,46 @@ assert(sqlContent.includes('INSERT INTO service_categories'), 'SQL seeds essenti
 assert(sqlContent.includes('INSERT INTO services'), 'SQL seeds essential services');
 assert(!sqlContent.includes('dummy_worker_1'), 'SQL contains zero dummy workers (clean slate)');
 assert(!sqlContent.includes('dummy_customer_1'), 'SQL contains zero dummy customers (clean slate)');
+
+// ==========================================
+// 5. Exact Location & Shareable WhatsApp Format
+// ==========================================
+console.log('\n--- 5. Exact Location & Shareable WhatsApp Format Tests ---');
+const mapsWithCoords = getGoogleMapsUrl(11.341, 77.7172, 'Collectorate, Erode', 'Erode');
+assert(mapsWithCoords.includes('maps.google.com/?q=11.341000,77.717200'), 'getGoogleMapsUrl formats exact GPS coordinates query correctly');
+
+const mapsWithoutCoords = getGoogleMapsUrl(undefined, undefined, 'Perundurai Road', 'Erode');
+assert(mapsWithoutCoords.includes('google.com/maps/search') && mapsWithoutCoords.includes('Perundurai%20Road'), 'getGoogleMapsUrl falls back to address search safely');
+
+const formattedMsg = generateShareableJobLocationWhatsAppMessage({
+  requestNumber: 1042,
+  customerName: 'Kavitha Devi',
+  customerPhone: '9876543210',
+  serviceName: 'Electrical Repair',
+  district: 'Erode',
+  formattedAddress: 'No 45, Nasiyanur Road, Erode',
+  latitude: 11.3501,
+  longitude: 77.7123,
+  preferredDate: '2026-11-16',
+  preferredTimeSlot: 'Morning 10 AM',
+  description: 'Kitchen light flickering and MCB trip',
+  customServiceNote: 'Requires industrial grade 32A breaker',
+  technicianName: 'Murugan Trades',
+});
+
+assert(formattedMsg.includes('VIKASA SERVICES – JOB DISPATCH ORDER'), 'Formatted message has dispatch header');
+assert(formattedMsg.includes('#1042'), 'Formatted message has booking ID');
+assert(formattedMsg.includes('Kavitha Devi'), 'Formatted message includes customer name');
+assert(formattedMsg.includes('+91 9876543210'), 'Formatted message includes formatted customer phone');
+assert(formattedMsg.includes('maps.google.com/?q=11.350100,77.712300'), 'Formatted message contains exact Google Maps navigation link');
+assert(formattedMsg.includes('Requires industrial grade 32A breaker'), 'Formatted message contains custom requirement notes');
+assert(formattedMsg.includes('Murugan Trades'), 'Formatted message contains assigned technician name');
+
+const universalUrl = getUniversalWhatsAppShareUrl(formattedMsg);
+assert(universalUrl.startsWith('https://api.whatsapp.com/send?text='), 'getUniversalWhatsAppShareUrl targets WhatsApp universal share endpoint when no phone is specified');
+
+const targetedUrl = getUniversalWhatsAppShareUrl(formattedMsg, '9443322110');
+assert(targetedUrl.startsWith('https://wa.me/919443322110?text='), 'getUniversalWhatsAppShareUrl targets specific technician wa.me when phone is specified');
 
 console.log(`\n==================================================`);
 console.log(`ALL TESTS PASSED: ${passedTests}/${totalTests} assertions verified!`);

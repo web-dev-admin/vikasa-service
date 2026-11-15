@@ -35,6 +35,8 @@ export default function NotificationCenter({ adminEmail }: { adminEmail: string 
   const [isPushLoading, setIsPushLoading] = useState(false);
   const [pushMessage, setPushMessage] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const initialLoadDoneRef = useRef(false);
+  const knownNotifIdsRef = useRef<Set<string>>(new Set());
 
   const fetchNotifications = async () => {
     try {
@@ -51,8 +53,24 @@ export default function NotificationCenter({ adminEmail }: { adminEmail: string 
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
-          setNotifications(json.data);
-          setUnreadCount(json.unreadCount ?? json.data.filter((n: AdminNotification) => !n.is_read).length);
+          const incoming: AdminNotification[] = json.data;
+
+          // Check if any brand new unread notification arrived
+          if (initialLoadDoneRef.current) {
+            const hasNewUnread = incoming.some(
+              (n) => !n.is_read && !knownNotifIdsRef.current.has(n.id)
+            );
+            if (hasNewUnread) {
+              audioAlert.triggerFullAlert();
+            }
+          }
+
+          // Update known set
+          incoming.forEach((n) => knownNotifIdsRef.current.add(n.id));
+          initialLoadDoneRef.current = true;
+
+          setNotifications(incoming);
+          setUnreadCount(json.unreadCount ?? incoming.filter((n) => !n.is_read).length);
         }
       }
     } catch {

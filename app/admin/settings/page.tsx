@@ -297,12 +297,12 @@ export default function AdminSettingsPage() {
               </div>
               <div>
                 <h3 className="text-sm font-black text-slate-900">Real-Time Push Alerts</h3>
-                <span className="text-[11px] text-slate-500">Alert Sound Chime &amp; Device Vibration</span>
+                <span className="text-[11px] text-slate-500">Urgent Alarm Buzzer &amp; Mobile Vibration</span>
               </div>
             </div>
 
             <p className="text-xs text-slate-600 leading-relaxed">
-              Receive immediate audible chime sound and haptic vibration on your Android phone/browser whenever a new booking arrives or a technician registers.
+              Receive an immediate electronic alarm buzzer and tactile haptic vibration on your phone and browser whenever a new booking arrives or a technician registers.
             </p>
 
             <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-1.5">
@@ -334,7 +334,7 @@ export default function AdminSettingsPage() {
             {soundTestSuccess && (
               <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-800 flex items-center gap-1.5 animate-in fade-in">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Alert chime played &amp; mobile vibration triggered successfully!</span>
+                <span>Alarm buzzer played &amp; mobile vibration triggered successfully!</span>
               </div>
             )}
           </div>
@@ -342,10 +342,10 @@ export default function AdminSettingsPage() {
           <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
             <button
               onClick={handleTestSoundAndVibration}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 flex items-center gap-1.5 transition-colors cursor-pointer min-h-[38px]"
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 flex items-center gap-1.5 transition-colors cursor-pointer min-h-[38px]"
             >
-              <Play className="w-3.5 h-3.5 text-amber-600" />
-              <span>Test Sound &amp; Vibration</span>
+              <Play className="w-3.5 h-3.5 text-amber-700" />
+              <span>Test Alarm Buzzer &amp; Vibration</span>
             </button>
 
             <button

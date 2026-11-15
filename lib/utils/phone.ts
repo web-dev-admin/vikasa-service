@@ -174,3 +174,121 @@ export function generateWorkerDispatchWhatsAppMessage(
   const firstName = workerName ? workerName.split(' ')[0] : 'Professional';
   return `Vanakkam ${firstName}, VIKASA has a service job nearby in ${generalArea} (~${distanceKm} km) for ${serviceName}. Are you available right now?`;
 }
+
+/**
+ * Generates an exact Google Maps navigation URL
+ * Uses precise GPS coordinates if available, otherwise formats a verified address search query.
+ */
+export function getGoogleMapsUrl(
+  latitude?: number,
+  longitude?: number,
+  address?: string,
+  district?: string
+): string {
+  if (
+    typeof latitude === 'number' &&
+    typeof longitude === 'number' &&
+    !isNaN(latitude) &&
+    !isNaN(longitude) &&
+    latitude !== 0 &&
+    longitude !== 0
+  ) {
+    return `https://maps.google.com/?q=${latitude.toFixed(6)},${longitude.toFixed(6)}`;
+  }
+  const parts = [address, district, 'Tamil Nadu'].filter(Boolean);
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parts.join(', ') || 'Tamil Nadu, India')}`;
+}
+
+export interface ShareableJobLocationPayload {
+  requestNumber: number | string;
+  customerName: string;
+  customerPhone?: string;
+  serviceName: string;
+  district?: string;
+  formattedAddress: string;
+  latitude?: number;
+  longitude?: number;
+  preferredDate?: string;
+  preferredTimeSlot?: string;
+  description?: string;
+  customServiceNote?: string;
+  technicianName?: string;
+}
+
+/**
+ * Generates a complete, professional, shareable WhatsApp dispatch message
+ * with the exact location and direct Google Maps GPS navigation link.
+ */
+export function generateShareableJobLocationWhatsAppMessage(
+  payload: ShareableJobLocationPayload
+): string {
+  const mapsUrl = getGoogleMapsUrl(
+    payload.latitude,
+    payload.longitude,
+    payload.formattedAddress,
+    payload.district
+  );
+
+  const cleanPhone = payload.customerPhone
+    ? payload.customerPhone.replace(/\D/g, '').slice(-10)
+    : '';
+
+  const lines: string[] = [
+    `🛠️ *VIKASA SERVICES – JOB DISPATCH ORDER*`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `📋 *Booking ID:* #${payload.requestNumber}`,
+    `🔧 *Required Service:* ${payload.serviceName}`,
+    payload.technicianName ? `👷 *Assigned Technician:* ${payload.technicianName}` : '',
+    `👤 *Customer Name:* ${payload.customerName}`,
+    cleanPhone ? `📞 *Customer Phone:* +91 ${cleanPhone}` : '',
+    `📅 *Scheduled Date:* ${payload.preferredDate || 'Today / Immediate'}`,
+    payload.preferredTimeSlot ? `⏰ *Time Slot:* ${payload.preferredTimeSlot}` : '',
+    ``,
+    `📍 *EXACT LOCATION / ADDRESS:*`,
+    `${payload.formattedAddress || payload.district || 'Tamil Nadu'}`,
+    ``,
+    `🗺️ *GOOGLE MAPS NAVIGATION LINK:*`,
+    `${mapsUrl}`,
+  ];
+
+  if (payload.customServiceNote) {
+    lines.push(
+      ``,
+      `⭐ *Custom Requirements:*`,
+      `"${payload.customServiceNote}"`
+    );
+  }
+
+  if (payload.description) {
+    lines.push(
+      ``,
+      `📝 *Problem Scope / Notes:*`,
+      `"${payload.description}"`
+    );
+  }
+
+  lines.push(
+    ``,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `*VIKASA Services & Interiors*`,
+    `_Connecting Verified Professionals with Homes_`
+  );
+
+  return lines.filter((l) => l !== '').join('\n');
+}
+
+/**
+ * Generates a WhatsApp share URL.
+ * If phone is provided, opens direct chat with that number.
+ * If phone is omitted, opens WhatsApp's universal share dialog allowing the user to pick any chat/group!
+ */
+export function getUniversalWhatsAppShareUrl(message: string, phone?: string): string {
+  if (phone) {
+    const norm = normalizeIndianPhone(phone);
+    if (norm) {
+      return `https://wa.me/${norm}?text=${encodeURIComponent(message)}`;
+    }
+  }
+  return `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+}
+

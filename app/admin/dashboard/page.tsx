@@ -34,8 +34,17 @@ import {
   Wrench,
   AlertCircle,
   Sparkles,
+  Share2,
+  ExternalLink,
+  Copy,
 } from 'lucide-react';
-import { getTelUrl, getWhatsAppUrl } from '@/lib/utils/phone';
+import {
+  getTelUrl,
+  getWhatsAppUrl,
+  getGoogleMapsUrl,
+  generateShareableJobLocationWhatsAppMessage,
+  getUniversalWhatsAppShareUrl,
+} from '@/lib/utils/phone';
 
 type CategoryFilter = 'NEW' | 'CONFIRMED' | 'ASSIGNED' | 'COMPLETED' | 'ALL';
 
@@ -591,9 +600,36 @@ export default function AdminDashboardPage() {
                 <span className="font-bold text-slate-900">{selectedRequest.district || 'Erode'}</span>
               </div>
 
-              <div className="flex items-start justify-between py-1.5 border-b border-slate-100">
-                <span className="text-slate-400 font-semibold shrink-0">Location:</span>
-                <span className="font-medium text-slate-800 text-right">{selectedRequest.formatted_address}</span>
+              <div className="py-2 border-b border-slate-100 space-y-1.5">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-slate-400 font-semibold shrink-0">Exact Location:</span>
+                  <div className="text-right space-y-1">
+                    <span className="font-bold text-slate-900 block leading-snug">{selectedRequest.formatted_address}</span>
+                    {typeof selectedRequest.latitude === 'number' && typeof selectedRequest.longitude === 'number' && selectedRequest.latitude !== 0 && (
+                      <span className="font-mono text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md inline-block">
+                        GPS: {selectedRequest.latitude.toFixed(5)}, {selectedRequest.longitude.toFixed(5)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <a
+                    href={getGoogleMapsUrl(
+                      selectedRequest.latitude,
+                      selectedRequest.longitude,
+                      selectedRequest.formatted_address,
+                      selectedRequest.district
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition-all shadow-2xs"
+                    title="Open turn-by-turn navigation in Google Maps"
+                  >
+                    <Navigation className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Open Google Maps Navigation</span>
+                    <ExternalLink className="w-3 h-3 text-emerald-500" />
+                  </a>
+                </div>
               </div>
 
               <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
@@ -630,6 +666,73 @@ export default function AdminDashboardPage() {
                   <p className="text-xs text-emerald-700">{selectedRequest.assigned_worker_phone}</p>
                 </div>
               )}
+
+              {/* Share Exact Location via WhatsApp */}
+              <div className="p-3.5 bg-emerald-50/70 rounded-2xl border border-emerald-300/80 space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <Share2 className="w-4 h-4 text-emerald-700" />
+                  <span className="text-[11px] font-black uppercase tracking-wider text-emerald-950">
+                    Share Exact Location via WhatsApp
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Sends customer details, exact address, and clickable Google Maps GPS navigation link.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-2 pt-0.5">
+                  <a
+                    href={getUniversalWhatsAppShareUrl(generateShareableJobLocationWhatsAppMessage({
+                      requestNumber: selectedRequest.request_number,
+                      customerName: selectedRequest.customer_name,
+                      customerPhone: selectedRequest.customer_phone,
+                      serviceName: selectedRequest.service_name,
+                      district: selectedRequest.district,
+                      formattedAddress: selectedRequest.formatted_address,
+                      latitude: selectedRequest.latitude,
+                      longitude: selectedRequest.longitude,
+                      preferredDate: selectedRequest.preferred_date,
+                      preferredTimeSlot: selectedRequest.preferred_time_slot,
+                      description: selectedRequest.description,
+                      customServiceNote: selectedRequest.custom_service_note,
+                      technicianName: selectedRequest.assigned_worker_name,
+                    }))}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors text-center"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>Share on WhatsApp (Any Chat/Group)</span>
+                  </a>
+
+                  {selectedRequest.assigned_worker_phone && (
+                    <a
+                      href={getWhatsAppUrl(
+                        selectedRequest.assigned_worker_phone,
+                        generateShareableJobLocationWhatsAppMessage({
+                          requestNumber: selectedRequest.request_number,
+                          customerName: selectedRequest.customer_name,
+                          customerPhone: selectedRequest.customer_phone,
+                          serviceName: selectedRequest.service_name,
+                          district: selectedRequest.district,
+                          formattedAddress: selectedRequest.formatted_address,
+                          latitude: selectedRequest.latitude,
+                          longitude: selectedRequest.longitude,
+                          preferredDate: selectedRequest.preferred_date,
+                          preferredTimeSlot: selectedRequest.preferred_time_slot,
+                          description: selectedRequest.description,
+                          customServiceNote: selectedRequest.custom_service_note,
+                          technicianName: selectedRequest.assigned_worker_name,
+                        })
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors text-center"
+                    >
+                      <Navigation className="w-4 h-4 text-emerald-400" />
+                      <span>Send to Assigned Tech</span>
+                    </a>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Exactly 3 Actions at bottom of Customer Detail Modal */}
@@ -846,38 +949,71 @@ export default function AdminDashboardPage() {
                       </span>
                     </div>
 
-                    {/* Exactly Three Actions: Call, WhatsApp, Assign */}
-                    <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-200/60">
-                      <a
-                        href={getTelUrl(tech.phone)}
-                        className="py-2 px-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors text-center"
-                      >
-                        <PhoneCall className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Call</span>
-                      </a>
+                    {(() => {
+                      const techDispatchMsg = generateShareableJobLocationWhatsAppMessage({
+                        requestNumber: assigningRequest.request_number,
+                        customerName: assigningRequest.customer_name,
+                        customerPhone: assigningRequest.customer_phone,
+                        serviceName: assigningRequest.service_name,
+                        district: assigningRequest.district,
+                        formattedAddress: assigningRequest.formatted_address,
+                        latitude: assigningRequest.latitude,
+                        longitude: assigningRequest.longitude,
+                        preferredDate: assigningRequest.preferred_date,
+                        preferredTimeSlot: assigningRequest.preferred_time_slot,
+                        description: assigningRequest.description,
+                        customServiceNote: assigningRequest.custom_service_note,
+                        technicianName: tech.full_name,
+                      });
 
-                      <a
-                        href={getWhatsAppUrl(
-                          tech.phone,
-                          `Vanakkam ${tech.full_name}, VIKASA has a service job nearby for ${assigningRequest.service_name} in ${assigningRequest.district || 'Erode'}. Are you ready?`
-                        )}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="py-2 px-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200 flex items-center justify-center gap-1.5 transition-colors text-center"
-                      >
-                        <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>WhatsApp</span>
-                      </a>
+                      return (
+                        <div className="space-y-1.5 pt-1 border-t border-slate-200/60">
+                          <div className="grid grid-cols-3 gap-2">
+                            <a
+                              href={getTelUrl(tech.phone)}
+                              className="py-2 px-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors text-center"
+                            >
+                              <PhoneCall className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Call</span>
+                            </a>
 
-                      <button
-                        type="button"
-                        onClick={() => handleAssignTechnician(tech.id)}
-                        className="py-2 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer text-center shadow-xs"
-                      >
-                        <UserCheck className="w-3.5 h-3.5" />
-                        <span>{tech.verification_status === 'verified' ? 'Assign' : 'Verify & Assign'}</span>
-                      </button>
-                    </div>
+                            <a
+                              href={getWhatsAppUrl(tech.phone, techDispatchMsg)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="py-2 px-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200 flex items-center justify-center gap-1.5 transition-colors text-center"
+                              title="Send exact location & Google Maps navigation to technician"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>WhatsApp</span>
+                            </a>
+
+                            <button
+                              type="button"
+                              onClick={() => handleAssignTechnician(tech.id)}
+                              className="py-2 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer text-center shadow-xs"
+                            >
+                              <UserCheck className="w-3.5 h-3.5" />
+                              <span>{tech.verification_status === 'verified' ? 'Assign' : 'Verify & Assign'}</span>
+                            </button>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleAssignTechnician(tech.id);
+                              if (typeof window !== 'undefined') {
+                                window.open(getWhatsAppUrl(tech.phone, techDispatchMsg), '_blank');
+                              }
+                            }}
+                            className="w-full py-1.5 px-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                          >
+                            <Navigation className="w-3 h-3 text-emerald-400" />
+                            <span>Assign &amp; WhatsApp Location to {tech.full_name.split(' ')[0]}</span>
+                          </button>
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))
               )}
