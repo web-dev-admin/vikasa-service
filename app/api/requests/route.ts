@@ -112,7 +112,10 @@ export async function POST(request: NextRequest) {
     const validLat = !isNaN(lat) && lat >= 8.0 && lat <= 14.0 ? lat : ERODE_CENTER.lat;
     const validLon = !isNaN(lon) && lon >= 76.0 && lon <= 81.0 ? lon : ERODE_CENTER.lon;
 
-    const matchedService = STANDARDIZED_SERVICES.find(
+    const allKnownServices = dataStore.getAllServices();
+    const matchedService = allKnownServices.find(
+      (s) => s.id === body.service_id || s.name.toLowerCase() === serviceName.toLowerCase()
+    ) || STANDARDIZED_SERVICES.find(
       (s) => s.id === body.service_id || s.name.toLowerCase() === serviceName.toLowerCase()
     );
 
@@ -131,7 +134,7 @@ export async function POST(request: NextRequest) {
         ? `+91 ${body.customer_whatsapp.replace(/\D/g, '').slice(-10, -5)} ${body.customer_whatsapp.replace(/\D/g, '').slice(-5)}`
         : formattedPhone,
       customer_email: body.customer_email?.trim(),
-      category_id: matchedService?.id ? 'cat-standard' : 'cat-general',
+      category_id: body.category_id || (matchedService && 'category_id' in matchedService ? matchedService.category_id : undefined) || (matchedService?.id ? 'cat-standard' : 'cat-general'),
       category_name: serviceName,
       service_id: matchedService?.id || (isOtherService ? 'srv-other' : 'srv-general'),
       service_name: serviceName,

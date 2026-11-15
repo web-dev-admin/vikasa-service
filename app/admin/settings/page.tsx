@@ -28,6 +28,8 @@ import {
   FileCode,
   ArrowRight,
   Sparkles,
+  FolderPlus,
+  X,
 } from 'lucide-react';
 
 export default function AdminSettingsPage() {
@@ -43,12 +45,20 @@ export default function AdminSettingsPage() {
   // Quick Add Service State
   const [isAddServiceOpen, setIsAddServiceOpen] = useState(false);
   const [newServiceName, setNewServiceName] = useState('');
-  const [newServiceCategory, setNewServiceCategory] = useState('cat-other');
+  const [newServiceCategory, setNewServiceCategory] = useState('');
   const [newServiceDesc, setNewServiceDesc] = useState('');
   const [newServicePrice, setNewServicePrice] = useState('From ₹199');
   const [isSavingService, setIsSavingService] = useState(false);
   const [serviceFeedback, setServiceFeedback] = useState<string | null>(null);
   const [servicesCount, setServicesCount] = useState(() => dataStore.getAllServices().length);
+
+  // Dynamic Categories State
+  const [categories, setCategories] = useState(() => dataStore.getAllCategories());
+  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryIcon, setNewCategoryIcon] = useState('Layers');
+  const [newCategoryDesc, setNewCategoryDesc] = useState('');
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
 
   // Database Purge State
   const [isPurging, setIsPurging] = useState(false);
@@ -84,10 +94,68 @@ export default function AdminSettingsPage() {
 
     const updateCounts = () => {
       setServicesCount(dataStore.getAllServices().length);
+      setCategories(dataStore.getAllCategories());
     };
+
+    fetch('/api/categories')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (json?.success && Array.isArray(json.data) && json.data.length > 0) {
+          setCategories(json.data);
+        }
+      })
+      .catch(() => {});
+
     window.addEventListener('vikasa_services_updated', updateCounts);
-    return () => window.removeEventListener('vikasa_services_updated', updateCounts);
+    window.addEventListener('vikasa_categories_updated', updateCounts);
+    return () => {
+      window.removeEventListener('vikasa_services_updated', updateCounts);
+      window.removeEventListener('vikasa_categories_updated', updateCounts);
+    };
   }, []);
+
+  const handleQuickAddCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) return;
+
+    setIsSavingCategory(true);
+    const token = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
+      : null;
+
+    try {
+      const res = await fetch('/api/categories', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-portal': 'true',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          name: newCategoryName.trim(),
+          description: newCategoryDesc.trim() || `${newCategoryName.trim()} home services`,
+          icon: newCategoryIcon,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to create category');
+      }
+
+      dataStore.addCustomCategory(json.data);
+      setCategories(dataStore.getAllCategories());
+      setNewServiceCategory(json.data.id);
+      setServiceFeedback(`Category "${json.data.name}" created and ready for services!`);
+      setNewCategoryName('');
+      setNewCategoryDesc('');
+      setIsAddCategoryOpen(false);
+    } catch (err) {
+      setServiceFeedback(err instanceof Error ? err.message : 'Error adding category');
+    } finally {
+      setIsSavingCategory(false);
+    }
+  };
 
   const handleEnablePush = async () => {
     setIsPushLoading(true);
@@ -323,6 +391,10 @@ export default function AdminSettingsPage() {
 
             <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-1.5">
               <div className="flex items-center justify-between">
+                <span className="text-slate-600 font-medium">Active Categories:</span>
+                <span className="font-mono font-bold text-emerald-800">{categories.length} Categories</span>
+              </div>
+              <div className="flex items-center justify-between">
                 <span className="text-slate-600 font-medium">Active Services:</span>
                 <span className="font-mono font-bold text-emerald-800">{servicesCount} Services</span>
               </div>
@@ -337,22 +409,32 @@ export default function AdminSettingsPage() {
             )}
           </div>
 
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
             <Link
               href="/admin/services"
               className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center gap-1.5 transition-colors cursor-pointer min-h-[38px]"
             >
-              <span>Manage Full Catalog</span>
+              <span>Manage Catalog</span>
               <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
             </Link>
 
-            <button
-              onClick={() => setIsAddServiceOpen(true)}
-              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs flex items-center gap-1.5 transition-all cursor-pointer min-h-[38px] active:scale-95"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Service</span>
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setIsAddCategoryOpen(true)}
+                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 flex items-center gap-1.5 transition-all cursor-pointer min-h-[38px]"
+              >
+                <FolderPlus className="w-3.5 h-3.5 text-emerald-600" />
+                <span>+ Category</span>
+              </button>
+
+              <button
+                onClick={() => setIsAddServiceOpen(true)}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs flex items-center gap-1.5 transition-all cursor-pointer min-h-[38px] active:scale-95"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Service</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -460,22 +542,29 @@ export default function AdminSettingsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Category
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-slate-700">
+                    Category <span className="text-red-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddCategoryOpen(true)}
+                    className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <FolderPlus className="w-3 h-3" />
+                    <span>+ New Category</span>
+                  </button>
+                </div>
                 <select
-                  value={newServiceCategory}
+                  value={newServiceCategory || (categories[0]?.id || 'cat-other')}
                   onChange={(e) => setNewServiceCategory(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
                 >
-                  <option value="cat-plumbing">Plumbing</option>
-                  <option value="cat-electrical">Electrical &amp; Lighting</option>
-                  <option value="cat-carpentry">Carpentry &amp; Plywood Work</option>
-                  <option value="cat-painting">Painting &amp; Wall Finish</option>
-                  <option value="cat-ac">AC &amp; Appliances</option>
-                  <option value="cat-cleaning">Cleaning</option>
-                  <option value="cat-interior">Interior Design</option>
-                  <option value="cat-other">Other Services</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -519,6 +608,77 @@ export default function AdminSettingsPage() {
                   className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 disabled:opacity-50"
                 >
                   {isSavingService ? 'Saving...' : 'Add Service'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* QUICK ADD CATEGORY MODAL */}
+      {isAddCategoryOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                  <FolderPlus className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">Create New Category</h3>
+                  <span className="text-[11px] text-slate-500">Add to service catalog taxonomy</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAddCategoryOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleQuickAddCategory} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Category Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Appliance Repair, Solar &amp; Inverter"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="e.g. Washing machine, refrigerator, TV, microwave and kitchen appliances."
+                  value={newCategoryDesc}
+                  onChange={(e) => setNewCategoryDesc(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddCategoryOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingCategory}
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 disabled:opacity-50"
+                >
+                  {isSavingCategory ? 'Saving...' : 'Save Category'}
                 </button>
               </div>
             </form>

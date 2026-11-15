@@ -306,7 +306,9 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
         ? `${address.trim()}, ${district}`
         : `${district}, Tamil Nadu`;
 
-      const matchedServiceObj = STANDARDIZED_SERVICES.find(
+      const matchedServiceObj = availableServices.find(
+        (s) => s.name.toLowerCase() === service.toLowerCase()
+      ) || STANDARDIZED_SERVICES.find(
         (s) => s.name.toLowerCase() === service.toLowerCase()
       );
 

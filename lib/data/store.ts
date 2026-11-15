@@ -12,6 +12,7 @@ import {
   AdminNotification,
   AdminDeviceToken,
   ServiceItem,
+  ServiceCategory,
 } from '@/types';
 import { INITIAL_CATEGORIES, INITIAL_SERVICES } from '@/lib/taxonomy/catalog';
 import { STANDARDIZED_SERVICES } from '@/lib/constants';
@@ -45,6 +46,7 @@ class VikasaDataStore {
   private notifications: AdminNotification[] = [];
   private deviceTokens: AdminDeviceToken[] = [];
   private customServices: ServiceItem[] = [];
+  private customCategories: ServiceCategory[] = [];
   private websiteContent: WebsiteContent = { ...DEFAULT_WEBSITE_CONTENT };
   private initialized = false;
 
@@ -132,6 +134,13 @@ class VikasaDataStore {
           } catch {}
         }
 
+        const savedCategories = localStorage.getItem('vikasa_custom_categories');
+        if (savedCategories) {
+          try {
+            this.customCategories = JSON.parse(savedCategories);
+          } catch {}
+        }
+
         const savedContent = localStorage.getItem('vikasa_website_content');
         if (savedContent) {
           try {
@@ -158,6 +167,7 @@ class VikasaDataStore {
         localStorage.setItem('vikasa_notifications', JSON.stringify(this.notifications));
         localStorage.setItem('vikasa_device_tokens', JSON.stringify(this.deviceTokens));
         localStorage.setItem('vikasa_custom_services', JSON.stringify(this.customServices));
+        localStorage.setItem('vikasa_custom_categories', JSON.stringify(this.customCategories));
         localStorage.setItem('vikasa_website_content', JSON.stringify(this.websiteContent));
         window.dispatchEvent(new Event('vikasa_data_updated'));
       } catch (e) {
@@ -1159,6 +1169,72 @@ class VikasaDataStore {
       this.persist();
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('vikasa_services_updated'));
+      }
+    }
+    return changed;
+  }
+
+  // --- Dynamic Category Management ---
+  getAllCategories(): ServiceCategory[] {
+    this.init();
+    const catMap = new Map<string, ServiceCategory>();
+    // 1. Baseline categories
+    for (const c of INITIAL_CATEGORIES) {
+      catMap.set(c.id, c);
+    }
+    // 2. Custom categories (override or append)
+    for (const cc of this.customCategories) {
+      catMap.set(cc.id, cc);
+    }
+    return Array.from(catMap.values()).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  }
+
+  addCustomCategory(catData: {
+    id?: string;
+    name: string;
+    slug?: string;
+    icon?: string;
+    description?: string;
+    is_active?: boolean;
+    sort_order?: number;
+  }): ServiceCategory {
+    this.init();
+    const cleanName = catData.name.trim();
+    const cleanSlug = (catData.slug || cleanName).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const newCat: ServiceCategory = {
+      id: catData.id || `cat-${cleanSlug}`,
+      name: cleanName,
+      slug: cleanSlug,
+      icon: catData.icon || 'Layers',
+      description: catData.description?.trim() || `${cleanName} home services`,
+      is_active: catData.is_active !== false,
+      sort_order: catData.sort_order || this.getAllCategories().length + 1,
+      created_at: new Date().toISOString(),
+    };
+
+    // Remove existing if replacing by ID or name
+    this.customCategories = this.customCategories.filter(
+      (c) => c.id !== newCat.id && c.name.toLowerCase() !== newCat.name.toLowerCase()
+    );
+    this.customCategories.push(newCat);
+    this.persist();
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('vikasa_categories_updated', { detail: newCat }));
+    }
+
+    return newCat;
+  }
+
+  deleteCustomCategory(id: string): boolean {
+    this.init();
+    const prevLen = this.customCategories.length;
+    this.customCategories = this.customCategories.filter((c) => c.id !== id);
+    const changed = this.customCategories.length !== prevLen;
+    if (changed) {
+      this.persist();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('vikasa_categories_updated'));
       }
     }
     return changed;
