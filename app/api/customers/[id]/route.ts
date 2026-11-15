@@ -10,26 +10,23 @@ export async function GET(
   try {
     const session = await authenticateAdmin(request);
     if (!session) {
-      return unauthorizedResponse('Administrator authorization required to view customer details');
+      return unauthorizedResponse('Administrator authorization required');
     }
 
     const { id } = await params;
-    const result = dataStore.getCustomerById(id);
+    const customer = dataStore.getCustomerById(id);
 
-    if (!result) {
+    if (!customer) {
       return NextResponse.json(
         { success: false, error: 'Customer not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      data: result,
-    });
+    return NextResponse.json({ success: true, data: customer });
   } catch (error) {
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch customer profile' },
+      { success: false, error: 'Failed to retrieve customer' },
       { status: 500 }
     );
   }
@@ -42,7 +39,7 @@ export async function DELETE(
   try {
     const session = await authenticateAdmin(request);
     if (!session) {
-      return unauthorizedResponse('Administrator authorization required to delete customer contacts');
+      return unauthorizedResponse('Administrator authorization required to delete customer records');
     }
 
     const { id } = await params;
@@ -53,56 +50,45 @@ export async function DELETE(
       );
     }
 
-    const existing = dataStore.getCustomerById(id);
-    const cleanPhone = existing?.customer?.phone
-      ? existing.customer.phone.replace(/\D/g, '').slice(-10)
-      : id.replace(/\D/g, '').slice(-10);
+    const record = dataStore.getCustomerById(id);
+    const customer = record?.customer;
+    const cleanPhone = customer?.phone?.replace(/\D/g, '').slice(-10);
 
     // 1. Delete from Supabase if configured
     if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       try {
-        // Find request IDs to delete child references
-        const { data: relatedReqs } = await supabase
-          .from('service_requests')
-          .select('id')
-          .or(`customer_id.eq.${id}${cleanPhone ? `,customer_phone.ilike.%${cleanPhone}%` : ''}`);
+        // Delete from customers table
+        await supabase.from('customers').delete().eq('id', id);
 
-        if (Array.isArray(relatedReqs) && relatedReqs.length > 0) {
-          const reqIds = relatedReqs.map((r) => r.id);
-          for (const reqId of reqIds) {
-            await supabase.from('assignments').delete().eq('request_id', reqId);
-            await supabase.from('worker_contact_attempts').delete().eq('request_id', reqId);
-          }
+        if (customer?.phone) {
+          await supabase.from('customers').delete().eq('phone', customer.phone);
         }
 
-        // Delete related requests from Supabase
+        // Delete associated service_requests if any
+        await supabase.from('service_requests').delete().eq('customer_id', id);
+        if (customer?.phone) {
+          await supabase.from('service_requests').delete().eq('customer_phone', customer.phone);
+        }
         if (cleanPhone) {
           await supabase.from('service_requests').delete().ilike('customer_phone', `%${cleanPhone}%`);
-        }
-        await supabase.from('service_requests').delete().eq('customer_id', id);
-
-        // Delete customer record
-        await supabase.from('customers').delete().eq('id', id);
-        if (cleanPhone) {
-          await supabase.from('customers').delete().ilike('phone', `%${cleanPhone}%`);
         }
       } catch (dbErr) {
         console.warn('Could not delete customer from Supabase:', dbErr);
       }
     }
 
-    // 2. Delete from local dataStore
+    // 2. Delete from local dataStore and add to permanent deletedCustomerIds
     dataStore.deleteCustomer(id);
 
     return NextResponse.json({
       success: true,
-      message: 'Customer and associated enquiry records permanently deleted',
+      message: 'Customer record and associated enquiries permanently deleted from database',
       deletedId: id,
     });
   } catch (error) {
     console.error('Delete customer error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to delete customer' },
+      { success: false, error: 'Failed to delete customer from database' },
       { status: 500 }
     );
   }

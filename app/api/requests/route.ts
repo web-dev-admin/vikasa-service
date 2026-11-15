@@ -123,8 +123,10 @@ export async function POST(request: NextRequest) {
       ? body.preferred_date
       : new Date().toISOString().split('T')[0];
 
-    // If customer selected "Other" or typed a custom service description
-    const customServiceNote = body.custom_service_note ? ` [Requested: ${body.custom_service_note}]` : '';
+    // If client/technician selected "Other" or typed a custom service description
+    const rawCustomNote = body.custom_service_note?.trim() || '';
+    const customServiceNote = rawCustomNote ? ` [Custom Requirement: ${rawCustomNote}]` : '';
+    const requesterType: 'client' | 'technician' = body.requester_type === 'technician' ? 'technician' : 'client';
 
     const newRequest = dataStore.createRequest({
       customer_id: '',
@@ -147,6 +149,8 @@ export async function POST(request: NextRequest) {
       preferred_time_slot: body.preferred_time_slot || 'Today (Within 2 Hours)',
       status: 'NEW',
       customer_confirmed: false,
+      requester_type: requesterType,
+      custom_service_note: rawCustomNote || undefined,
     });
 
     // Sync to Supabase if connected

@@ -178,7 +178,16 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
     serviceName: string;
   } | null>(null);
 
-  const isOtherSelected = service === 'Other' || service === 'பிற / புதிய சேவை';
+  const [requesterType, setRequesterType] = useState<'client' | 'technician'>('client');
+  const [customServiceDescription, setCustomServiceDescription] = useState('');
+
+  const isOtherSelected =
+    service === 'Other' ||
+    service === 'Other Services' ||
+    service === 'பிற சேவைகள்' ||
+    service === 'பிற / புதிய சேவை' ||
+    service.toLowerCase().includes('other') ||
+    service.toLowerCase().includes('custom');
 
   // GPS Current Location Handler
   const handleUseCurrentLocation = () => {
@@ -313,17 +322,19 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
       );
 
       // Post to central server API endpoint
+      const fullCustomNote = [customServiceNote.trim(), customServiceDescription.trim()].filter(Boolean).join(' - ');
       const res = await fetch('/api/requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customer_name: name.trim(),
           customer_phone: cleanPhone,
+          requester_type: requesterType,
           service_name: isOtherSelected ? (customServiceNote.trim() || 'Custom Home Service') : service,
           service_id: isOtherSelected ? 'srv-other' : (matchedServiceObj?.id || 'srv-general'),
-          category_name: service,
+          category_name: isOtherSelected ? 'Other Services' : service,
           description: description.trim() || `${service} requirement in ${district}`,
-          custom_service_note: isOtherSelected ? customServiceNote.trim() : undefined,
+          custom_service_note: fullCustomNote || undefined,
           formatted_address: formattedLocation,
           district: district,
           latitude: latitude,
@@ -463,6 +474,34 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
         <p className="text-xs text-slate-600 leading-relaxed">
           {t.formSubtitle}
         </p>
+      </div>
+
+      {/* Requester Type Toggle: Client vs Technician */}
+      <div className="mb-5 p-1 bg-slate-100 rounded-2xl flex items-center border border-slate-200">
+        <button
+          type="button"
+          onClick={() => setRequesterType('client')}
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            requesterType === 'client'
+              ? 'bg-white text-emerald-900 shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <span>👤</span>
+          <span>{lang === 'ta' ? 'வாடிக்கையாளர் (Client / Homeowner)' : 'Client / Homeowner'}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setRequesterType('technician')}
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            requesterType === 'technician'
+              ? 'bg-white text-emerald-900 shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <span>🔧</span>
+          <span>{lang === 'ta' ? 'தொழில்நுட்ப வல்லுநர் (Technician / Partner)' : 'Technician / Partner'}</span>
+        </button>
       </div>
 
       {errors.form && (
@@ -652,25 +691,50 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
 
         {/* 3b. Custom Service Input (if "Other" selected) */}
         {isOtherSelected && (
-          <div className="space-y-1 p-3 bg-amber-50/70 border border-amber-200 rounded-2xl animate-in fade-in duration-150">
-            <label htmlFor="lead-custom-service" className="block text-xs font-bold text-amber-950">
-              {t.customServiceLabel} <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="lead-custom-service"
-              type="text"
-              value={customServiceNote}
-              onChange={(e) => setCustomServiceNote(e.target.value)}
-              placeholder={t.customServicePlaceholder}
-              aria-invalid={!!errors.customService}
-              aria-describedby={errors.customService ? 'lead-custom-error' : undefined}
-              className="w-full px-3 py-2 text-base sm:text-sm rounded-xl border border-amber-300 bg-white text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600 focus-visible:ring-offset-1"
-            />
-            {errors.customService && (
-              <p id="lead-custom-error" role="alert" className="text-[11px] text-red-700 font-medium">
-                {errors.customService}
-              </p>
-            )}
+          <div className="space-y-3 p-4 bg-amber-50/80 border border-amber-300 rounded-2xl animate-in fade-in duration-150">
+            <div className="flex items-center gap-1.5">
+              <span className="text-amber-800 font-bold text-xs uppercase tracking-wider flex items-center gap-1">
+                <span>⭐</span>
+                <span>{lang === 'ta' ? 'தனிப்பயன் சேவை விவரம்' : 'Custom Service Requirement'}</span>
+              </span>
+            </div>
+
+            <div>
+              <label htmlFor="lead-custom-service" className="block text-xs font-bold text-amber-950 mb-1">
+                {lang === 'ta' ? 'சேவையின் பெயர் / துறை' : 'Specific Service Name / Trade'} <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="lead-custom-service"
+                type="text"
+                required
+                value={customServiceNote}
+                onChange={(e) => setCustomServiceNote(e.target.value)}
+                placeholder={lang === 'ta' ? 'உதா: CCTV கேமரா பொருத்துதல், சோலார் பழுது, சிம்னி...' : 'e.g. CCTV Camera Installation, Solar Inverter Repair, Chimney Exhaust...'}
+                aria-invalid={!!errors.customService}
+                aria-describedby={errors.customService ? 'lead-custom-error' : undefined}
+                className="w-full px-3.5 py-2 text-base sm:text-sm rounded-xl border border-amber-300 bg-white text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600 focus-visible:ring-offset-1"
+              />
+              {errors.customService && (
+                <p id="lead-custom-error" role="alert" className="text-[11px] text-red-700 font-medium mt-1">
+                  {errors.customService}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="lead-custom-desc" className="block text-xs font-bold text-amber-950 mb-1">
+                {lang === 'ta' ? 'கூடுதல் பணி விளக்கம் / பிரச்சனை விவரம்' : 'Additional Description & Work Scope'}
+              </label>
+              <textarea
+                id="lead-custom-desc"
+                rows={2}
+                value={customServiceDescription}
+                onChange={(e) => setCustomServiceDescription(e.target.value)}
+                placeholder={lang === 'ta' ? 'உங்கள் தேவை அல்லது பிரச்சனையை சுருக்கமாக விளக்குங்கள்...' : 'Describe specific issues, model, or requirement details...'}
+                className="w-full px-3.5 py-2 text-base sm:text-sm rounded-xl border border-amber-300 bg-white text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600 focus-visible:ring-offset-1"
+              />
+            </div>
+
             <p className="text-[11px] text-amber-900 font-medium">
               {lang === 'ta'
                 ? 'எங்கள் ஒருங்கிணைப்பாளர் உங்கள் தேவைக்கேற்ப தகுந்த நிபுணரை கண்டறிந்து உங்களை அழைப்பார்.'

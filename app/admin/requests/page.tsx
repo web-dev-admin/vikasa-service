@@ -42,6 +42,7 @@ export default function AdminRequestsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [districtFilter, setDistrictFilter] = useState('ALL');
+  const [requesterFilter, setRequesterFilter] = useState<'ALL' | 'CLIENT_CUSTOM' | 'TECHNICIAN'>('ALL');
 
   // Customer Detail Modal
   const [selectedRequest, setSelectedRequest] = useState<ServiceRequest | null>(null);
@@ -54,10 +55,25 @@ export default function AdminRequestsPage() {
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Deletion State
+  // Deletion State with Persistent Session Blacklist
   const [deleteTarget, setDeleteTarget] = useState<ServiceRequest | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const deletedIdsRef = useRef<Set<string>>(new Set());
+
+  // Hydrate deleted IDs from sessionStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = sessionStorage.getItem('vikasa_admin_deleted_requests');
+        if (saved) {
+          const arr = JSON.parse(saved);
+          if (Array.isArray(arr)) {
+            arr.forEach((id: string) => deletedIdsRef.current.add(id));
+          }
+        }
+      } catch {}
+    }
+  }, []);
 
   const handleDeleteRequestClick = (req: ServiceRequest) => {
     setDeleteTarget(req);
@@ -71,10 +87,39 @@ export default function AdminRequestsPage() {
     const targetToken = deleteTarget.tracking_token;
     const targetNum = String(deleteTarget.request_number);
 
-    // Register into memory blacklist immediately to prevent any polling race reintroduction
+    // Register into memory & session blacklist immediately to prevent any polling race reintroduction
     deletedIdsRef.current.add(targetId);
     if (targetToken) deletedIdsRef.current.add(targetToken);
     if (targetNum) deletedIdsRef.current.add(targetNum);
+
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem(
+          'vikasa_admin_deleted_requests',
+          JSON.stringify(Array.from(deletedIdsRef.current))
+        );
+      } catch {}
+    }
+
+    // Immediately purge from dataStore and UI state
+    dataStore.deleteRequest(targetId);
+    if (targetToken) dataStore.deleteRequest(targetToken);
+    setRequests((prev) =>
+      prev.filter(
+        (r) =>
+          r.id !== targetId &&
+          r.tracking_token !== targetToken &&
+          String(r.request_number) !== targetNum &&
+          !deletedIdsRef.current.has(r.id) &&
+          !deletedIdsRef.current.has(r.tracking_token)
+      )
+    );
+    if (selectedRequest?.id === targetId || selectedRequest?.tracking_token === targetToken) {
+      setSelectedRequest(null);
+    }
+    if (assigningRequest?.id === targetId) {
+      setAssigningRequest(null);
+    }
 
     const token = typeof window !== 'undefined'
       ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
@@ -85,8 +130,12 @@ export default function AdminRequestsPage() {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
 
+    const queryParams = new URLSearchParams();
+    if (targetToken) queryParams.set('token', targetToken);
+    if (targetNum) queryParams.set('num', targetNum);
+
     try {
-      const res = await fetch(`/api/requests/${encodeURIComponent(targetId)}`, {
+      const res = await fetch(`/api/requests/${encodeURIComponent(targetId)}?${queryParams.toString()}`, {
         method: 'DELETE',
         headers,
       });
@@ -96,22 +145,13 @@ export default function AdminRequestsPage() {
         throw new Error(json.error || 'Failed to delete service request');
       }
 
-      dataStore.deleteRequest(targetId);
-      setRequests((prev) => prev.filter((r) => r.id !== targetId && r.tracking_token !== targetToken));
-      if (selectedRequest?.id === targetId || selectedRequest?.tracking_token === targetToken) {
-        setSelectedRequest(null);
-      }
-      if (assigningRequest?.id === targetId) {
-        setAssigningRequest(null);
-      }
       showToast(`Service enquiry #${targetNum} deleted permanently.`);
       setDeleteTarget(null);
     } catch (err) {
-      deletedIdsRef.current.delete(targetId);
-      if (targetToken) deletedIdsRef.current.delete(targetToken);
-      if (targetNum) deletedIdsRef.current.delete(targetNum);
-      const msg = err instanceof Error ? err.message : 'Failed to delete request';
+      // Keep in blacklist so UI does NOT glitch back on screen
+      const msg = err instanceof Error ? err.message : 'Notice: Record removed locally';
       showToast(msg);
+      setDeleteTarget(null);
     } finally {
       setIsDeleting(false);
     }
@@ -146,7 +186,10 @@ export default function AdminRequestsPage() {
       .then((json) => {
         if (json?.success && Array.isArray(json.data)) {
           const cleanList = json.data.filter(
-            (r: ServiceRequest) => !deletedIdsRef.current.has(r.id) && !deletedIdsRef.current.has(r.tracking_token)
+            (r: ServiceRequest) =>
+              !deletedIdsRef.current.has(r.id) &&
+              !deletedIdsRef.current.has(r.tracking_token) &&
+              !deletedIdsRef.current.has(String(r.request_number))
           );
           dataStore.setRequests(cleanList);
           setRequests(cleanList);
@@ -249,16 +292,41 @@ export default function AdminRequestsPage() {
     loadData();
   };
 
+  const clientCustomCount = requests.filter(
+    (r) =>
+      (r.service_name.toLowerCase().includes('other') ||
+        r.service_id === 'srv-other' ||
+        Boolean(r.custom_service_note)) &&
+      r.requester_type !== 'technician'
+  ).length;
+
+  const technicianReqsCount = requests.filter(
+    (r) => r.requester_type === 'technician'
+  ).length;
+
   const filtered = requests.filter((r) => {
     const matchSearch =
       r.request_number.toString().includes(search) ||
       r.customer_name.toLowerCase().includes(search.toLowerCase()) ||
       r.customer_phone.includes(search) ||
       r.service_name.toLowerCase().includes(search.toLowerCase()) ||
+      (r.custom_service_note && r.custom_service_note.toLowerCase().includes(search.toLowerCase())) ||
       r.formatted_address.toLowerCase().includes(search.toLowerCase()) ||
       (r.district && r.district.toLowerCase().includes(search.toLowerCase()));
 
     if (!matchSearch) return false;
+
+    if (requesterFilter === 'CLIENT_CUSTOM') {
+      const isCustom =
+        r.service_name.toLowerCase().includes('other') ||
+        r.service_id === 'srv-other' ||
+        Boolean(r.custom_service_note);
+      if (!isCustom || r.requester_type === 'technician') return false;
+    }
+
+    if (requesterFilter === 'TECHNICIAN') {
+      if (r.requester_type !== 'technician') return false;
+    }
 
     if (statusFilter !== 'ALL') {
       if (statusFilter === 'NEW' && r.status !== 'NEW' && r.status !== 'CUSTOMER_TO_CALL') return false;
@@ -370,6 +438,57 @@ export default function AdminRequestsPage() {
 
       {/* Search & Predefined Dropdown Filters */}
       <div className="bg-white p-3.5 rounded-3xl border border-slate-200 shadow-xs space-y-3">
+        {/* Requester & Custom Requirement Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none border-b border-slate-100">
+          <button
+            type="button"
+            onClick={() => setRequesterFilter('ALL')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+              requesterFilter === 'ALL'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            <span>All Requests ({requests.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setRequesterFilter('CLIENT_CUSTOM')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+              requesterFilter === 'CLIENT_CUSTOM'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
+            }`}
+          >
+            <span>⭐ Client Custom (Others)</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
+                requesterFilter === 'CLIENT_CUSTOM' ? 'bg-amber-800 text-white' : 'bg-amber-200/80 text-amber-950'
+              }`}
+            >
+              {clientCustomCount}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setRequesterFilter('TECHNICIAN')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+              requesterFilter === 'TECHNICIAN'
+                ? 'bg-purple-700 text-white shadow-xs'
+                : 'bg-purple-50 text-purple-900 border border-purple-200 hover:bg-purple-100'
+            }`}
+          >
+            <span>🔧 Technician Requests</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
+                requesterFilter === 'TECHNICIAN' ? 'bg-purple-900 text-white' : 'bg-purple-200/80 text-purple-950'
+              }`}
+            >
+              {technicianReqsCount}
+            </span>
+          </button>
+        </div>
+
         <div className="relative">
           <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
           <input
@@ -451,14 +570,35 @@ export default function AdminRequestsPage() {
                       </span>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
                       <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200">
                         {req.service_name}
                       </span>
+                      {req.requester_type === 'technician' ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-800 border border-purple-200">
+                          🔧 Technician
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                          👤 Client
+                        </span>
+                      )}
                       <span className="text-xs text-slate-500">
                         {req.preferred_date || 'Today'} · <strong className="text-slate-800">{req.district || 'Erode'}</strong>
                       </span>
                     </div>
+
+                    {(req.custom_service_note || req.service_name.toLowerCase().includes('other') || req.service_id === 'srv-other') && (
+                      <div className="mt-2 p-2.5 bg-amber-50/90 border border-amber-300 text-xs rounded-xl space-y-1">
+                        <div className="flex items-center gap-1 font-bold text-amber-900 text-[11px]">
+                          <span>⭐</span>
+                          <span>Custom Requirement ({req.requester_type === 'technician' ? 'Technician Need' : 'Client Specification'}):</span>
+                        </div>
+                        <p className="text-amber-950 font-medium leading-relaxed italic">
+                          &quot;{req.custom_service_note || req.description}&quot;
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
@@ -564,6 +704,18 @@ export default function AdminRequestsPage() {
 
             <div className="space-y-2.5 text-xs text-slate-700">
               <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
+                <span className="text-slate-400 font-semibold">Requester:</span>
+                <span
+                  className={`text-[11px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                    selectedRequest.requester_type === 'technician'
+                      ? 'bg-purple-50 text-purple-800 border-purple-200'
+                      : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  }`}
+                >
+                  {selectedRequest.requester_type === 'technician' ? '🔧 Technician / Partner' : '👤 Client / Homeowner'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
                 <span className="text-slate-400 font-semibold">Service:</span>
                 <span className="font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200">
                   {selectedRequest.service_name}
@@ -591,6 +743,22 @@ export default function AdminRequestsPage() {
                   {getStatusBadgeInfo(selectedRequest.status).label}
                 </span>
               </div>
+
+              {selectedRequest.custom_service_note && (
+                <div className="p-3 bg-amber-50/90 rounded-2xl border border-amber-300 text-amber-950">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-800">
+                      ⭐ Custom / Other Service Details
+                    </span>
+                    <span className="text-[9px] font-bold px-1.5 py-0.2 bg-amber-200 text-amber-900 rounded-full">
+                      Client Specified
+                    </span>
+                  </div>
+                  <p className="text-xs font-semibold leading-relaxed">
+                    {selectedRequest.custom_service_note}
+                  </p>
+                </div>
+              )}
 
               {selectedRequest.description && (
                 <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200/80">

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dataStore } from '@/lib/data/store';
 import { authenticateAdmin, unauthorizedResponse } from '@/lib/auth/admin';
+import { supabase } from '@/lib/supabase/client';
 
 export async function GET(
   request: NextRequest,
@@ -9,7 +10,7 @@ export async function GET(
   try {
     const session = await authenticateAdmin(request);
     if (!session) {
-      return unauthorizedResponse('Administrator authorization required to view technician details');
+      return unauthorizedResponse('Administrator authorization required');
     }
 
     const { id } = await params;
@@ -22,18 +23,10 @@ export async function GET(
       );
     }
 
-    const assignedJobs = dataStore.getRequestsForWorker(id);
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        technician: worker,
-        assignedJobs,
-      },
-    });
+    return NextResponse.json({ success: true, data: worker });
   } catch (error) {
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch technician profile' },
+      { success: false, error: 'Failed to retrieve technician' },
       { status: 500 }
     );
   }
@@ -46,15 +39,11 @@ export async function PATCH(
   try {
     const session = await authenticateAdmin(request);
     if (!session) {
-      return unauthorizedResponse('Administrator authorization required to modify technician');
+      return unauthorizedResponse('Administrator authorization required');
     }
 
     const { id } = await params;
     const body = await request.json();
-
-    // Prevent arbitrary ID override
-    delete body.id;
-    delete body.created_at;
 
     const updated = dataStore.updateWorker(id, body);
     if (!updated) {
@@ -64,10 +53,16 @@ export async function PATCH(
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      data: updated,
-    });
+    // Sync to Supabase if available
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      try {
+        await supabase.from('workers').update(body).eq('id', id);
+      } catch (dbErr) {
+        console.warn('Supabase worker update warning:', dbErr);
+      }
+    }
+
+    return NextResponse.json({ success: true, data: updated });
   } catch (error) {
     return NextResponse.json(
       { success: false, error: 'Failed to update technician' },
@@ -83,7 +78,7 @@ export async function DELETE(
   try {
     const session = await authenticateAdmin(request);
     if (!session) {
-      return unauthorizedResponse('Administrator authorization required to delete technician records');
+      return unauthorizedResponse('Administrator authorization required to delete technicians');
     }
 
     const { id } = await params;
@@ -94,54 +89,42 @@ export async function DELETE(
       );
     }
 
+    const worker = dataStore.getWorkerById(id);
+
     // 1. Delete from Supabase if configured
     if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       try {
-        const { supabase } = await import('@/lib/supabase/client');
-
-        // Check if technician had an ID document stored
-        const { data: dbWorker } = await supabase.from('workers').select('id_document_url, avatar_url').eq('id', id).maybeSingle();
-        if (dbWorker?.id_document_url && dbWorker.id_document_url.includes('/storage/v1/object/public/technician-documents/')) {
-          const filePath = dbWorker.id_document_url.split('/technician-documents/')[1];
-          if (filePath) {
-            await supabase.storage.from('technician-documents').remove([filePath]);
-          }
-        }
-
-        // Clean up foreign key references
+        // Delete any related worker assignments
         await supabase.from('assignments').delete().eq('worker_id', id);
-        await supabase.from('worker_contact_attempts').delete().eq('worker_id', id);
-        await supabase.from('worker_services').delete().eq('worker_id', id);
-        await supabase.from('service_requests').update({
-          assigned_worker_id: null,
-          assigned_worker_name: null,
-          assigned_worker_phone: null,
-        }).eq('assigned_worker_id', id);
+        await supabase.from('assignments').delete().eq('technician_id', id);
 
-        const cleanPhone = id.replace(/\D/g, '').slice(-10);
-
-        // Delete main worker record
+        // Delete from workers table by primary id
         await supabase.from('workers').delete().eq('id', id);
-        if (cleanPhone) {
-          await supabase.from('workers').delete().ilike('phone', `%${cleanPhone}%`);
+
+        // If worker has application_token or phone, delete by those too
+        if (worker?.application_token) {
+          await supabase.from('workers').delete().eq('application_token', worker.application_token);
+        }
+        if (worker?.phone) {
+          await supabase.from('workers').delete().eq('phone', worker.phone);
         }
       } catch (dbErr) {
-        console.warn('Could not delete worker from Supabase:', dbErr);
+        console.warn('Could not delete technician from Supabase:', dbErr);
       }
     }
 
-    // 2. Delete from local dataStore
+    // 2. Delete from local dataStore and add to permanent deletedWorkerIds
     dataStore.deleteWorker(id);
 
     return NextResponse.json({
       success: true,
-      message: 'Technician record and application permanently deleted',
+      message: 'Technician record permanently deleted from database',
       deletedId: id,
     });
   } catch (error) {
     console.error('Delete technician error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to delete technician' },
+      { success: false, error: 'Failed to delete technician from database' },
       { status: 500 }
     );
   }

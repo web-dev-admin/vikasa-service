@@ -69,8 +69,29 @@ export default function AdminContactsPage() {
     phone?: string;
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const deletedCustomerIdsRef = React.useRef<Set<string>>(new Set());
-  const deletedWorkerIdsRef = React.useRef<Set<string>>(new Set());
+  const deletedCustomerIdsRef = React.useRef<Set<string>>((() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const stored = sessionStorage.getItem('vikasa_admin_deleted_customers');
+        if (stored) return new Set<string>(JSON.parse(stored));
+      }
+    } catch {
+      // ignore
+    }
+    return new Set<string>();
+  })());
+
+  const deletedWorkerIdsRef = React.useRef<Set<string>>((() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const stored = sessionStorage.getItem('vikasa_admin_deleted_workers');
+        if (stored) return new Set<string>(JSON.parse(stored));
+      }
+    } catch {
+      // ignore
+    }
+    return new Set<string>();
+  })());
 
   const isFetchingRef = React.useRef(false);
   const abortControllerRef = React.useRef<AbortController | null>(null);
@@ -183,7 +204,7 @@ export default function AdminContactsPage() {
   };
 
   const handleConfirmDelete = async () => {
-    if (!deleteTarget) return;
+    if (!deleteTarget || isDeleting) return;
     setIsDeleting(true);
 
     const targetId = deleteTarget.id;
@@ -192,9 +213,39 @@ export default function AdminContactsPage() {
     if (deleteTarget.type === 'customer') {
       deletedCustomerIdsRef.current.add(targetId);
       if (targetPhone) deletedCustomerIdsRef.current.add(targetPhone);
+      try {
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem(
+            'vikasa_admin_deleted_customers',
+            JSON.stringify(Array.from(deletedCustomerIdsRef.current))
+          );
+        }
+      } catch {
+        // ignore
+      }
+      dataStore.deleteCustomer(targetId);
+      setCustomers((prev) => prev.filter((c) => c.id !== targetId && (!targetPhone || !c.phone.includes(targetPhone))));
+      if (selectedCustomer?.customer.id === targetId) {
+        setSelectedCustomer(null);
+      }
     } else {
       deletedWorkerIdsRef.current.add(targetId);
       if (targetPhone) deletedWorkerIdsRef.current.add(targetPhone);
+      try {
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem(
+            'vikasa_admin_deleted_workers',
+            JSON.stringify(Array.from(deletedWorkerIdsRef.current))
+          );
+        }
+      } catch {
+        // ignore
+      }
+      dataStore.deleteWorker(targetId);
+      setTechnicians((prev) => prev.filter((t) => t.id !== targetId && (!targetPhone || !t.phone.includes(targetPhone))));
+      if (selectedTechnician?.id === targetId) {
+        setSelectedTechnician(null);
+      }
     }
 
     const token = typeof window !== 'undefined'
@@ -218,31 +269,15 @@ export default function AdminContactsPage() {
         throw new Error(json.error || 'Failed to delete record');
       }
 
-      // Update local state immediately
       if (deleteTarget.type === 'customer') {
-        dataStore.deleteCustomer(targetId);
-        setCustomers((prev) => prev.filter((c) => c.id !== targetId && (!targetPhone || !c.phone.includes(targetPhone))));
-        if (selectedCustomer?.customer.id === targetId) {
-          setSelectedCustomer(null);
-        }
         showToast(`Customer enquiry record for "${deleteTarget.name}" deleted permanently.`);
       } else {
-        dataStore.deleteWorker(targetId);
-        setTechnicians((prev) => prev.filter((t) => t.id !== targetId && (!targetPhone || !t.phone.includes(targetPhone))));
-        if (selectedTechnician?.id === targetId) {
-          setSelectedTechnician(null);
-        }
         showToast(`Technician "${deleteTarget.name}" deleted permanently.`);
       }
       setDeleteTarget(null);
     } catch (err) {
-      if (deleteTarget.type === 'customer') {
-        deletedCustomerIdsRef.current.delete(targetId);
-        if (targetPhone) deletedCustomerIdsRef.current.delete(targetPhone);
-      } else {
-        deletedWorkerIdsRef.current.delete(targetId);
-        if (targetPhone) deletedWorkerIdsRef.current.delete(targetPhone);
-      }
+      console.warn('Delete contact error:', err);
+      // Keep in deletedIdsRef so UI does not glitch back
       const msg = err instanceof Error ? err.message : 'Failed to delete record';
       showToast(msg, 'error');
     } finally {

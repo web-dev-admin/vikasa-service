@@ -47,6 +47,9 @@ class VikasaDataStore {
   private deviceTokens: AdminDeviceToken[] = [];
   private customServices: ServiceItem[] = [];
   private customCategories: ServiceCategory[] = [];
+  private deletedRequestIds = new Set<string>();
+  private deletedWorkerIds = new Set<string>();
+  private deletedCustomerIds = new Set<string>();
   private websiteContent: WebsiteContent = { ...DEFAULT_WEBSITE_CONTENT };
   private initialized = false;
 
@@ -64,12 +67,43 @@ class VikasaDataStore {
           localStorage.setItem(PURGE_KEY, 'true');
         }
 
+        const savedDeletedReqs = localStorage.getItem('vikasa_deleted_request_ids');
+        if (savedDeletedReqs) {
+          try {
+            const arr = JSON.parse(savedDeletedReqs);
+            if (Array.isArray(arr)) this.deletedRequestIds = new Set(arr);
+          } catch {}
+        }
+
+        const savedDeletedWorkers = localStorage.getItem('vikasa_deleted_worker_ids');
+        if (savedDeletedWorkers) {
+          try {
+            const arr = JSON.parse(savedDeletedWorkers);
+            if (Array.isArray(arr)) this.deletedWorkerIds = new Set(arr);
+          } catch {}
+        }
+
+        const savedDeletedCusts = localStorage.getItem('vikasa_deleted_customer_ids');
+        if (savedDeletedCusts) {
+          try {
+            const arr = JSON.parse(savedDeletedCusts);
+            if (Array.isArray(arr)) this.deletedCustomerIds = new Set(arr);
+          } catch {}
+        }
+
         const savedReqs = localStorage.getItem('vikasa_requests');
         if (savedReqs) {
           const parsed: ServiceRequest[] = JSON.parse(savedReqs);
           const reqMap = new Map<string, ServiceRequest>();
           for (const r of parsed) {
-            if (r && r.id && !reqMap.has(r.id)) {
+            if (
+              r &&
+              r.id &&
+              !this.deletedRequestIds.has(r.id) &&
+              !(r.tracking_token && this.deletedRequestIds.has(r.tracking_token)) &&
+              !(r.request_number && this.deletedRequestIds.has(String(r.request_number))) &&
+              !reqMap.has(r.id)
+            ) {
               reqMap.set(r.id, r);
             }
           }
@@ -168,6 +202,9 @@ class VikasaDataStore {
         localStorage.setItem('vikasa_device_tokens', JSON.stringify(this.deviceTokens));
         localStorage.setItem('vikasa_custom_services', JSON.stringify(this.customServices));
         localStorage.setItem('vikasa_custom_categories', JSON.stringify(this.customCategories));
+        localStorage.setItem('vikasa_deleted_request_ids', JSON.stringify(Array.from(this.deletedRequestIds)));
+        localStorage.setItem('vikasa_deleted_worker_ids', JSON.stringify(Array.from(this.deletedWorkerIds)));
+        localStorage.setItem('vikasa_deleted_customer_ids', JSON.stringify(Array.from(this.deletedCustomerIds)));
         localStorage.setItem('vikasa_website_content', JSON.stringify(this.websiteContent));
         window.dispatchEvent(new Event('vikasa_data_updated'));
       } catch (e) {
@@ -178,9 +215,16 @@ class VikasaDataStore {
 
   setRequests(requests: ServiceRequest[]) {
     this.init();
-    this.requests = [...requests].sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
+    this.requests = [...requests]
+      .filter(
+        (r) =>
+          r &&
+          r.id &&
+          !this.deletedRequestIds.has(r.id) &&
+          !(r.tracking_token && this.deletedRequestIds.has(r.tracking_token)) &&
+          !(r.request_number && this.deletedRequestIds.has(String(r.request_number)))
+      )
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     for (const req of this.requests) {
       if (req.customer_name && req.customer_phone) {
         this.upsertCustomer({
@@ -201,10 +245,24 @@ class VikasaDataStore {
     this.init();
     const existingMap = new Map<string, ServiceRequest>();
     for (const r of this.requests) {
-      if (r && r.id) existingMap.set(r.id, r);
+      if (
+        r &&
+        r.id &&
+        !this.deletedRequestIds.has(r.id) &&
+        !(r.tracking_token && this.deletedRequestIds.has(r.tracking_token)) &&
+        !(r.request_number && this.deletedRequestIds.has(String(r.request_number)))
+      ) {
+        existingMap.set(r.id, r);
+      }
     }
     for (const inc of incoming) {
-      if (inc && inc.id) {
+      if (
+        inc &&
+        inc.id &&
+        !this.deletedRequestIds.has(inc.id) &&
+        !(inc.tracking_token && this.deletedRequestIds.has(inc.tracking_token)) &&
+        !(inc.request_number && this.deletedRequestIds.has(String(inc.request_number)))
+      ) {
         const prev = existingMap.get(inc.id);
         existingMap.set(inc.id, { ...prev, ...inc });
 
@@ -243,6 +301,9 @@ class VikasaDataStore {
     for (const w of this.workers) {
       if (!w) continue;
       const cleanP = w.phone ? w.phone.replace(/\D/g, '').slice(-10) : '';
+      if (this.deletedWorkerIds.has(w.id) || (cleanP && this.deletedWorkerIds.has(cleanP)) || (w.phone && this.deletedWorkerIds.has(w.phone))) {
+        continue;
+      }
       const key = cleanP || w.id;
       if (key) phoneMap.set(key, w);
     }
@@ -251,6 +312,9 @@ class VikasaDataStore {
     for (const inc of incoming) {
       if (!inc) continue;
       const cleanP = inc.phone ? inc.phone.replace(/\D/g, '').slice(-10) : '';
+      if (this.deletedWorkerIds.has(inc.id) || (cleanP && this.deletedWorkerIds.has(cleanP)) || (inc.phone && this.deletedWorkerIds.has(inc.phone))) {
+        continue;
+      }
       const key = cleanP || inc.id;
       if (key) {
         const prev = phoneMap.get(key);
@@ -480,24 +544,44 @@ class VikasaDataStore {
   deleteRequest(id: string): boolean {
     this.init();
     const initialLen = this.requests.length;
+    const target = this.requests.find(
+      (r) => r.id === id || r.tracking_token === id || String(r.request_number) === id
+    );
+    if (target) {
+      this.deletedRequestIds.add(target.id);
+      if (target.tracking_token) this.deletedRequestIds.add(target.tracking_token);
+      if (target.request_number) this.deletedRequestIds.add(String(target.request_number));
+    }
+    this.deletedRequestIds.add(id);
+
     this.requests = this.requests.filter(
-      (r) => r.id !== id && r.tracking_token !== id && String(r.request_number) !== id
+      (r) =>
+        r.id !== id &&
+        r.tracking_token !== id &&
+        String(r.request_number) !== id &&
+        !this.deletedRequestIds.has(r.id) &&
+        !(r.tracking_token && this.deletedRequestIds.has(r.tracking_token)) &&
+        !(r.request_number && this.deletedRequestIds.has(String(r.request_number)))
     );
     this.contactAttempts = this.contactAttempts.filter((a) => a.request_id !== id);
     const changed = this.requests.length !== initialLen;
-    if (changed) {
-      this.persist();
-    }
+    this.persist();
     return changed;
   }
 
   // --- Requests ---
   getRequests(statusFilter?: RequestStatus): ServiceRequest[] {
     this.init();
+    const valid = this.requests.filter(
+      (r) =>
+        !this.deletedRequestIds.has(r.id) &&
+        !(r.tracking_token && this.deletedRequestIds.has(r.tracking_token)) &&
+        !(r.request_number && this.deletedRequestIds.has(String(r.request_number)))
+    );
     if (statusFilter) {
-      return this.requests.filter((r) => r.status === statusFilter);
+      return valid.filter((r) => r.status === statusFilter);
     }
-    return [...this.requests].sort(
+    return [...valid].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
   }
@@ -843,6 +927,13 @@ class VikasaDataStore {
 
   deleteWorker(id: string): boolean {
     this.init();
+    const target = this.workers.find((w) => w.id === id);
+    if (target) {
+      this.deletedWorkerIds.add(target.id);
+      if (target.phone) this.deletedWorkerIds.add(target.phone);
+    }
+    this.deletedWorkerIds.add(id);
+
     const index = this.workers.findIndex((w) => w.id === id);
     if (index !== -1) {
       this.workers.splice(index, 1);
@@ -860,6 +951,7 @@ class VikasaDataStore {
       this.persist();
       return true;
     }
+    this.persist();
     return false;
   }
 

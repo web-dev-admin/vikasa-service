@@ -28,8 +28,24 @@ export default function AdminWorkersPage() {
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [tradeFilter, setTradeFilter] = useState<'ALL' | 'CUSTOM_ONLY'>('ALL');
+  const [isDeleting, setIsDeleting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const deletedWorkerIdsRef = React.useRef<Set<string>>(new Set());
+
+  // Persistent deleted technician IDs across session and background intervals
+  const deletedWorkerIdsRef = React.useRef<Set<string>>((() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const stored = sessionStorage.getItem('vikasa_admin_deleted_workers');
+        if (stored) {
+          return new Set<string>(JSON.parse(stored));
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return new Set<string>();
+  })());
 
   // Form state
   const [formData, setFormData] = useState({
@@ -165,10 +181,27 @@ export default function AdminWorkersPage() {
   };
 
   const confirmDelete = async () => {
-    if (!selectedWorker) return;
+    if (!selectedWorker || isDeleting) return;
     const workerId = selectedWorker.id;
     const workerName = selectedWorker.full_name;
+    setIsDeleting(true);
+
+    // 1. Instantly register in persistent memory & session storage
     deletedWorkerIdsRef.current.add(workerId);
+    try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(
+          'vikasa_admin_deleted_workers',
+          JSON.stringify(Array.from(deletedWorkerIdsRef.current))
+        );
+      }
+    } catch {
+      // ignore
+    }
+
+    // 2. Optimistically update local data store & UI state
+    dataStore.deleteWorker(workerId);
+    setWorkers((prev) => prev.filter((w) => w.id !== workerId));
 
     const token = typeof window !== 'undefined'
       ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
@@ -188,30 +221,40 @@ export default function AdminWorkersPage() {
       if (!res.ok || !json.success) {
         throw new Error(json.error || 'Failed to delete technician');
       }
-      dataStore.deleteWorker(workerId);
       refreshWorkers();
       showToast(`Technician "${workerName}" permanently deleted from database.`);
     } catch (err) {
-      deletedWorkerIdsRef.current.delete(workerId);
+      console.warn('Delete technician warning:', err);
+      // Keep in deletedWorkerIdsRef to prevent UI glitching or flashing back
       const msg = err instanceof Error ? err.message : 'Failed to delete technician';
       showToast(msg);
     } finally {
+      setIsDeleting(false);
       setView('list');
       setSelectedWorker(null);
     }
   };
 
+  const customTradesCount = workers.filter(
+    (w) => Boolean(w.has_custom_skill) || Boolean(w.custom_trade_note) || w.skills.some((s) => s.toLowerCase().includes('other'))
+  ).length;
+
   const filteredWorkers = workers.filter((w) => {
     if (statusFilter !== 'ALL' && w.verification_status !== statusFilter) {
       return false;
+    }
+    if (tradeFilter === 'CUSTOM_ONLY') {
+      const isCustom = Boolean(w.has_custom_skill) || Boolean(w.custom_trade_note) || w.skills.some((s) => s.toLowerCase().includes('other'));
+      if (!isCustom) return false;
     }
     if (search.trim()) {
       const q = search.toLowerCase();
       const matchName = w.full_name.toLowerCase().includes(q);
       const matchPhone = w.phone.includes(q);
       const matchSkill = w.skills.some((s) => s.toLowerCase().includes(q));
+      const matchCustomNote = (w.custom_trade_note || '').toLowerCase().includes(q);
       const matchDistrict = w.district?.toLowerCase().includes(q);
-      return matchName || matchPhone || matchSkill || matchDistrict;
+      return matchName || matchPhone || matchSkill || matchCustomNote || matchDistrict;
     }
     return true;
   });
@@ -296,6 +339,23 @@ export default function AdminWorkersPage() {
               >
                 Verified Active ({workers.filter((w) => w.verification_status === 'verified').length})
               </button>
+              <button
+                onClick={() => setTradeFilter(tradeFilter === 'ALL' ? 'CUSTOM_ONLY' : 'ALL')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all min-h-[38px] shrink-0 flex items-center gap-1.5 ${
+                  tradeFilter === 'CUSTOM_ONLY'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
+                }`}
+              >
+                <span>⭐ Custom Trades (Others)</span>
+                <span
+                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                    tradeFilter === 'CUSTOM_ONLY' ? 'bg-amber-800 text-white' : 'bg-amber-200 text-amber-950'
+                  }`}
+                >
+                  {customTradesCount}
+                </span>
+              </button>
             </div>
           </div>
 
@@ -335,6 +395,14 @@ export default function AdminWorkersPage() {
                           <div className="font-bold text-slate-800 text-xs">
                             {worker.skills[0] || 'Technician'}
                           </div>
+                          {worker.custom_trade_note && (
+                            <div
+                              className="mt-1 px-2 py-0.5 bg-amber-50 rounded-md border border-amber-200/90 text-[10px] text-amber-900 font-semibold max-w-[200px] truncate"
+                              title={worker.custom_trade_note}
+                            >
+                              ⭐ {worker.custom_trade_note}
+                            </div>
+                          )}
                           <span className="text-[10px] text-slate-400">
                             {worker.experience_years || 1} yrs experience
                           </span>
@@ -577,16 +645,20 @@ export default function AdminWorkersPage() {
 
           <div className="flex items-center gap-2 pt-2">
             <button
+              type="button"
               onClick={() => setView('list')}
-              className="flex-1 py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold min-h-[42px] cursor-pointer"
+              disabled={isDeleting}
+              className="flex-1 py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-xs font-bold min-h-[42px] cursor-pointer"
             >
               Cancel
             </button>
             <button
+              type="button"
               onClick={confirmDelete}
-              className="flex-1 py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold min-h-[42px] cursor-pointer"
+              disabled={isDeleting}
+              className="flex-1 py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold min-h-[42px] cursor-pointer flex items-center justify-center gap-1.5"
             >
-              Delete Permanently
+              {isDeleting ? 'Deleting...' : 'Delete Permanently'}
             </button>
           </div>
         </div>

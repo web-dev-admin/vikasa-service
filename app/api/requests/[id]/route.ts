@@ -50,6 +50,10 @@ export async function DELETE(
       );
     }
 
+    const { searchParams } = new URL(request.url);
+    const queryToken = searchParams.get('token');
+    const queryNum = searchParams.get('num');
+
     // 1. Delete from Supabase if configured
     if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       try {
@@ -57,11 +61,22 @@ export async function DELETE(
         await supabase.from('assignments').delete().eq('request_id', id);
         // Delete associated contact attempts
         await supabase.from('worker_contact_attempts').delete().eq('request_id', id);
-        // Delete main service request record by id or tracking token
-        await supabase.from('service_requests').delete().or(`id.eq.${id},tracking_token.eq.${id}`);
+
+        // Delete main service request record by primary id
+        await supabase.from('service_requests').delete().eq('id', id);
+
+        // Delete by tracking token
+        await supabase.from('service_requests').delete().eq('tracking_token', id);
+        if (queryToken) {
+          await supabase.from('service_requests').delete().eq('tracking_token', queryToken);
+        }
+
         // If numeric request number was provided
         if (/^\d+$/.test(id)) {
           await supabase.from('service_requests').delete().eq('request_number', Number(id));
+        }
+        if (queryNum && /^\d+$/.test(queryNum)) {
+          await supabase.from('service_requests').delete().eq('request_number', Number(queryNum));
         }
       } catch (dbErr) {
         console.warn('Could not delete service request from Supabase:', dbErr);

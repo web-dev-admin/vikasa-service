@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
       avatar_url: body.avatar_url?.trim() || undefined,
       experience_years: Math.max(0, Math.min(50, Number(body.experience_years) || 1)),
       skills: Array.isArray(body.skills) ? body.skills : [],
-      bio: body.bio?.trim() || `Professional service technician registered for ${body.district || 'Erode'}.`,
+      bio: body.bio?.trim() || (body.custom_trade_note ? `Custom Trade: ${body.custom_trade_note}` : `Professional service technician registered for ${body.district || 'Erode'}.`),
       verification_status: 'pending_verification', // ALWAYS pending_verification
       availability: 'available',
       active_status: 'active',
@@ -122,6 +122,8 @@ export async function POST(request: NextRequest) {
       service_radius_km: Math.max(5, Math.min(100, Number(body.service_radius_km) || 20)),
       service_area_names: [body.base_location_name || body.district || 'Erode'],
       service_ids: body.service_ids,
+      custom_trade_note: body.custom_trade_note?.trim() || undefined,
+      has_custom_skill: Boolean(body.has_custom_skill),
     });
 
     // Sync new worker to Supabase if configured

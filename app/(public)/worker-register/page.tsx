@@ -59,6 +59,7 @@ export default function WorkerRegisterPage() {
 
   // Professional Information
   const [selectedServices, setSelectedServices] = useState<string[]>(['srv-plumbing']);
+  const [customTradeNote, setCustomTradeNote] = useState('');
   const [experienceYears, setExperienceYears] = useState(5);
   const [availability, setAvailability] = useState<'available' | 'busy' | 'offline'>('available');
   const [workingArea, setWorkingArea] = useState('Erode & Surrounding');
@@ -167,6 +168,9 @@ export default function WorkerRegisterPage() {
     const skillNames = selectedServices.map(
       (sid) => STANDARDIZED_SERVICES.find((s) => s.id === sid)?.name || sid
     );
+    if (customTradeNote.trim()) {
+      skillNames.push(`Custom: ${customTradeNote.trim()}`);
+    }
 
     setIsSubmitting(true);
 
@@ -188,6 +192,8 @@ export default function WorkerRegisterPage() {
           longitude: longitude,
           service_radius_km: 25,
           availability: availability,
+          custom_trade_note: customTradeNote.trim() || undefined,
+          has_custom_skill: selectedServices.includes('srv-other') || Boolean(customTradeNote.trim()),
         }),
       });
 
@@ -433,7 +439,7 @@ export default function WorkerRegisterPage() {
                 aria-labelledby="worker-trades-label"
                 className="grid grid-cols-2 sm:grid-cols-4 gap-2"
               >
-                {STANDARDIZED_SERVICES.filter((s) => s.id !== 'srv-other').map((s) => {
+                {STANDARDIZED_SERVICES.map((s) => {
                   const isChecked = selectedServices.includes(s.id);
                   const localizedName = t.tradeNames[s.id] || s.name;
                   return (
@@ -458,6 +464,32 @@ export default function WorkerRegisterPage() {
                   );
                 })}
               </div>
+
+              {selectedServices.includes('srv-other') && (
+                <div className="mt-3 p-3.5 bg-amber-50/80 border border-amber-300 rounded-2xl animate-in fade-in space-y-1.5">
+                  <label htmlFor="worker-custom-trade" className="block text-xs font-bold text-amber-950">
+                    ⭐ {lang === 'ta' ? 'உங்கள் பிற / தனிப்பயன் தொழில் திறன் விளக்கம்' : 'Custom Trade / Skills Description'} <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    id="worker-custom-trade"
+                    rows={2}
+                    required
+                    value={customTradeNote}
+                    onChange={(e) => setCustomTradeNote(e.target.value)}
+                    placeholder={
+                      lang === 'ta'
+                        ? 'உதா: சோலார் பேனல் பொருத்துதல், CCTV கேமரா பழுது, சிம்னி சர்வீஸ், அலுமினியம் ஃபேப்ரிகேஷன்...'
+                        : 'e.g. Solar panel technician, CCTV camera setup, chimney repair, aluminium fabrication...'
+                    }
+                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-amber-300 bg-white text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600"
+                  />
+                  <p className="text-[11px] text-amber-900 font-medium">
+                    {lang === 'ta'
+                      ? 'உங்கள் சிறப்பு திறனுக்கேற்ற வேலைகளை ஒருங்கிணைப்பாளர் உங்களுக்கு ஒதுக்குவார்.'
+                      : 'Our coordinator will manually verify and route jobs matching your specialized skills.'}
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

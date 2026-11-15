@@ -91,6 +91,8 @@ export interface Worker {
   id_document_url?: string;
   service_ids: string[];
   application_token?: string;
+  custom_trade_note?: string;
+  has_custom_skill?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -135,6 +137,8 @@ export interface ServiceRequest {
   preferred_date?: string;
   preferred_time_slot?: string;
   photo_urls?: string[];
+  requester_type?: 'client' | 'technician';
+  custom_service_note?: string;
   
   status: RequestStatus;
   customer_confirmed: boolean;
