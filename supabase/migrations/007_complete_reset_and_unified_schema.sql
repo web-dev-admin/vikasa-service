@@ -12,6 +12,8 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 -- 2. Clean Slate: Drop old conflicting tables & RPCs safely
 DROP FUNCTION IF EXISTS get_admin_service_requests() CASCADE;
 DROP FUNCTION IF EXISTS get_admin_workers() CASCADE;
+DROP FUNCTION IF EXISTS get_public_tracking_status(TEXT) CASCADE;
+DROP FUNCTION IF EXISTS get_public_tracking_status(UUID) CASCADE;
 DROP TABLE IF EXISTS assignments CASCADE;
 DROP TABLE IF EXISTS worker_contact_attempts CASCADE;
 DROP TABLE IF EXISTS service_requests CASCADE;
@@ -19,13 +21,18 @@ DROP TABLE IF EXISTS workers CASCADE;
 DROP TABLE IF EXISTS customers CASCADE;
 DROP TABLE IF EXISTS services CASCADE;
 DROP TABLE IF EXISTS service_categories CASCADE;
+DROP TABLE IF EXISTS notifications CASCADE;
 DROP TABLE IF EXISTS admin_notifications CASCADE;
 DROP TABLE IF EXISTS admin_device_tokens CASCADE;
 DROP TABLE IF EXISTS audit_logs CASCADE;
 DROP TABLE IF EXISTS website_content CASCADE;
+DROP TABLE IF EXISTS profiles CASCADE;
+DROP TABLE IF EXISTS worker_services CASCADE;
+DROP TABLE IF EXISTS service_aliases CASCADE;
+DROP TABLE IF EXISTS admin_notes CASCADE;
 
 -- 3. Service Categories
-CREATE TABLE service_categories (
+CREATE TABLE IF NOT EXISTS service_categories (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     slug TEXT NOT NULL UNIQUE,
@@ -38,7 +45,7 @@ CREATE TABLE service_categories (
 );
 
 -- 4. Services Catalog
-CREATE TABLE services (
+CREATE TABLE IF NOT EXISTS services (
     id TEXT PRIMARY KEY,
     category_id TEXT DEFAULT 'cat-general',
     name TEXT NOT NULL,
@@ -52,7 +59,7 @@ CREATE TABLE services (
 );
 
 -- 5. Service Requests (Bookings)
-CREATE TABLE service_requests (
+CREATE TABLE IF NOT EXISTS service_requests (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     request_number SERIAL UNIQUE,
     customer_id TEXT,
@@ -90,7 +97,7 @@ CREATE TABLE service_requests (
 );
 
 -- 6. Workers (Technicians Directory)
-CREATE TABLE workers (
+CREATE TABLE IF NOT EXISTS workers (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     full_name TEXT NOT NULL,
     phone TEXT NOT NULL UNIQUE,
@@ -121,7 +128,7 @@ CREATE TABLE workers (
 );
 
 -- 7. Customers
-CREATE TABLE customers (
+CREATE TABLE IF NOT EXISTS customers (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     full_name TEXT NOT NULL,
     phone TEXT NOT NULL UNIQUE,
@@ -137,7 +144,7 @@ CREATE TABLE customers (
 );
 
 -- 8. Notifications (Both notifications and admin_notifications for backward compatibility)
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     type TEXT NOT NULL,
     title TEXT NOT NULL,
@@ -148,7 +155,7 @@ CREATE TABLE notifications (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE admin_notifications (
+CREATE TABLE IF NOT EXISTS admin_notifications (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     type TEXT NOT NULL,
     title TEXT NOT NULL,
@@ -160,7 +167,7 @@ CREATE TABLE admin_notifications (
 );
 
 -- 9. Admin Device Tokens (Push Notifications via FCM HTTP v1)
-CREATE TABLE admin_device_tokens (
+CREATE TABLE IF NOT EXISTS admin_device_tokens (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     admin_email TEXT NOT NULL DEFAULT 'admin@vikasa.com',
     fcm_token TEXT NOT NULL UNIQUE,
@@ -172,7 +179,7 @@ CREATE TABLE admin_device_tokens (
 );
 
 -- 10. Audit Logs
-CREATE TABLE audit_logs (
+CREATE TABLE IF NOT EXISTS audit_logs (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     actor_role TEXT NOT NULL DEFAULT 'admin',
     actor_identifier TEXT NOT NULL DEFAULT 'system',
@@ -185,7 +192,7 @@ CREATE TABLE audit_logs (
 );
 
 -- 11. Worker Contact Attempts
-CREATE TABLE worker_contact_attempts (
+CREATE TABLE IF NOT EXISTS worker_contact_attempts (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     request_id TEXT NOT NULL,
     worker_id TEXT NOT NULL,
@@ -196,7 +203,7 @@ CREATE TABLE worker_contact_attempts (
 );
 
 -- 12. Website Content (CMS)
-CREATE TABLE website_content (
+CREATE TABLE IF NOT EXISTS website_content (
     id TEXT PRIMARY KEY DEFAULT 'vikasa_site_content',
     data JSONB NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -226,20 +233,20 @@ INSERT INTO services (id, category_id, name, slug, description, price_estimate, 
 ON CONFLICT (id) DO NOTHING;
 
 -- 14. Performance Indexes
-CREATE INDEX idx_requests_status ON service_requests(status);
-CREATE INDEX idx_requests_district ON service_requests(district);
-CREATE INDEX idx_requests_tracking_token ON service_requests(tracking_token);
-CREATE INDEX idx_requests_created_at ON service_requests(created_at DESC);
-CREATE INDEX idx_requests_phone ON service_requests(customer_phone);
+CREATE INDEX IF NOT EXISTS idx_requests_status ON service_requests(status);
+CREATE INDEX IF NOT EXISTS idx_requests_district ON service_requests(district);
+CREATE INDEX IF NOT EXISTS idx_requests_tracking_token ON service_requests(tracking_token);
+CREATE INDEX IF NOT EXISTS idx_requests_created_at ON service_requests(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_requests_phone ON service_requests(customer_phone);
 
-CREATE INDEX idx_workers_district ON workers(district);
-CREATE INDEX idx_workers_status ON workers(verification_status);
-CREATE INDEX idx_workers_availability ON workers(availability);
-CREATE INDEX idx_workers_phone ON workers(phone);
-CREATE INDEX idx_workers_app_token ON workers(application_token);
+CREATE INDEX IF NOT EXISTS idx_workers_district ON workers(district);
+CREATE INDEX IF NOT EXISTS idx_workers_status ON workers(verification_status);
+CREATE INDEX IF NOT EXISTS idx_workers_availability ON workers(availability);
+CREATE INDEX IF NOT EXISTS idx_workers_phone ON workers(phone);
+CREATE INDEX IF NOT EXISTS idx_workers_app_token ON workers(application_token);
 
-CREATE INDEX idx_customers_phone ON customers(phone);
-CREATE INDEX idx_customers_district ON customers(district);
+CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
+CREATE INDEX IF NOT EXISTS idx_customers_district ON customers(district);
 
 -- 15. Security Definer Helper RPCs
 CREATE OR REPLACE FUNCTION get_admin_service_requests()
@@ -310,26 +317,55 @@ ALTER TABLE worker_contact_attempts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE website_content ENABLE ROW LEVEL SECURITY;
 
 -- Permissive public & admin access policies
+DROP POLICY IF EXISTS "Public read active categories" ON service_categories;
 CREATE POLICY "Public read active categories" ON service_categories FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Admin write categories" ON service_categories;
 CREATE POLICY "Admin write categories" ON service_categories FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Public read active services" ON services;
 CREATE POLICY "Public read active services" ON services FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Admin write services" ON services;
 CREATE POLICY "Admin write services" ON services FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow public insert requests" ON service_requests;
 CREATE POLICY "Allow public insert requests" ON service_requests FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow select requests" ON service_requests;
 CREATE POLICY "Allow select requests" ON service_requests FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow update delete requests" ON service_requests;
 CREATE POLICY "Allow update delete requests" ON service_requests FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow public insert workers" ON workers;
 CREATE POLICY "Allow public insert workers" ON workers FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow select workers" ON workers;
 CREATE POLICY "Allow select workers" ON workers FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow update delete workers" ON workers;
 CREATE POLICY "Allow update delete workers" ON workers FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow customers access" ON customers;
 CREATE POLICY "Allow customers access" ON customers FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow notifications access" ON notifications;
 CREATE POLICY "Allow notifications access" ON notifications FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow admin_notifications access" ON admin_notifications;
 CREATE POLICY "Allow admin_notifications access" ON admin_notifications FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow device tokens access" ON admin_device_tokens;
 CREATE POLICY "Allow device tokens access" ON admin_device_tokens FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow audit logs access" ON audit_logs;
 CREATE POLICY "Allow audit logs access" ON audit_logs FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow attempts access" ON worker_contact_attempts;
 CREATE POLICY "Allow attempts access" ON worker_contact_attempts FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow website content access" ON website_content;
 CREATE POLICY "Allow website content access" ON website_content FOR ALL USING (true) WITH CHECK (true);
 
 -- =========================================================================
