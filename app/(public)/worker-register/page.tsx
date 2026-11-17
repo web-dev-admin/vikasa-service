@@ -23,6 +23,7 @@ import {
   Languages,
 } from 'lucide-react';
 import { Language, TRANSLATIONS } from '@/lib/taxonomy/i18n';
+import { getDeviceGeolocation, fetchDistrictAndAddress } from '@/lib/utils/location';
 
 export default function WorkerRegisterPage() {
   const [lang, setLang] = useState<Language>('en');
@@ -84,61 +85,33 @@ export default function WorkerRegisterPage() {
   };
 
   // Geolocation Handler
-  const handleUseCurrentLocation = () => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setError(t.errGpsUnsupported);
-      return;
-    }
-
+  const handleUseCurrentLocation = async () => {
     setIsLocating(true);
     setError(null);
+    setLocationSuccess(null);
 
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const lat = pos.coords.latitude;
-        const lon = pos.coords.longitude;
-        setLatitude(lat);
-        setLongitude(lon);
+    try {
+      const pos = await getDeviceGeolocation();
+      const lat = pos.latitude;
+      const lon = pos.longitude;
+      setLatitude(lat);
+      setLongitude(lon);
 
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 4000);
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
-            { signal: controller.signal }
-          );
-          clearTimeout(timeoutId);
-
-          if (res.ok) {
-            const data = await res.json();
-            const city = data.address?.city || data.address?.town || data.address?.suburb || '';
-            const detectedDistrict = data.address?.state_district || data.address?.county || '';
-
-            const matchedDistrict = TAMIL_NADU_DISTRICTS.find(
-              (d) =>
-                detectedDistrict.toLowerCase().includes(d.toLowerCase()) ||
-                city.toLowerCase().includes(d.toLowerCase())
-            );
-            if (matchedDistrict) setDistrict(matchedDistrict);
-
-            const label = [city, matchedDistrict || district].filter(Boolean).join(', ');
-            setAddress(label || `${lat.toFixed(4)}, ${lon.toFixed(4)}`);
-            setLocationSuccess(`${t.gpsSuccess}: ${label || 'GPS Coordinates captured'}`);
-          } else {
-            setLocationSuccess(t.gpsSuccess);
-          }
-        } catch {
-          setLocationSuccess(t.gpsSuccess);
-        } finally {
-          setIsLocating(false);
-        }
-      },
-      () => {
-        setIsLocating(false);
-        setError(t.errGpsDenied);
-      },
-      { timeout: 8000, enableHighAccuracy: true }
-    );
+      const geoResult = await fetchDistrictAndAddress(lat, lon, district || 'Erode');
+      if (geoResult.district) {
+        setDistrict(geoResult.district);
+      }
+      setAddress(geoResult.formatted_address);
+      setLocationSuccess(`${t.gpsSuccess}: ${geoResult.formatted_address}`);
+    } catch (err: any) {
+      setError(
+        err?.message?.toLowerCase().includes('denied')
+          ? t.errGpsDenied
+          : 'Could not fetch GPS. Please select your district manually.'
+      );
+    } finally {
+      setIsLocating(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

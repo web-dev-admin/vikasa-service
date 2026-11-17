@@ -18,21 +18,20 @@ export async function GET(request: NextRequest) {
     if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       try {
         const { data: dbRequests, error } = await supabase
-          .rpc('get_admin_service_requests')
-          .select('*');
-        if (!error && Array.isArray(dbRequests) && dbRequests.length > 0) {
+          .from('service_requests')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!error && Array.isArray(dbRequests)) {
           dataStore.mergeRequests(dbRequests);
         } else {
-          const { data: directReqs } = await supabase
-            .from('service_requests')
-            .select('*')
-            .order('created_at', { ascending: false });
-          if (Array.isArray(directReqs) && directReqs.length > 0) {
-            dataStore.mergeRequests(directReqs);
+          const { data: rpcReqs } = await supabase.rpc('get_admin_service_requests');
+          if (Array.isArray(rpcReqs) && rpcReqs.length > 0) {
+            dataStore.mergeRequests(rpcReqs);
           }
         }
-      } catch {
-        // Fallback gracefully to local store
+      } catch (err) {
+        console.warn('Supabase fetch exception:', err);
       }
     }
 
@@ -158,6 +157,8 @@ export async function POST(request: NextRequest) {
       try {
         await supabase.from('service_requests').insert([{
           id: newRequest.id,
+          request_number: newRequest.request_number,
+          customer_id: newRequest.customer_id || newRequest.id,
           customer_name: newRequest.customer_name,
           customer_phone: newRequest.customer_phone,
           customer_whatsapp: newRequest.customer_whatsapp,
@@ -176,9 +177,26 @@ export async function POST(request: NextRequest) {
           status: newRequest.status,
           customer_confirmed: newRequest.customer_confirmed,
           tracking_token: newRequest.tracking_token,
+          requester_type: newRequest.requester_type || 'client',
+          custom_service_note: newRequest.custom_service_note,
           created_at: newRequest.created_at,
           updated_at: newRequest.updated_at,
         }]);
+
+        // Upsert customer profile
+        await supabase.from('customers').upsert([{
+          id: newRequest.id,
+          full_name: newRequest.customer_name,
+          phone: newRequest.customer_phone,
+          whatsapp: newRequest.customer_whatsapp,
+          email: newRequest.customer_email,
+          district: newRequest.district,
+          address: newRequest.formatted_address,
+          latitude: newRequest.latitude,
+          longitude: newRequest.longitude,
+          total_requests: 1,
+          updated_at: new Date().toISOString(),
+        }], { onConflict: 'phone' });
       } catch (dbErr) {
         console.warn('Supabase request sync warning:', dbErr);
       }

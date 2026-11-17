@@ -21,6 +21,11 @@ export async function GET(request: NextRequest) {
           .order('created_at', { ascending: false });
         if (!error && Array.isArray(dbWorkers) && dbWorkers.length > 0) {
           dataStore.mergeWorkers(dbWorkers);
+        } else {
+          const { data: rpcWorkers } = await supabase.rpc('get_admin_workers');
+          if (Array.isArray(rpcWorkers) && rpcWorkers.length > 0) {
+            dataStore.mergeWorkers(rpcWorkers);
+          }
         }
       } catch (e) {
         console.warn('Supabase workers fetch warning:', e);
@@ -150,6 +155,8 @@ export async function POST(request: NextRequest) {
           service_area_names: technician.service_area_names,
           service_ids: technician.service_ids,
           application_token: technician.application_token,
+          custom_trade_note: technician.custom_trade_note,
+          has_custom_skill: technician.has_custom_skill,
           created_at: technician.created_at,
           updated_at: technician.updated_at,
         }]);

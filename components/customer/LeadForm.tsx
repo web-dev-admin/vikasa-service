@@ -29,6 +29,7 @@ import {
   X,
 } from 'lucide-react';
 import { Language, TRANSLATIONS } from '@/lib/taxonomy/i18n';
+import { getDeviceGeolocation, fetchDistrictAndAddress } from '@/lib/utils/location';
 
 function resolveInitialService(catParam: string | null | undefined, initialService?: string): string {
   if (initialService) {
@@ -189,84 +190,44 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
     service.toLowerCase().includes('custom');
 
   // GPS Current Location Handler
-  const handleUseCurrentLocation = () => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setErrors((prev) => ({
-        ...prev,
-        location: lang === 'ta'
-          ? 'உங்கள் உலாவியில் GPS ஆதரிக்கப்படவில்லை. கீழே மாவட்டத்தை தேர்ந்தெடுக்கவும்.'
-          : 'Geolocation is not supported by your browser. Please select district manually.',
-      }));
-      return;
-    }
-
+  const handleUseCurrentLocation = async () => {
     setIsLocating(true);
+    setLocationSuccessText(null);
     setErrors((prev) => {
       const copy = { ...prev };
       delete copy.location;
       return copy;
     });
 
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const lat = pos.coords.latitude;
-        const lon = pos.coords.longitude;
-        setLatitude(lat);
-        setLongitude(lon);
+    try {
+      // 1. Fetch device GPS coordinates (with indoor/WiFi fallback)
+      const pos = await getDeviceGeolocation();
+      const lat = pos.latitude;
+      const lon = pos.longitude;
+      setLatitude(lat);
+      setLongitude(lon);
 
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 4000);
+      // 2. Perform fast reverse geocoding with district match
+      const geoResult = await fetchDistrictAndAddress(lat, lon, district || 'Erode');
+      if (geoResult.district) {
+        setDistrict(geoResult.district);
+      }
+      setAddress(geoResult.formatted_address);
+      setLocationSuccessText(t.gpsSuccessText);
+    } catch (err: any) {
+      let msg = lang === 'ta'
+        ? 'இருப்பிடத்தை அணுக முடியவில்லை. உங்கள் மாவட்டத்தை கீழே தேர்ந்தெடுக்கவும்.'
+        : 'Could not access location. Please select your district below.';
 
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
-            { signal: controller.signal }
-          );
-          clearTimeout(timeoutId);
-
-          if (res.ok) {
-            const data = await res.json();
-            const road = data.address?.road || data.address?.suburb || data.address?.neighbourhood || '';
-            const city = data.address?.city || data.address?.town || data.address?.county || '';
-            const detectedDistrict = data.address?.state_district || data.address?.county || '';
-
-            const matchedDistrict = TAMIL_NADU_DISTRICTS.find(
-              (d) =>
-                detectedDistrict.toLowerCase().includes(d.toLowerCase()) ||
-                city.toLowerCase().includes(d.toLowerCase())
-            );
-            if (matchedDistrict) {
-              setDistrict(matchedDistrict);
-            }
-
-            const formatted = [road, city, matchedDistrict || district].filter(Boolean).join(', ');
-            setAddress(formatted || `${lat.toFixed(4)}, ${lon.toFixed(4)}`);
-            setLocationSuccessText(t.gpsSuccessText);
-          } else {
-            setAddress(`GPS Location (${lat.toFixed(4)}, ${lon.toFixed(4)})`);
-            setLocationSuccessText(t.gpsSuccessText);
-          }
-        } catch {
-          setAddress(`GPS Location (${lat.toFixed(4)}, ${lon.toFixed(4)})`);
-          setLocationSuccessText(t.gpsSuccessText);
-        } finally {
-          setIsLocating(false);
-        }
-      },
-      (err) => {
-        setIsLocating(false);
-        let msg = lang === 'ta'
-          ? 'இருப்பிடத்தை அணுக முடியவில்லை. உங்கள் மாவட்டத்தை கீழே தேர்ந்தெடுக்கவும்.'
-          : 'Could not access location. Please select your district below.';
-        if (err.code === err.PERMISSION_DENIED) {
-          msg = lang === 'ta'
-            ? 'இருப்பிட அனுமதி மறுக்கப்பட்டது. உங்கள் மாவட்டத்தை கைமுறையாக தேர்ந்தெடுக்கவும்.'
-            : 'Location permission denied. Please choose your district manually.';
-        }
-        setErrors((prev) => ({ ...prev, location: msg }));
-      },
-      { timeout: 8000, enableHighAccuracy: true }
-    );
+      if (err?.message?.toLowerCase().includes('denied')) {
+        msg = lang === 'ta'
+          ? 'இருப்பிட அனுமதி மறுக்கப்பட்டது. உங்கள் மாவட்டத்தை கைமுறையாக தேர்ந்தெடுக்கவும்.'
+          : 'Location permission denied. Please choose your district manually.';
+      }
+      setErrors((prev) => ({ ...prev, location: msg }));
+    } finally {
+      setIsLocating(false);
+    }
   };
 
   const validate = () => {
