@@ -6,6 +6,7 @@ import {
   STANDARDIZED_SERVICES,
   TAMIL_NADU_DISTRICTS,
   VIKASA_CONFIG,
+  getDistrictCoordinates,
 } from '@/lib/constants';
 import { sanitizeIndianMobile10 } from '@/lib/utils/phone';
 import { ERODE_CENTER } from '@/lib/data/store';
@@ -67,9 +68,10 @@ export default function WorkerRegisterPage() {
 
   // Location Information
   const [district, setDistrict] = useState('Erode');
-  const [address, setAddress] = useState('Perundurai Road, Erode');
+  const [address, setAddress] = useState('Erode, Tamil Nadu');
   const [latitude, setLatitude] = useState(ERODE_CENTER.lat);
   const [longitude, setLongitude] = useState(ERODE_CENTER.lon);
+  const [hasCustomGps, setHasCustomGps] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [locationSuccess, setLocationSuccess] = useState<string | null>(null);
 
@@ -96,13 +98,15 @@ export default function WorkerRegisterPage() {
       const lon = pos.longitude;
       setLatitude(lat);
       setLongitude(lon);
+      setHasCustomGps(true);
 
       const geoResult = await fetchDistrictAndAddress(lat, lon, district || 'Erode');
       if (geoResult.district) {
         setDistrict(geoResult.district);
       }
       setAddress(geoResult.formatted_address);
-      setLocationSuccess(`${t.gpsSuccess}: ${geoResult.formatted_address}`);
+      const accText = pos.accuracy ? ` (±${Math.round(pos.accuracy)}m)` : '';
+      setLocationSuccess(`${t.gpsSuccess}${accText}: ${geoResult.formatted_address}`);
     } catch (err: any) {
       setError(
         err?.message?.toLowerCase().includes('denied')
@@ -530,7 +534,16 @@ export default function WorkerRegisterPage() {
                 <select
                   id="worker-district"
                   value={district}
-                  onChange={(e) => setDistrict(e.target.value)}
+                  onChange={(e) => {
+                    const nextDist = e.target.value;
+                    setDistrict(nextDist);
+                    if (!hasCustomGps) {
+                      const coords = getDistrictCoordinates(nextDist);
+                      setLatitude(coords.lat);
+                      setLongitude(coords.lon);
+                      setAddress(`${nextDist}, Tamil Nadu`);
+                    }
+                  }}
                   className="w-full px-4 py-3 min-h-[46px] rounded-2xl border border-slate-200 text-base sm:text-sm font-semibold bg-white text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 focus-visible:border-emerald-600"
                 >
                   {TAMIL_NADU_DISTRICTS.map((d) => (

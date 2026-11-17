@@ -111,6 +111,9 @@ CREATE TABLE IF NOT EXISTS workers (
     verified_at TIMESTAMPTZ,
     verified_by TEXT,
     verification_notes TEXT,
+    call_validated BOOLEAN NOT NULL DEFAULT FALSE,
+    call_validated_at TIMESTAMPTZ,
+    call_notes TEXT,
     availability TEXT NOT NULL DEFAULT 'available',
     active_status TEXT NOT NULL DEFAULT 'active',
     district TEXT NOT NULL DEFAULT 'Erode',
@@ -126,6 +129,10 @@ CREATE TABLE IF NOT EXISTS workers (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE workers ADD COLUMN IF NOT EXISTS call_validated BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE workers ADD COLUMN IF NOT EXISTS call_validated_at TIMESTAMPTZ;
+ALTER TABLE workers ADD COLUMN IF NOT EXISTS call_notes TEXT;
 
 -- 7. Customers
 CREATE TABLE IF NOT EXISTS customers (

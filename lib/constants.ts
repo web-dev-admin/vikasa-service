@@ -85,6 +85,69 @@ export const TAMIL_NADU_DISTRICTS = [
 
 export type TamilNaduDistrict = (typeof TAMIL_NADU_DISTRICTS)[number];
 
+// Approximate centroid coordinates for all 38 Tamil Nadu districts for accurate fallback pinning
+export const TAMIL_NADU_DISTRICT_COORDINATES: Record<string, { lat: number; lon: number }> = {
+  'Erode': { lat: 11.3410, lon: 77.7172 },
+  'Salem': { lat: 11.6643, lon: 78.1460 },
+  'Coimbatore': { lat: 11.0168, lon: 76.9558 },
+  'Tiruppur': { lat: 11.1085, lon: 77.3411 },
+  'Namakkal': { lat: 11.2189, lon: 78.1674 },
+  'Dharmapuri': { lat: 12.1211, lon: 78.1582 },
+  'Karur': { lat: 10.9601, lon: 78.0766 },
+  'Krishnagiri': { lat: 12.5186, lon: 78.2137 },
+  'Dindigul': { lat: 10.3673, lon: 77.9803 },
+  'Madurai': { lat: 9.9252, lon: 78.1198 },
+  'Tiruchirappalli (Trichy)': { lat: 10.7905, lon: 78.7047 },
+  'Chennai': { lat: 13.0827, lon: 80.2707 },
+  'Chengalpattu': { lat: 12.6841, lon: 79.9836 },
+  'Kanchipuram': { lat: 12.8342, lon: 79.7036 },
+  'Vellore': { lat: 12.9165, lon: 79.1325 },
+  'Tiruvannamalai': { lat: 12.2253, lon: 79.0747 },
+  'Cuddalore': { lat: 11.7480, lon: 79.7714 },
+  'Villupuram': { lat: 11.9401, lon: 79.4861 },
+  'Kallakurichi': { lat: 11.7384, lon: 78.9639 },
+  'Thanjavur': { lat: 10.7870, lon: 79.1378 },
+  'Nagapattinam': { lat: 10.7672, lon: 79.8449 },
+  'Tiruvarur': { lat: 10.7661, lon: 79.6344 },
+  'Pudukkottai': { lat: 10.3797, lon: 78.8208 },
+  'Sivaganga': { lat: 9.8433, lon: 78.4809 },
+  'Ramanathapuram': { lat: 9.3639, lon: 78.8395 },
+  'Virudhunagar': { lat: 9.5680, lon: 77.9624 },
+  'Theni': { lat: 10.0104, lon: 77.4768 },
+  'Tenkasi': { lat: 8.9594, lon: 77.3150 },
+  'Tirunelveli': { lat: 8.7139, lon: 77.7567 },
+  'Thoothukudi': { lat: 8.7642, lon: 78.1348 },
+  'Kanniyakumari': { lat: 8.0883, lon: 77.5385 },
+  'Nilgiris': { lat: 11.4102, lon: 76.6950 },
+  'Perambalur': { lat: 11.2342, lon: 78.8821 },
+  'Ariyalur': { lat: 11.1401, lon: 79.0786 },
+  'Ranipet': { lat: 12.9274, lon: 79.3330 },
+  'Tirupathur': { lat: 12.4925, lon: 78.5678 },
+  'Mayiladuthurai': { lat: 11.1075, lon: 79.6524 },
+};
+
+export function getDistrictCoordinates(districtName?: string): { lat: number; lon: number } {
+  if (!districtName) return { lat: 11.3410, lon: 77.7172 };
+  const clean = districtName.trim();
+  const direct = TAMIL_NADU_DISTRICT_COORDINATES[clean];
+  if (direct) return direct;
+  
+  const lower = clean.toLowerCase();
+  for (const [d, coords] of Object.entries(TAMIL_NADU_DISTRICT_COORDINATES)) {
+    const dLower = d.toLowerCase();
+    const dClean = dLower.replace(/\s*\(.*\)/, '').trim();
+    if (
+      dLower === lower ||
+      dLower.includes(lower) ||
+      lower.includes(dClean) ||
+      (dClean.length > 3 && dClean.includes(lower))
+    ) {
+      return coords;
+    }
+  }
+  return { lat: 11.3410, lon: 77.7172 };
+}
+
 // Standardized Core Services as requested:
 // Plumbing, Cleaning, Interior Design, Electrical, AC Service, Painting, Carpentry, Other
 export const STANDARDIZED_SERVICES = [

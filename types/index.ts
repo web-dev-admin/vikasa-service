@@ -77,6 +77,9 @@ export interface Worker {
   verified_at?: string;
   verified_by?: string;
   verification_notes?: string;
+  call_validated?: boolean;
+  call_validated_at?: string;
+  call_notes?: string;
   availability: WorkerAvailability;
   active_status?: 'active' | 'inactive';
   district?: string;

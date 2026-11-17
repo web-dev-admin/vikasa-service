@@ -24,13 +24,13 @@ export async function getDeviceGeolocation(): Promise<GeoPositionResult> {
     throw new Error('Geolocation is not supported by your browser or device.');
   }
 
-  // Attempt 1: High accuracy with 5-minute cache acceptance for fast response
+  // Attempt 1: Live pinpoint GPS satellite fix (maximumAge: 0) for sub-meter doorstep accuracy
   return new Promise((resolve, reject) => {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         resolve({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
+          latitude: Number(pos.coords.latitude.toFixed(6)),
+          longitude: Number(pos.coords.longitude.toFixed(6)),
           accuracy: pos.coords.accuracy,
         });
       },
@@ -41,12 +41,12 @@ export async function getDeviceGeolocation(): Promise<GeoPositionResult> {
           return;
         }
 
-        // Attempt 2: Fallback to lower accuracy / WiFi cell-tower (very fast indoors)
+        // Attempt 2: Fallback to WiFi / cell-tower indoor triangulation
         navigator.geolocation.getCurrentPosition(
           (pos) => {
             resolve({
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude,
+              latitude: Number(pos.coords.latitude.toFixed(6)),
+              longitude: Number(pos.coords.longitude.toFixed(6)),
               accuracy: pos.coords.accuracy,
             });
           },
@@ -62,14 +62,14 @@ export async function getDeviceGeolocation(): Promise<GeoPositionResult> {
           {
             enableHighAccuracy: false,
             timeout: 8000,
-            maximumAge: 600000, // up to 10-minute cache
+            maximumAge: 30000, // 30-second fallback cache
           }
         );
       },
       {
         enableHighAccuracy: true,
         timeout: 9000,
-        maximumAge: 300000, // up to 5-minute cache
+        maximumAge: 0, // Force fresh satellite pinpoint GPS lock
       }
     );
   });

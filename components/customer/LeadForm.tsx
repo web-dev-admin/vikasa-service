@@ -7,6 +7,7 @@ import {
   STANDARDIZED_SERVICES,
   TAMIL_NADU_DISTRICTS,
   VIKASA_CONFIG,
+  getDistrictCoordinates,
 } from '@/lib/constants';
 import { INITIAL_CATEGORIES } from '@/lib/taxonomy/catalog';
 import { sanitizeIndianMobile10 } from '@/lib/utils/phone';
@@ -167,6 +168,7 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
   // Location Coordinates & Geolocation State
   const [latitude, setLatitude] = useState(ERODE_CENTER.lat);
   const [longitude, setLongitude] = useState(ERODE_CENTER.lon);
+  const [hasCustomGps, setHasCustomGps] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [locationSuccessText, setLocationSuccessText] = useState<string | null>(null);
 
@@ -206,6 +208,7 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
       const lon = pos.longitude;
       setLatitude(lat);
       setLongitude(lon);
+      setHasCustomGps(true);
 
       // 2. Perform fast reverse geocoding with district match
       const geoResult = await fetchDistrictAndAddress(lat, lon, district || 'Erode');
@@ -213,7 +216,8 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
         setDistrict(geoResult.district);
       }
       setAddress(geoResult.formatted_address);
-      setLocationSuccessText(t.gpsSuccessText);
+      const accText = pos.accuracy ? ` (±${Math.round(pos.accuracy)}m)` : '';
+      setLocationSuccessText(`${t.gpsSuccessText}${accText}`);
     } catch (err: any) {
       let msg = lang === 'ta'
         ? 'இருப்பிடத்தை அணுக முடியவில்லை. உங்கள் மாவட்டத்தை கீழே தேர்ந்தெடுக்கவும்.'
@@ -684,7 +688,15 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
             <select
               id="lead-district"
               value={district}
-              onChange={(e) => setDistrict(e.target.value)}
+              onChange={(e) => {
+                const nextDist = e.target.value;
+                setDistrict(nextDist);
+                if (!hasCustomGps) {
+                  const coords = getDistrictCoordinates(nextDist);
+                  setLatitude(coords.lat);
+                  setLongitude(coords.lon);
+                }
+              }}
               aria-invalid={!!errors.district}
               aria-describedby={errors.district ? 'lead-district-error' : undefined}
               className="w-full px-3 py-2.5 text-base sm:text-sm rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 font-semibold focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 focus:border-emerald-600"

@@ -5,7 +5,7 @@ import { dataStore } from '@/lib/data/store';
 import { Worker, WorkerStatus, ServiceItem } from '@/types';
 import { INITIAL_CATEGORIES } from '@/lib/taxonomy/catalog';
 import { TAMIL_NADU_DISTRICTS } from '@/lib/constants';
-import { sanitizeIndianMobile10 } from '@/lib/utils/phone';
+import { sanitizeIndianMobile10, getTelUrl, getWhatsAppUrl } from '@/lib/utils/phone';
 import {
   Users,
   Search,
@@ -23,6 +23,9 @@ import {
   X,
   Tag,
   Wrench,
+  Lock,
+  MessageSquare,
+  Check,
 } from 'lucide-react';
 
 export default function AdminWorkersPage() {
@@ -39,6 +42,12 @@ export default function AdminWorkersPage() {
   // Form skill addition inputs
   const [selectedServiceToAdd, setSelectedServiceToAdd] = useState('');
   const [customTradeInput, setCustomTradeInput] = useState('');
+
+  // Call Validation Modal State
+  const [validatingWorker, setValidatingWorker] = useState<Worker | null>(null);
+  const [callNotes, setCallNotes] = useState('');
+  const [callConfirmed, setCallConfirmed] = useState(false);
+  const [isValidatingCall, setIsValidatingCall] = useState(false);
 
   // Persistent deleted technician IDs across session and background intervals
   const deletedWorkerIdsRef = React.useRef<Set<string>>((() => {
@@ -182,11 +191,85 @@ export default function AdminWorkersPage() {
     setView('delete');
   };
 
-  const handleVerifyStatus = (worker: Worker, newStatus: WorkerStatus) => {
+  const openCallValidation = (worker: Worker) => {
+    setValidatingWorker(worker);
+    setCallNotes(worker.call_notes || '');
+    setCallConfirmed(Boolean(worker.call_validated));
+  };
+
+  const handleCompleteCallValidation = async () => {
+    if (!validatingWorker || !callConfirmed || isValidatingCall) return;
+    setIsValidatingCall(true);
+    const workerId = validatingWorker.id;
+    const workerName = validatingWorker.full_name;
+
+    try {
+      dataStore.validateWorkerCall(workerId, callNotes.trim() || undefined);
+
+      const token = typeof window !== 'undefined'
+        ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
+        : null;
+
+      await fetch(`/api/technicians/${encodeURIComponent(workerId)}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-portal': 'true',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          call_validated: true,
+          call_validated_at: new Date().toISOString(),
+          call_notes: callNotes.trim() || undefined,
+        }),
+      });
+
+      refreshWorkers();
+      showToast(`Phone validation completed for ${workerName}. Verification is now unlocked!`);
+      setValidatingWorker(null);
+    } catch (err) {
+      console.warn('Call validation update error:', err);
+      showToast(`Recorded phone validation for ${workerName}`);
+      setValidatingWorker(null);
+    } finally {
+      setIsValidatingCall(false);
+    }
+  };
+
+  const handleVerifyStatus = async (worker: Worker, newStatus: WorkerStatus) => {
+    // Gate: Telephonic interview must be confirmed before verifying a technician
+    if (newStatus === 'verified' && !worker.call_validated) {
+      showToast('Phone validation required: You must conduct and confirm a phone call before approving this technician.');
+      openCallValidation(worker);
+      return;
+    }
+
     dataStore.updateWorker(worker.id, {
       verification_status: newStatus,
       verified_at: newStatus === 'verified' ? new Date().toISOString() : undefined,
     });
+
+    const token = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
+      : null;
+
+    try {
+      await fetch(`/api/technicians/${encodeURIComponent(worker.id)}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-portal': 'true',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          verification_status: newStatus,
+          verified_at: newStatus === 'verified' ? new Date().toISOString() : null,
+        }),
+      });
+    } catch (patchErr) {
+      console.warn('Technician status API update warning:', patchErr);
+    }
+
     refreshWorkers();
     showToast(`Technician ${worker.full_name} status updated to ${newStatus}`);
   };
@@ -495,42 +578,89 @@ export default function AdminWorkersPage() {
 
                         {/* Status Badge */}
                         <td className="px-4 py-3.5">
-                          <span
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold border inline-flex items-center gap-1 ${
-                              isVerified
-                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                : isPending
-                                ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                : 'bg-rose-50 text-rose-800 border-rose-200'
-                            }`}
-                          >
-                            {isVerified ? (
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                            ) : isPending ? (
-                              <Clock className="w-3 h-3 text-amber-600" />
-                            ) : (
-                              <XCircle className="w-3 h-3 text-rose-600" />
-                            )}
-                            <span className="capitalize">{worker.verification_status.replace('_', ' ')}</span>
-                          </span>
+                          <div className="space-y-1">
+                            <span
+                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold border inline-flex items-center gap-1 ${
+                                isVerified
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                  : isPending
+                                  ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                  : 'bg-rose-50 text-rose-800 border-rose-200'
+                              }`}
+                            >
+                              {isVerified ? (
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              ) : isPending ? (
+                                <Clock className="w-3 h-3 text-amber-600" />
+                              ) : (
+                                <XCircle className="w-3 h-3 text-rose-600" />
+                              )}
+                              <span className="capitalize">{worker.verification_status.replace('_', ' ')}</span>
+                            </span>
+
+                            {/* Call Validation Badge */}
+                            <div>
+                              {worker.call_validated ? (
+                                <span
+                                  className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50/90 px-2 py-0.5 rounded-md border border-emerald-200"
+                                  title={worker.call_notes ? `Call validated: ${worker.call_notes}` : 'Phone interview verified'}
+                                >
+                                  <Check className="w-2.5 h-2.5 text-emerald-600" />
+                                  <span>Phone Verified</span>
+                                </span>
+                              ) : isPending ? (
+                                <span
+                                  className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200"
+                                  title="Phone interview required before approval"
+                                >
+                                  <Phone className="w-2.5 h-2.5 text-amber-600" />
+                                  <span>Call Required</span>
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
                         </td>
 
                         {/* Actions */}
-                        <td className="px-4 py-3.5 text-right space-x-2">
+                        <td className="px-4 py-3.5 text-right space-x-1.5">
                           {isPending && (
-                            <button
-                              onClick={() => handleVerifyStatus(worker, 'verified')}
-                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-xs transition-colors"
-                              title="Approve and verify technician"
-                            >
-                              Verify
-                            </button>
+                            <>
+                              {!worker.call_validated ? (
+                                <>
+                                  <button
+                                    onClick={() => openCallValidation(worker)}
+                                    className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] shadow-xs transition-colors inline-flex items-center gap-1 cursor-pointer"
+                                    title="Call candidate to interview and validate credentials"
+                                  >
+                                    <Phone className="w-3 h-3" />
+                                    <span>Validate by Call</span>
+                                  </button>
+                                  <button
+                                    disabled
+                                    className="px-2 py-1 rounded-lg bg-slate-100 text-slate-400 font-bold text-[11px] border border-slate-200 cursor-not-allowed inline-flex items-center gap-1"
+                                    title="Verify button is locked until phone call interview is completed"
+                                  >
+                                    <Lock className="w-3 h-3 text-slate-400" />
+                                    <span>Verify (Locked)</span>
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  onClick={() => handleVerifyStatus(worker, 'verified')}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-xs transition-colors inline-flex items-center gap-1 cursor-pointer"
+                                  title="Approve and activate technician in dispatch pool"
+                                >
+                                  <CheckCircle2 className="w-3 h-3" />
+                                  <span>Verify &amp; Approve</span>
+                                </button>
+                              )}
+                            </>
                           )}
 
                           {isVerified && (
                             <button
                               onClick={() => handleVerifyStatus(worker, 'rejected')}
-                              className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 font-bold text-[11px] transition-colors"
+                              className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 font-bold text-[11px] transition-colors cursor-pointer"
                               title="Suspend or reject technician"
                             >
                               Suspend
@@ -813,6 +943,138 @@ export default function AdminWorkersPage() {
             >
               {isDeleting ? 'Deleting...' : 'Delete Permanently'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Call Validation & Verification Modal */}
+      {validatingWorker && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white p-5 sm:p-7 rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center">
+                  <Phone className="w-4 h-4 text-amber-700" />
+                </div>
+                <div>
+                  <h2 className="text-base font-black text-slate-900">
+                    Candidate Call Validation
+                  </h2>
+                  <p className="text-[11px] text-slate-500">
+                    Mandatory step: Conduct phone interview before approving technician
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setValidatingWorker(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Candidate Details Card */}
+            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-black text-slate-900 text-sm block">
+                    {validatingWorker.full_name}
+                  </span>
+                  <span className="text-slate-500 text-[11px]">
+                    {validatingWorker.district || 'Erode'} • {validatingWorker.base_location_name}
+                  </span>
+                </div>
+                <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 text-[10px] font-bold">
+                  {validatingWorker.experience_years || 1} Yrs Experience
+                </span>
+              </div>
+
+              <div className="flex flex-wrap gap-1 pt-1">
+                {validatingWorker.skills.map((skill, idx) => (
+                  <span
+                    key={idx}
+                    className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-white text-slate-800 border border-slate-200"
+                  >
+                    {skill}
+                  </span>
+                ))}
+              </div>
+
+              {validatingWorker.custom_trade_note && (
+                <p className="text-[11px] text-amber-900 bg-amber-50 p-2 rounded-xl border border-amber-200/80 font-medium">
+                  ⭐ <strong>Custom Trade:</strong> {validatingWorker.custom_trade_note}
+                </p>
+              )}
+            </div>
+
+            {/* Calling & Messaging Quick Triggers */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <a
+                href={getTelUrl(validatingWorker.phone)}
+                className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+              >
+                <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Call Candidate (+91 {validatingWorker.phone})</span>
+              </a>
+              <a
+                href={getWhatsAppUrl(
+                  validatingWorker.phone,
+                  `Vanakkam ${validatingWorker.full_name}, this is VIKASA Services regarding your technician registration application. We would like to connect for a quick validation call.`
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-white" />
+                <span>WhatsApp Interview</span>
+              </a>
+            </div>
+
+            {/* Call Notes */}
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700 block">
+                Call &amp; Interview Notes (Optional)
+              </label>
+              <textarea
+                rows={3}
+                value={callNotes}
+                onChange={(e) => setCallNotes(e.target.value)}
+                placeholder="e.g. Confirmed experience in wiring and inverter repairs, holds necessary tools, operates in Erode North, ID verified."
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-medium focus:ring-2 focus:ring-amber-500 bg-white resize-none"
+              />
+            </div>
+
+            {/* Mandatory Checkbox Gate */}
+            <label className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl flex items-start gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={callConfirmed}
+                onChange={(e) => setCallConfirmed(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+              />
+              <span className="text-xs text-amber-950 font-medium leading-snug">
+                I have spoken with <strong>{validatingWorker.full_name}</strong> by phone and verified their identity, trade skills, equipment, and readiness for service allocation.
+              </span>
+            </label>
+
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setValidatingWorker(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!callConfirmed || isValidatingCall}
+                onClick={handleCompleteCallValidation}
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>{isValidatingCall ? 'Validating...' : 'Complete Call Validation & Unlock Verify'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

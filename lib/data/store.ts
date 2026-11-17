@@ -902,11 +902,28 @@ class VikasaDataStore {
     return newWorker;
   }
 
+  validateWorkerCall(id: string, notes?: string): Worker | undefined {
+    this.init();
+    const worker = this.workers.find((w) => w.id === id);
+    if (!worker) return undefined;
+    worker.call_validated = true;
+    worker.call_validated_at = new Date().toISOString();
+    if (notes) worker.call_notes = notes;
+    worker.updated_at = new Date().toISOString();
+    this.addAuditLog('WORKER_CALL_VALIDATED', 'worker', id, { notes });
+    this.persist();
+    return worker;
+  }
+
   verifyWorker(id: string, verifiedBy = 'admin-1', notes?: string): Worker | undefined {
     this.init();
     const worker = this.workers.find((w) => w.id === id);
     if (!worker) return undefined;
+    worker.call_validated = true;
     worker.verification_status = 'verified';
+    worker.verified_at = new Date().toISOString();
+    worker.verified_by = verifiedBy;
+    if (notes) worker.verification_notes = notes;
     worker.updated_at = new Date().toISOString();
     this.addAuditLog('WORKER_VERIFIED', 'worker', id, { verifiedBy, notes });
     this.persist();

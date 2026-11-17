@@ -36,6 +36,7 @@ import {
   Copy,
   ExternalLink,
   Navigation,
+  Lock,
 } from 'lucide-react';
 import DeleteConfirmationModal from '@/components/admin/DeleteConfirmationModal';
 import {
@@ -740,45 +741,62 @@ export default function AdminRequestsPage() {
                   )}
                 </div>
 
-                {/* Share Exact Location via WhatsApp */}
+                {/* Single Share Button - Enabled ONLY After Allocation */}
                 <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
-                  <a
-                    href={getUniversalWhatsAppShareUrl(generateShareableJobLocationWhatsAppMessage({
-                      requestNumber: req.request_number,
-                      customerName: req.customer_name,
-                      customerPhone: req.customer_phone,
-                      serviceName: req.service_name,
-                      district: req.district,
-                      formattedAddress: req.formatted_address,
-                      latitude: req.latitude,
-                      longitude: req.longitude,
-                      preferredDate: req.preferred_date,
-                      preferredTimeSlot: req.preferred_time_slot,
-                      description: req.description,
-                      customServiceNote: req.custom_service_note,
-                      technicianName: req.assigned_worker_name,
-                    }))}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 py-1.5 px-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300/80 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors text-center"
-                    title="Share exact location & Google Maps navigation on WhatsApp"
-                  >
-                    <Share2 className="w-3.5 h-3.5 text-emerald-700" />
-                    <span>Share Location (WhatsApp)</span>
-                  </a>
+                  {req.assigned_worker_id ? (
+                    <>
+                      <a
+                        href={getUniversalWhatsAppShareUrl(
+                          generateShareableJobLocationWhatsAppMessage({
+                            requestNumber: req.request_number,
+                            customerName: req.customer_name,
+                            customerPhone: req.customer_phone,
+                            serviceName: req.service_name,
+                            district: req.district,
+                            formattedAddress: req.formatted_address,
+                            latitude: req.latitude,
+                            longitude: req.longitude,
+                            preferredDate: req.preferred_date,
+                            preferredTimeSlot: req.preferred_time_slot,
+                            description: req.description,
+                            customServiceNote: req.custom_service_note,
+                            technicianName: req.assigned_worker_name,
+                          }),
+                          req.assigned_worker_phone
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 py-1.5 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors text-center cursor-pointer"
+                        title={`Share dispatch order & exact Google Maps location to ${req.assigned_worker_name || 'Technician'}`}
+                      >
+                        <Share2 className="w-3.5 h-3.5 text-white" />
+                        <span>Share to {req.assigned_worker_name ? req.assigned_worker_name.split(' ')[0] : 'Tech'} (WhatsApp)</span>
+                      </a>
 
-                  <button
-                    type="button"
-                    onClick={(e) => copyShareableLocation(req, e)}
-                    className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors shrink-0 flex items-center justify-center"
-                    title="Copy shareable WhatsApp location format to clipboard"
-                  >
-                    {copiedLocationId === req.id ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5 text-slate-600" />
-                    )}
-                  </button>
+                      <button
+                        type="button"
+                        onClick={(e) => copyShareableLocation(req, e)}
+                        className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors shrink-0 flex items-center justify-center cursor-pointer"
+                        title="Copy shareable WhatsApp location format to clipboard"
+                      >
+                        {copiedLocationId === req.id ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5 text-slate-600" />
+                        )}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled
+                      className="flex-1 py-1.5 px-2.5 rounded-xl bg-slate-100 text-slate-400 border border-slate-200 text-[11px] font-bold flex items-center justify-center gap-1.5 cursor-not-allowed"
+                      title="Location sharing is locked until a technician is allocated to this request"
+                    >
+                      <Lock className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Share Location (Allocate Tech First)</span>
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -900,67 +918,42 @@ export default function AdminRequestsPage() {
                 </div>
               )}
 
-              {/* Shareable WhatsApp Location & Dispatch Order */}
-              <div className="p-3.5 bg-emerald-50/70 rounded-2xl border border-emerald-300/80 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <Share2 className="w-4 h-4 text-emerald-700" />
-                    <span className="text-[11px] font-black uppercase tracking-wider text-emerald-950">
-                      Share Exact Location via WhatsApp
-                    </span>
+              {/* Single Share Button - Enabled ONLY After Allocation */}
+              {selectedRequest.assigned_worker_id ? (
+                <div className="p-3.5 bg-emerald-50/70 rounded-2xl border border-emerald-300/80 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Share2 className="w-4 h-4 text-emerald-700" />
+                      <span className="text-[11px] font-black uppercase tracking-wider text-emerald-950">
+                        Dispatched to {selectedRequest.assigned_worker_name}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => copyShareableLocation(selectedRequest)}
+                      className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-900 bg-white hover:bg-emerald-100 px-2 py-1 rounded-lg border border-emerald-200 shadow-2xs transition-colors cursor-pointer"
+                    >
+                      {copiedLocationId === selectedRequest.id ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-600" />
+                          <span>Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3 text-slate-500" />
+                          <span>Copy Format</span>
+                        </>
+                      )}
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => copyShareableLocation(selectedRequest)}
-                    className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-900 bg-white hover:bg-emerald-100 px-2 py-1 rounded-lg border border-emerald-200 shadow-2xs transition-colors cursor-pointer"
-                  >
-                    {copiedLocationId === selectedRequest.id ? (
-                      <>
-                        <Check className="w-3 h-3 text-emerald-600" />
-                        <span>Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3 h-3 text-slate-500" />
-                        <span>Copy Format</span>
-                      </>
-                    )}
-                  </button>
-                </div>
 
-                <p className="text-[11px] text-slate-600 leading-relaxed">
-                  Generates pre-formatted dispatch order with customer info, work scope, and direct clickable Google Maps GPS navigation link.
-                </p>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    Single share button generates pre-formatted order with customer name, phone number, service, and direct clickable Google Maps GPS navigation link.
+                  </p>
 
-                <div className="flex flex-col sm:flex-row gap-2 pt-1">
-                  <a
-                    href={getUniversalWhatsAppShareUrl(generateShareableJobLocationWhatsAppMessage({
-                      requestNumber: selectedRequest.request_number,
-                      customerName: selectedRequest.customer_name,
-                      customerPhone: selectedRequest.customer_phone,
-                      serviceName: selectedRequest.service_name,
-                      district: selectedRequest.district,
-                      formattedAddress: selectedRequest.formatted_address,
-                      latitude: selectedRequest.latitude,
-                      longitude: selectedRequest.longitude,
-                      preferredDate: selectedRequest.preferred_date,
-                      preferredTimeSlot: selectedRequest.preferred_time_slot,
-                      description: selectedRequest.description,
-                      customServiceNote: selectedRequest.custom_service_note,
-                      technicianName: selectedRequest.assigned_worker_name,
-                    }))}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors text-center"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    <span>Share on WhatsApp (Any Chat)</span>
-                  </a>
-
-                  {selectedRequest.assigned_worker_phone && (
+                  <div className="pt-1">
                     <a
-                      href={getWhatsAppUrl(
-                        selectedRequest.assigned_worker_phone,
+                      href={getUniversalWhatsAppShareUrl(
                         generateShareableJobLocationWhatsAppMessage({
                           requestNumber: selectedRequest.request_number,
                           customerName: selectedRequest.customer_name,
@@ -975,18 +968,39 @@ export default function AdminRequestsPage() {
                           description: selectedRequest.description,
                           customServiceNote: selectedRequest.custom_service_note,
                           technicianName: selectedRequest.assigned_worker_name,
-                        })
+                        }),
+                        selectedRequest.assigned_worker_phone
                       )}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors text-center"
+                      className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-colors text-center cursor-pointer"
                     >
-                      <Navigation className="w-4 h-4 text-emerald-400" />
-                      <span>Send to Assigned Tech</span>
+                      <Share2 className="w-4 h-4" />
+                      <span>Share Location to {selectedRequest.assigned_worker_name} (WhatsApp)</span>
                     </a>
-                  )}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                  <div className="flex items-center gap-1.5 text-slate-500">
+                    <Lock className="w-4 h-4 text-slate-400" />
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                      Location Sharing (Locked)
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Technician allocation required. Once you assign a technician to this order, the single share button will be enabled to dispatch the customer name, mobile number, service, and exact Google Maps location directly to the technician&apos;s WhatsApp.
+                  </p>
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full py-2.5 px-3 rounded-xl bg-slate-200 text-slate-400 text-xs font-bold flex items-center justify-center gap-1.5 cursor-not-allowed border border-slate-300"
+                  >
+                    <Lock className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Share Location (Allocate Tech First)</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="pt-3 border-t border-slate-100 grid grid-cols-3 gap-2">
