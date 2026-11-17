@@ -3,7 +3,7 @@
 // PWA OFFLINE CACHING & WEB PUSH NOTIFICATION HANDLER
 // =========================================================================
 
-const CACHE_NAME = 'vikasa-cache-v1';
+const CACHE_NAME = 'vikasa-cache-v2';
 const STATIC_ASSETS = [
   '/',
   '/offline',

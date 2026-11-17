@@ -809,18 +809,14 @@ export default function AdminRequestsPage() {
             </div>
 
             <div className="space-y-2.5 text-xs text-slate-700">
-              <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-                <span className="text-slate-400 font-semibold">Requester:</span>
-                <span
-                  className={`text-[11px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
-                    selectedRequest.requester_type === 'technician'
-                      ? 'bg-purple-50 text-purple-800 border-purple-200'
-                      : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                  }`}
-                >
-                  {selectedRequest.requester_type === 'technician' ? '🔧 Technician / Partner' : '👤 Client / Homeowner'}
-                </span>
-              </div>
+              {selectedRequest.requester_type === 'technician' && (
+                <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
+                  <span className="text-slate-400 font-semibold">Requester:</span>
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 bg-purple-50 text-purple-800 border-purple-200">
+                    🔧 Technician Partner
+                  </span>
+                </div>
+              )}
               <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
                 <span className="text-slate-400 font-semibold">Service:</span>
                 <span className="font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200">
