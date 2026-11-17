@@ -3,7 +3,7 @@
 // PWA OFFLINE CACHING & WEB PUSH NOTIFICATION HANDLER
 // =========================================================================
 
-const CACHE_NAME = 'vikasa-cache-v2';
+const CACHE_NAME = 'vikasa-cache-v3';
 const STATIC_ASSETS = [
   '/',
   '/offline',
@@ -46,16 +46,18 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // A. Skip non-GET requests
-  if (event.request.method !== 'GET') {
+  // A. Skip non-GET requests or unsupported schemes
+  if (event.request.method !== 'GET' || !event.request.url.startsWith('http')) {
     return;
   }
 
-  // B. Sensitive endpoints: Network-first, strictly no-cache for private data
+  // B. Sensitive and dynamic endpoints: Network-first, strictly no-cache for private data
   if (
     url.pathname.startsWith('/api/') ||
     url.pathname.startsWith('/admin') ||
-    url.pathname.includes('/track')
+    url.pathname.includes('/track') ||
+    url.pathname.startsWith('/request') ||
+    url.pathname.startsWith('/worker-register')
   ) {
     event.respondWith(
       fetch(event.request).catch(() => {
@@ -77,10 +79,10 @@ self.addEventListener('fetch', (event) => {
     caches.match(event.request).then((cached) => {
       const fetchPromise = fetch(event.request)
         .then((networkRes) => {
-          if (networkRes && networkRes.status === 200) {
+          if (networkRes && networkRes.status === 200 && event.request.url.startsWith('http')) {
             const resClone = networkRes.clone();
             caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, resClone);
+              cache.put(event.request, resClone).catch(() => {});
             });
           }
           return networkRes;

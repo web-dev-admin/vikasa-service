@@ -9,9 +9,9 @@ export async function GET(
     const { token } = await params;
     const cleanToken = token ? token.trim() : '';
 
-    if (!cleanToken || cleanToken.length < 3) {
+    if (!cleanToken || cleanToken.length < 16 || /^\d+$/.test(cleanToken) || cleanToken.toLowerCase().startsWith('req-')) {
       return NextResponse.json(
-        { success: false, error: 'Valid tracking token or request reference number is required' },
+        { success: false, error: 'Valid confidential tracking token is required' },
         { status: 400 }
       );
     }

@@ -602,13 +602,15 @@ class VikasaDataStore {
     if (!token) return null;
     const cleanToken = token.trim();
     const cleanLower = cleanToken.toLowerCase();
-    const digitsOnly = cleanToken.replace(/\D/g, '');
+
+    // IDOR Prevention: Only accept the confidential random UUID tracking token
+    // Sequential request numbers (e.g. "1001") and internal IDs ("req-1001") are strictly rejected
+    if (/^\d+$/.test(cleanToken) || cleanLower.startsWith('req-') || cleanToken.length < 16) {
+      return null;
+    }
 
     const req = this.requests.find((r) => {
       if (r.tracking_token && r.tracking_token.toLowerCase() === cleanLower) return true;
-      if (String(r.request_number) === cleanToken) return true;
-      if (r.id && r.id.toLowerCase() === cleanLower) return true;
-      if (digitsOnly && String(r.request_number) === digitsOnly) return true;
       return false;
     });
 
@@ -621,7 +623,7 @@ class VikasaDataStore {
       status: req.status,
       preferred_date: req.preferred_date,
       preferred_time_slot: req.preferred_time_slot,
-      general_area: req.formatted_address ? req.formatted_address.split(',')[0]?.trim() : (req.district || 'Salem'),
+      general_area: req.formatted_address ? req.formatted_address.split(',')[0]?.trim() : (req.district || 'Erode'),
       created_at: req.created_at,
       assigned_worker_first_name: req.assigned_worker_name ? req.assigned_worker_name.split(' ')[0] : undefined,
     };
@@ -638,7 +640,7 @@ class VikasaDataStore {
       full_name: data.customer_name,
       phone: data.customer_phone,
       whatsapp: data.customer_whatsapp || data.customer_phone,
-      district: data.district || 'Salem',
+      district: data.district || 'Erode',
       address: data.formatted_address,
       latitude: data.latitude,
       longitude: data.longitude,
@@ -656,7 +658,7 @@ class VikasaDataStore {
       request_number: nextNumber,
       customer_id: permanentCustomer.id,
       customer_whatsapp: data.customer_whatsapp || data.customer_phone,
-      district: data.district || 'Salem',
+      district: data.district || 'Erode',
       tracking_token: trackingToken,
       status: data.status || 'NEW',
       created_at: new Date().toISOString(),

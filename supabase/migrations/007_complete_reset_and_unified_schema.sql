@@ -136,7 +136,18 @@ CREATE TABLE customers (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 8. Admin Notifications
+-- 8. Notifications (Both notifications and admin_notifications for backward compatibility)
+CREATE TABLE notifications (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    related_id TEXT,
+    related_type TEXT,
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE admin_notifications (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     type TEXT NOT NULL,
@@ -144,17 +155,20 @@ CREATE TABLE admin_notifications (
     message TEXT NOT NULL,
     related_id TEXT,
     related_type TEXT,
-    read BOOLEAN NOT NULL DEFAULT FALSE,
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 9. Admin Device Tokens (Push Notifications)
+-- 9. Admin Device Tokens (Push Notifications via FCM HTTP v1)
 CREATE TABLE admin_device_tokens (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-    token TEXT NOT NULL UNIQUE,
-    user_agent TEXT,
+    admin_email TEXT NOT NULL DEFAULT 'admin@vikasa.com',
+    fcm_token TEXT NOT NULL UNIQUE,
+    device_name TEXT DEFAULT 'Admin Device',
+    platform TEXT NOT NULL DEFAULT 'android',
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_used_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- 10. Audit Logs
@@ -232,6 +246,7 @@ CREATE OR REPLACE FUNCTION get_admin_service_requests()
 RETURNS SETOF service_requests
 LANGUAGE sql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
     SELECT * FROM service_requests ORDER BY created_at DESC;
 $$;
@@ -240,8 +255,45 @@ CREATE OR REPLACE FUNCTION get_admin_workers()
 RETURNS SETOF workers
 LANGUAGE sql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
     SELECT * FROM workers ORDER BY created_at DESC;
+$$;
+
+-- Secure public tracking projection RPC (protects customer phone and private technician details)
+CREATE OR REPLACE FUNCTION get_public_tracking_status(p_tracking_token TEXT)
+RETURNS TABLE (
+    id TEXT,
+    request_number INT,
+    service_id TEXT,
+    service_title TEXT,
+    custom_service_description TEXT,
+    status TEXT,
+    district TEXT,
+    address TEXT,
+    created_at TIMESTAMPTZ,
+    scheduled_time TIMESTAMPTZ,
+    tracking_token TEXT
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+    SELECT 
+        sr.id,
+        sr.request_number,
+        sr.service_id,
+        sr.service_title,
+        sr.custom_service_description,
+        sr.status,
+        sr.district,
+        sr.address,
+        sr.created_at,
+        sr.scheduled_time,
+        sr.tracking_token
+    FROM service_requests sr
+    WHERE sr.tracking_token = p_tracking_token
+    LIMIT 1;
 $$;
 
 -- 16. Row Level Security Policies (Allow seamless operation for client & admin)
@@ -250,6 +302,7 @@ ALTER TABLE services ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_device_tokens ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
@@ -272,7 +325,8 @@ CREATE POLICY "Allow select workers" ON workers FOR SELECT USING (true);
 CREATE POLICY "Allow update delete workers" ON workers FOR ALL USING (true) WITH CHECK (true);
 
 CREATE POLICY "Allow customers access" ON customers FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow notifications access" ON admin_notifications FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow notifications access" ON notifications FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow admin_notifications access" ON admin_notifications FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow device tokens access" ON admin_device_tokens FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow audit logs access" ON audit_logs FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow attempts access" ON worker_contact_attempts FOR ALL USING (true) WITH CHECK (true);

@@ -36,9 +36,9 @@ export async function GET(request: NextRequest) {
 
     const cleanPhone = rawPhone ? sanitizeIndianMobile10(rawPhone) : null;
 
-    // 1. Check local dataStore
+    // 1. Check local dataStore (strictly match confidential application_token)
     let worker = dataStore.getWorkers().find((w) => {
-      const tokenMatch = w.application_token === token || w.id === token;
+      const tokenMatch = w.application_token === token;
       if (!tokenMatch) return false;
       if (cleanPhone) {
         const p = w.phone.replace(/\D/g, '').slice(-10);
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
         let query = supabase
           .from('workers')
           .select('skills, verification_status, district, created_at, application_token')
-          .or(`application_token.eq.${token},id.eq.${token}`);
+          .eq('application_token', token);
 
         if (cleanPhone) {
           query = query.ilike('phone', `%${cleanPhone}`);

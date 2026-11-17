@@ -226,6 +226,8 @@ export function matchWorkers(
       is_exact_service: isExactService,
       service_radius_km: worker.service_radius_km,
       base_location_name: worker.base_location_name,
+      district: worker.district,
+      matches_district: isSameDistrict,
       match_category: matchCategory,
       skills: worker.skills,
       has_been_contacted: !!previousAttempt,
@@ -235,14 +237,37 @@ export function matchWorkers(
     });
   }
 
-  // Sort: Uncontacted first -> Lowest distance -> Highest experience
+  // Unified 5-Tier Dispatch Sorting Priority:
+  // 1. Same District first
+  // 2. Exact Trade Skill Match first
+  // 3. Worker Availability ('available' prioritized)
+  // 4. Contact history (Uncontacted for this request first)
+  // 5. GPS Distance (nearest first)
+  // 6. Experience (higher years first)
   return matched.sort((a, b) => {
+    // 1. Same district first
+    if (a.matches_district && !b.matches_district) return -1;
+    if (!a.matches_district && b.matches_district) return 1;
+
+    // 2. Exact trade skill match first
+    if (a.is_exact_service && !b.is_exact_service) return -1;
+    if (!a.is_exact_service && b.is_exact_service) return 1;
+
+    // 3. Available first
+    if (a.availability === 'available' && b.availability !== 'available') return -1;
+    if (a.availability !== 'available' && b.availability === 'available') return 1;
+
+    // 4. Uncontacted for this request first
     if (a.has_been_contacted !== b.has_been_contacted) {
       return a.has_been_contacted ? 1 : -1;
     }
+
+    // 5. Lowest distance first
     if (a.distance_km !== b.distance_km) {
       return a.distance_km - b.distance_km;
     }
+
+    // 6. Highest experience first
     return b.experience_years - a.experience_years;
   });
 }

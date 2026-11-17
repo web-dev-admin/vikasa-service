@@ -210,6 +210,8 @@ export interface MatchedWorker {
   base_location_name: string;
   match_category: 'Nearby (0-3 km)' | 'Near (3-7 km)' | 'Far (7-15+ km)';
   skills: string[];
+  district?: string;
+  matches_district?: boolean;
   has_been_contacted: boolean;
   last_contact_result?: ContactResult;
   latitude: number;

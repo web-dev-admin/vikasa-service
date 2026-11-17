@@ -93,43 +93,23 @@ export async function authenticateAdmin(request: NextRequest): Promise<AdminSess
   const authHeader = request.headers.get('authorization');
   let token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7).trim() : null;
 
-  // 2. Fallback to HTTP-only cookie
+  // 2. Fallback to HTTP-only signed session cookie
   if (!token) {
     const cookie = request.cookies.get(ADMIN_COOKIE_NAME);
     token = cookie?.value || null;
   }
 
-  // 3. Fallback to legacy cookie if present
+  // 3. Fallback to legacy cookie name if it contains a signed token
   if (!token) {
     const legacyCookie = request.cookies.get('vikasa_admin_token');
-    if (legacyCookie?.value) {
-      if (legacyCookie.value === 'active') {
-        return {
-          isAdmin: true,
-          email: 'admin@vikasa.com',
-          role: 'admin',
-          issuedAt: Math.floor(Date.now() / 1000),
-        };
-      }
+    if (legacyCookie?.value && legacyCookie.value.includes('.')) {
       token = legacyCookie.value;
-    }
-  }
-
-  // 4. Fallback in development or mock mode with admin header
-  if (!token && (isLocalMockMode || process.env.NODE_ENV !== 'production')) {
-    if (request.headers.get('x-admin-portal') === 'true') {
-      return {
-        isAdmin: true,
-        email: 'admin@vikasa.com',
-        role: 'admin',
-        issuedAt: Math.floor(Date.now() / 1000),
-      };
     }
   }
 
   if (!token) return null;
 
-  // Verify signed token
+  // Verify signed token using timing-safe HMAC-SHA256
   const verified = verifyAdminToken(token);
   if (verified) return verified;
 

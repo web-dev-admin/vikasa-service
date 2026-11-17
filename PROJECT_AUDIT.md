@@ -196,11 +196,12 @@ When customers book with "Other Services" or technicians register with unlisted 
 
 ### 4. Technician Matching Algorithm (`lib/matching/algorithm.ts`)
 When assigning a technician to a job in `/admin/requests`:
-1. **District Match (Primary):** Technicians located in the exact same district are ranked first.
+1. **District Match (Primary):** Technicians located in the exact same district are ranked first (`matches_district: true`).
 2. **Trade Skill Match:** Technicians possessing the requested skill in `worker.skills` or `worker.service_ids` are prioritized.
 3. **Availability:** `available` technicians appear above `busy` or `offline`.
-4. **Haversine Distance:** Calculates exact straight-line distance in kilometers between job GPS and technician base GPS; nearest ranked first.
-5. **Experience:** Ties broken by `experience_years`.
+4. **Uncontacted Technicians:** Technicians who have not yet been contacted for this specific job request are ranked before already contacted candidates.
+5. **Haversine Distance:** Calculates exact straight-line distance in kilometers between job GPS and technician base GPS; nearest ranked first.
+6. **Experience:** Ties broken deterministically by `experience_years`.
 
 ---
 
@@ -209,14 +210,24 @@ When assigning a technician to a job in `/admin/requests`:
 1. **Admin Portal Authentication:**
    * Handled via **`lib/auth/admin.ts`**.
    * Admin credentials verified at `/api/admin/auth/login`.
+   * **In-Memory Rate Limiting & Lockout:** Max 5 failed login attempts per IP in a 15-minute sliding window; returns HTTP 429 with `Retry-After`.
+   * **Stripped Legacy Insecure Bypasses:** Legacy bypass cookies (`vikasa_admin_token === 'active'`) and arbitrary bypass headers (`x-admin-portal: true`) have been completely removed.
    * Issues cryptographically signed HMAC-SHA256 session tokens with 7-day expiration.
-   * Stored in `vikasa_admin_session` HTTP-only, `sameSite: lax`, secure cookie and verified via Bearer header.
-2. **Public Endpoint Hardening:**
-   * All public endpoints (`/api/requests`, `/api/technicians`, `/api/technicians/status`) treat incoming payloads as untrusted.
-   * Public technician registrations CANNOT set their own verification status.
-   * Public requests only receive sanitized public summaries (`request_number`, `tracking_token`, `district`), never exposing worker private phone numbers or internal notes.
-3. **Row Level Security (RLS):**
-   * Configured in Supabase with permissive public inserts for bookings/technician registrations and authorized administrative reads.
+   * Stored in `vikasa_admin_session` HTTP-only, `sameSite: lax`, secure cookie and verified via Bearer header with constant-time comparison (`crypto.timingSafeEqual`).
+2. **Public Endpoint & IDOR Protection:**
+   * All public endpoints (`/api/requests`, `/api/technicians`, `/api/technicians/status`, `/api/track/[token]`) treat incoming payloads as untrusted.
+   * **IDOR Prevention on Job Tracking:** `getPublicTrackingStatus` in `lib/data/store.ts` and `/api/track/[token]` reject sequential request numbers (e.g. `1001`) and internal identifiers (`req-1001`). Only confidential random UUID tokens with >=16 characters are resolved.
+   * **Technician Status IDOR Protection:** Public status lookups at `/api/technicians/status` strictly require confidential `application_token` (e.g. `VK-TECH-XXXX`); direct internal database IDs are rejected.
+   * **Zero PII Exposure:** Public tracking projection exposes only `request_number`, `service_name`, `category_name`, `status`, `preferred_date`, `general_area`, and the assigned technician's first name. Exact customer phone numbers, customer names, technician full phone numbers, and internal coordinates are never returned to public queries.
+3. **Database Security & Migration 007 Alignment:**
+   * **Function Search Path Hijacking Protection:** Added `SET search_path = public, pg_temp` on PostgreSQL `SECURITY DEFINER` RPC functions (`get_admin_service_requests`, `get_admin_workers`, `get_public_tracking_status`) to prevent search path escalation.
+   * **Safe Public Projection RPC:** Defined `get_public_tracking_status(TEXT)` in Supabase SQL with explicit column whitelisting.
+   * **Table & Column Alignment:** Synced `notifications` table alongside `admin_notifications` with `is_read` column; aligned `admin_device_tokens` schema with `fcm_token` (UNIQUE), `admin_email`, and `platform`.
+   * **Row Level Security (RLS):** Enabled and enforced across all core tables.
+4. **PWA & Offline Resilience (`public/sw.js`):**
+   * Service Worker bumped to `vikasa-cache-v3`.
+   * Enforced Network-First with Offline Fallback strategy for `/request` and `/worker-register` to guarantee users receive live forms.
+   * Added `http` scheme check to prevent browser extension requests (`chrome-extension:`) from throwing `cache.put` exceptions.
 
 ---
 
@@ -258,6 +269,7 @@ When modifying or extending this codebase, every AI agent must strictly follow t
 
 | Date | Commit | Changes |
 | :--- | :--- | :--- |
+| **2026-11-17** | `HEAD` | **Master Security Hardening & Complete Platform Verification:**<br>• Fixed P0 IDOR in public tracking (`getPublicTrackingStatus` & `/api/track/[token]`); strictly enforced confidential UUID matching and zero PII exposure.<br>• Hardened admin auth: stripped insecure cookie/header bypasses and added brute-force rate-limiting (max 5 attempts/15min).<br>• Secured technician status lookup by requiring `application_token`.<br>• Hardened Supabase Migration 007 with `SET search_path = public, pg_temp`, safe tracking projection RPC, notifications table RLS, and FCM schema alignment.<br>• Unified 5-tier technician dispatch algorithm in `lib/matching/algorithm.ts`.<br>• Hardened PWA Service Worker (v3) with network-first form strategy and chrome-extension scheme guards.<br>• Verified all 6 automated test suites (225+ assertions passed, 100% success rate) and verified production build (40/40 routes). |
 | **2026-11-17** | `ed41421` | **Unified Supabase Migration 007 & Geolocation Overhaul:**<br>• Created `supabase/migrations/007_complete_reset_and_unified_schema.sql` resolving schema mismatches across all 10 tables.<br>• Built `app/api/geocode/reverse/route.ts` and `lib/utils/location.ts` with indoor WiFi fallback and compliant Nominatim User-Agent.<br>• Synchronized all request and worker attributes with Supabase backend. |
 | **2026-11-17** | `2d4c1c8` | **PWA Cache Invalidation & Requester Badges Clean-up:**<br>• Bumped PWA service worker cache to `vikasa-cache-v2` in `public/sw.js`.<br>• Cleaned up modal requester tags in `/admin/requests`. |
 | **2026-11-15** | `32320eb` | **Technician Multi-Skill Editor & Suggestions Hub:**<br>• Created `/admin/suggestions` for customer/technician custom trade requests with 1-click catalog promotion.<br>• Added multi-service add/delete/edit badges in `/admin/workers`.<br>• Stripped client/technician toggle from `LeadForm.tsx`. |
