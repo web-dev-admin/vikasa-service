@@ -31,6 +31,8 @@ import {
 } from 'lucide-react';
 import NotificationCenter from '@/components/admin/NotificationCenter';
 import PWAInstallButton from '@/components/pwa/PWAInstallButton';
+import HeavyAlarmBanner from '@/components/admin/HeavyAlarmBanner';
+import { audioAlert } from '@/lib/utils/audioAlert';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -127,6 +129,27 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       totalWorkers: workers.length,
       suggestions: suggestionsCount,
     });
+
+    // Heavy Alarm for Client / Homeowner Leads:
+    // Continuous heavy alarm looping up to 10 minutes until someone acknowledges it.
+    // Triggers ONLY for client requests (NEW or CUSTOMER_TO_CALL), never for technicians.
+    const unackClientLeads = all.filter((r) => {
+      if (r.status !== 'NEW' && r.status !== 'CUSTOMER_TO_CALL') return false;
+      if (audioAlert.isAcknowledged(r.id)) return false;
+      const ageMs = Date.now() - new Date(r.created_at).getTime();
+      return ageMs >= 0 && ageMs < 10 * 60 * 1000;
+    });
+
+    if (unackClientLeads.length > 0) {
+      const topLead = unackClientLeads[0];
+      audioAlert.startHeavyAlarm({
+        requestId: topLead.id,
+        customerName: topLead.customer_name,
+        serviceName: topLead.service_name,
+        district: topLead.district,
+        message: `${topLead.customer_name} requested ${topLead.service_name} in ${topLead.district}`,
+      });
+    }
   }, []);
 
   useEffect(() => {
@@ -190,6 +213,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans antialiased text-slate-900">
+      {/* Heavy Alarm Banner for Client Leads (Continuous 10-Minute Loop until Acknowledged) */}
+      <HeavyAlarmBanner />
+
       {/* ========================================================================= */}
       {/* TOP LUXURY ADMIN BAR */}
       {/* ========================================================================= */}

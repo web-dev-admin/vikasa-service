@@ -39,6 +39,7 @@ import {
   Lock,
 } from 'lucide-react';
 import DeleteConfirmationModal from '@/components/admin/DeleteConfirmationModal';
+import { audioAlert } from '@/lib/utils/audioAlert';
 import {
   getTelUrl,
   getWhatsAppUrl,
@@ -606,7 +607,10 @@ export default function AdminRequestsPage() {
               /* Simple Customer Tile */
               <div
                 key={req.id}
-                onClick={() => setSelectedRequest(req)}
+                onClick={() => {
+                  audioAlert.acknowledgeHeavyAlarm(req.id);
+                  setSelectedRequest(req);
+                }}
                 className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 hover:border-emerald-500/80 hover:shadow-md transition-all cursor-pointer space-y-3"
               >
                 <div className="flex items-start justify-between gap-2">

@@ -57,11 +57,30 @@ export default function NotificationCenter({ adminEmail }: { adminEmail: string 
 
           // Check if any brand new unread notification arrived
           if (initialLoadDoneRef.current) {
-            const hasNewUnread = incoming.some(
-              (n) => !n.is_read && !knownNotifIdsRef.current.has(n.id)
+            const newClientNotif = incoming.find(
+              (n) =>
+                !n.is_read &&
+                n.type === 'service_request' &&
+                !knownNotifIdsRef.current.has(n.id) &&
+                !audioAlert.isAcknowledged(n.related_id || n.id)
             );
-            if (hasNewUnread) {
-              audioAlert.triggerFullAlert();
+
+            if (newClientNotif) {
+              // Trigger HEAVY ALARM (10-minute continuous loop until acknowledged) ONLY for client leads
+              audioAlert.startHeavyAlarm({
+                requestId: newClientNotif.related_id || newClientNotif.id,
+                customerName: newClientNotif.title.replace(/^New (Customer )?Service Request:?\s*/i, ''),
+                serviceName: newClientNotif.message,
+                message: newClientNotif.message,
+              });
+            } else {
+              const hasOtherNew = incoming.some(
+                (n) => !n.is_read && !knownNotifIdsRef.current.has(n.id)
+              );
+              if (hasOtherNew) {
+                // Standard single alert for non-client events (technician registrations, etc.)
+                audioAlert.triggerFullAlert();
+              }
             }
           }
 
@@ -95,7 +114,19 @@ export default function NotificationCenter({ adminEmail }: { adminEmail: string 
       if (customEvent.detail) {
         setNotifications((prev) => [customEvent.detail, ...prev]);
         setUnreadCount((c) => c + 1);
-        audioAlert.triggerFullAlert();
+
+        // If client lead, trigger the 10-minute looping heavy alarm!
+        if (customEvent.detail.type === 'service_request') {
+          audioAlert.startHeavyAlarm({
+            requestId: customEvent.detail.related_id || customEvent.detail.id,
+            customerName: customEvent.detail.title.replace(/^New (Customer )?Service Request:?\s*/i, ''),
+            serviceName: customEvent.detail.message,
+            message: customEvent.detail.message,
+          });
+        } else {
+          // Standard single chime for non-client notifications
+          audioAlert.triggerFullAlert();
+        }
       }
     };
 
@@ -119,6 +150,12 @@ export default function NotificationCenter({ adminEmail }: { adminEmail: string 
   }, []);
 
   const handleMarkRead = async (id: string) => {
+    // Acknowledge heavy alarm if this notification was ringing
+    const target = notifications.find((n) => n.id === id);
+    if (target?.type === 'service_request') {
+      audioAlert.acknowledgeHeavyAlarm(target.related_id || target.id);
+    }
+
     try {
       const token = typeof window !== 'undefined'
         ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
@@ -144,6 +181,9 @@ export default function NotificationCenter({ adminEmail }: { adminEmail: string 
   };
 
   const handleMarkAllRead = async () => {
+    // Silence any active heavy alarm when marking all read
+    audioAlert.stopHeavyAlarm();
+
     try {
       const token = typeof window !== 'undefined'
         ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token

@@ -30,6 +30,8 @@ import {
   Sparkles,
   FolderPlus,
   X,
+  BellRing,
+  VolumeX,
 } from 'lucide-react';
 
 export default function AdminSettingsPage() {
@@ -340,13 +342,43 @@ export default function AdminSettingsPage() {
           </div>
 
           <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-            <button
-              onClick={handleTestSoundAndVibration}
-              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 flex items-center gap-1.5 transition-colors cursor-pointer min-h-[38px]"
-            >
-              <Play className="w-3.5 h-3.5 text-amber-700" />
-              <span>Test Alarm Buzzer &amp; Vibration</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleTestSoundAndVibration}
+                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 flex items-center gap-1.5 transition-colors cursor-pointer min-h-[38px]"
+                title="Plays single 1-second chime"
+              >
+                <Play className="w-3.5 h-3.5 text-amber-700" />
+                <span>Single Chime</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  audioAlert.startHeavyAlarm({
+                    requestId: 'test-heavy-alarm-demo',
+                    customerName: 'Demo Homeowner (Sound Test)',
+                    serviceName: 'Full Interior Carpentry & Modular Kitchen',
+                    district: 'Erode',
+                  });
+                }}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-700 text-white shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer min-h-[38px]"
+                title="Tests continuous heavy noise alarm (10-minute auto-silence loop for client leads)"
+              >
+                <BellRing className="w-3.5 h-3.5 text-white" />
+                <span>Test Heavy Siren (10-Min Loop)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => audioAlert.acknowledgeHeavyAlarm('test-heavy-alarm-demo')}
+                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 flex items-center gap-1.5 transition-colors cursor-pointer min-h-[38px]"
+                title="Silence and acknowledge the test alarm"
+              >
+                <VolumeX className="w-3.5 h-3.5 text-slate-600" />
+                <span>Silence / Acknowledge</span>
+              </button>
+            </div>
 
             <button
               onClick={handleEnablePush}
