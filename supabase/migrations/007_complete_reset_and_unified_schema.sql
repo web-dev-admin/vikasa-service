@@ -273,13 +273,15 @@ RETURNS TABLE (
     id TEXT,
     request_number INT,
     service_id TEXT,
-    service_title TEXT,
-    custom_service_description TEXT,
+    service_name TEXT,
+    category_name TEXT,
     status TEXT,
     district TEXT,
-    address TEXT,
+    formatted_address TEXT,
+    preferred_date TEXT,
+    preferred_time_slot TEXT,
+    assigned_worker_first_name TEXT,
     created_at TIMESTAMPTZ,
-    scheduled_time TIMESTAMPTZ,
     tracking_token TEXT
 )
 LANGUAGE sql
@@ -290,17 +292,42 @@ AS $$
         sr.id,
         sr.request_number,
         sr.service_id,
-        sr.service_title,
-        sr.custom_service_description,
+        sr.service_name,
+        sr.category_name,
         sr.status,
         sr.district,
-        sr.address,
+        sr.formatted_address,
+        sr.preferred_date,
+        sr.preferred_time_slot,
+        SPLIT_PART(sr.assigned_worker_name, ' ', 1) AS assigned_worker_first_name,
         sr.created_at,
-        sr.scheduled_time,
-        sr.tracking_token
+        sr.tracking_token::text AS tracking_token
     FROM service_requests sr
-    WHERE sr.tracking_token = p_tracking_token
+    WHERE sr.tracking_token::text = p_tracking_token
     LIMIT 1;
+$$;
+
+CREATE OR REPLACE FUNCTION get_public_tracking_status(p_tracking_token UUID)
+RETURNS TABLE (
+    id TEXT,
+    request_number INT,
+    service_id TEXT,
+    service_name TEXT,
+    category_name TEXT,
+    status TEXT,
+    district TEXT,
+    formatted_address TEXT,
+    preferred_date TEXT,
+    preferred_time_slot TEXT,
+    assigned_worker_first_name TEXT,
+    created_at TIMESTAMPTZ,
+    tracking_token TEXT
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+    SELECT * FROM get_public_tracking_status(p_tracking_token::text);
 $$;
 
 -- 16. Row Level Security Policies (Allow seamless operation for client & admin)
@@ -367,6 +394,12 @@ CREATE POLICY "Allow attempts access" ON worker_contact_attempts FOR ALL USING (
 
 DROP POLICY IF EXISTS "Allow website content access" ON website_content;
 CREATE POLICY "Allow website content access" ON website_content FOR ALL USING (true) WITH CHECK (true);
+
+-- 17. Explicit Function Execution Permissions
+GRANT EXECUTE ON FUNCTION get_admin_service_requests() TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION get_admin_workers() TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION get_public_tracking_status(TEXT) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION get_public_tracking_status(UUID) TO anon, authenticated, service_role;
 
 -- =========================================================================
 -- DATABASE SETUP COMPLETE & VERIFIED
