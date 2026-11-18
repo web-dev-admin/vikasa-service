@@ -92,7 +92,7 @@ export default function AdminDashboardPage() {
       },
     })
       .then((res) => {
-        CircuitBreaker.reportStatus(res.status);
+        CircuitBreaker.reportStatus(res.status, 'requests');
         return res.ok ? res.json() : null;
       })
       .then((json) => {
@@ -106,7 +106,7 @@ export default function AdminDashboardPage() {
         }
       })
       .catch((err) => {
-        CircuitBreaker.reportError(err);
+        CircuitBreaker.reportError(err, 'requests');
       });
 
     fetch('/api/technicians', {
@@ -116,7 +116,7 @@ export default function AdminDashboardPage() {
       },
     })
       .then((res) => {
-        CircuitBreaker.reportStatus(res.status);
+        CircuitBreaker.reportStatus(res.status, 'technicians');
         return res.ok ? res.json() : null;
       })
       .then((json) => {
@@ -126,12 +126,12 @@ export default function AdminDashboardPage() {
         }
       })
       .catch((err) => {
-        CircuitBreaker.reportError(err);
+        CircuitBreaker.reportError(err, 'technicians');
       });
   }, []);
 
   // Smart visibility-aware polling (30s interval, instant sync on focus, zero compute in background)
-  useSmartPolling(loadData, { intervalMs: 30000 });
+  useSmartPolling(loadData, { intervalMs: 30000, endpoint: 'dashboard' });
 
   useEffect(() => {
     const handleStorage = () => loadData();

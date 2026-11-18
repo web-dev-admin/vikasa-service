@@ -111,7 +111,7 @@ export default function OperationsPage() {
       },
     })
       .then((res) => {
-        CircuitBreaker.reportStatus(res.status);
+        CircuitBreaker.reportStatus(res.status, 'requests');
         return res.ok ? res.json() : null;
       })
       .then((json) => {
@@ -125,12 +125,12 @@ export default function OperationsPage() {
         }
       })
       .catch((err) => {
-        CircuitBreaker.reportError(err);
+        CircuitBreaker.reportError(err, 'requests');
       });
   }, []);
 
   // Smart visibility-aware polling (30s interval, instant sync on focus, zero compute in background)
-  useSmartPolling(refreshData, { intervalMs: 30000 });
+  useSmartPolling(refreshData, { intervalMs: 30000, endpoint: 'operations' });
 
   useEffect(() => {
     const handleStorage = () => refreshData();

@@ -101,7 +101,7 @@ export default function AdminWorkersPage() {
       },
     })
       .then((res) => {
-        CircuitBreaker.reportStatus(res.status);
+        CircuitBreaker.reportStatus(res.status, 'technicians');
         return res.ok ? res.json() : null;
       })
       .then((json) => {
@@ -114,13 +114,13 @@ export default function AdminWorkersPage() {
         }
       })
       .catch((err) => {
-        CircuitBreaker.reportError(err);
+        CircuitBreaker.reportError(err, 'technicians');
         console.warn('Technician list refresh warning:', err);
       });
   }, []);
 
   // Smart visibility-aware polling (30s interval, instant sync on focus, zero compute in background)
-  useSmartPolling(refreshWorkers, { intervalMs: 30000 });
+  useSmartPolling(refreshWorkers, { intervalMs: 30000, endpoint: 'technicians' });
 
   useEffect(() => {
     const handleServicesUpdate = () => {

@@ -6,6 +6,7 @@ interface SmartPollingOptions {
   enabled?: boolean;
   refreshOnFocus?: boolean;
   throttleMs?: number;
+  endpoint?: string;
 }
 
 /**
@@ -19,9 +20,12 @@ interface SmartPollingOptions {
  *    polling is HALTED immediately to prevent runaway CDN request loops.
  * 5. Network Offline Awareness: Halts all requests when browser is offline (`!navigator.onLine`)
  *    and resumes automatically when connection returns.
- * 6. Throttle guard (default 2000ms) to strictly prevent duplicate bursts when both
+ * 6. Isolated Endpoint Failure Isolation: One failing API does not disable or slow down
+ *    unrelated healthy APIs.
+ * 7. Active Timer Teardown: Clears timers on circuit break and auto-resumes after cooldown.
+ * 8. Throttle guard (default 2000ms) to strictly prevent duplicate bursts when both
  *    'visibilitychange' and 'focus' events fire concurrently.
- * 7. Full timer and event listener cleanup upon component unmount.
+ * 9. Full timer and event listener cleanup upon component unmount.
  */
 export function useSmartPolling(
   callback: () => Promise<void> | void,
@@ -32,10 +36,12 @@ export function useSmartPolling(
     enabled = true,
     refreshOnFocus = true,
     throttleMs = 2000,
+    endpoint,
   } = options;
 
   const savedCallback = useRef(callback);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const resumeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastExecutedRef = useRef<number>(0);
   const isMountedRef = useRef<boolean>(true);
 
@@ -52,13 +58,13 @@ export function useSmartPolling(
       return;
     }
 
-    // 2. Check network connectivity
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    // 2. Check network connectivity (only halt if browser explicitly reports offline)
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       return;
     }
 
     // 3. Check Circuit Breaker (halts if 503 paused, 429 rate limited, etc.)
-    if (!force && CircuitBreaker.shouldHalt()) {
+    if (!force && CircuitBreaker.shouldHalt(endpoint)) {
       return;
     }
 
@@ -72,22 +78,26 @@ export function useSmartPolling(
     try {
       await savedCallback.current();
     } catch (err) {
-      CircuitBreaker.reportError(err);
+      CircuitBreaker.reportError(err, endpoint);
     }
-  }, [throttleMs]);
+  }, [throttleMs, endpoint]);
 
   const startTimer = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
-    const currentInterval = CircuitBreaker.getBackoffInterval(intervalMs);
+    const currentInterval = CircuitBreaker.getBackoffInterval(intervalMs, endpoint);
     timerRef.current = setInterval(() => executeTick(false), currentInterval);
-  }, [executeTick, intervalMs]);
+  }, [executeTick, intervalMs, endpoint]);
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
+    }
+    if (resumeTimeoutRef.current) {
+      clearTimeout(resumeTimeoutRef.current);
+      resumeTimeoutRef.current = null;
     }
   }, []);
 
@@ -100,7 +110,7 @@ export function useSmartPolling(
     }
 
     // 1. Initial trigger if document is visible and circuit is healthy
-    if (typeof document !== 'undefined' && !document.hidden && !CircuitBreaker.shouldHalt()) {
+    if (typeof document !== 'undefined' && !document.hidden && !CircuitBreaker.shouldHalt(endpoint)) {
       executeTick(false);
       startTimer();
     }
@@ -110,7 +120,7 @@ export function useSmartPolling(
       if (document.hidden) {
         stopTimer();
       } else {
-        if (refreshOnFocus && !CircuitBreaker.shouldHalt()) {
+        if (refreshOnFocus && !CircuitBreaker.shouldHalt(endpoint)) {
           executeTick(false);
         }
         startTimer();
@@ -119,7 +129,7 @@ export function useSmartPolling(
 
     // 3. Window focus handler
     const handleFocus = () => {
-      if (refreshOnFocus && !document.hidden && !CircuitBreaker.shouldHalt()) {
+      if (refreshOnFocus && !document.hidden && !CircuitBreaker.shouldHalt(endpoint)) {
         executeTick(false);
       }
     };
@@ -146,12 +156,29 @@ export function useSmartPolling(
       startTimer();
     };
 
+    // 7. Circuit breaker tripped listener (stops timer immediately and schedules auto-resume)
+    const handleCircuitBroken = (e: Event) => {
+      stopTimer();
+      const customEvent = e as CustomEvent<{ pausedUntil?: number }>;
+      const pausedUntil = customEvent.detail?.pausedUntil || Date.now() + 5 * 60 * 1000;
+      const delay = Math.max(1000, pausedUntil - Date.now() + 1000);
+
+      if (resumeTimeoutRef.current) clearTimeout(resumeTimeoutRef.current);
+      resumeTimeoutRef.current = setTimeout(() => {
+        if (isMountedRef.current && typeof document !== 'undefined' && !document.hidden && !CircuitBreaker.shouldHalt(endpoint)) {
+          executeTick(true);
+          startTimer();
+        }
+      }, delay);
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     window.addEventListener('vikasa_data_updated', handleDataUpdated);
     window.addEventListener('vikasa_resume_polling', handleResumePolling);
+    window.addEventListener('vikasa_circuit_broken', handleCircuitBroken);
 
     return () => {
       isMountedRef.current = false;
@@ -162,8 +189,9 @@ export function useSmartPolling(
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('vikasa_data_updated', handleDataUpdated);
       window.removeEventListener('vikasa_resume_polling', handleResumePolling);
+      window.removeEventListener('vikasa_circuit_broken', handleCircuitBroken);
     };
-  }, [enabled, intervalMs, refreshOnFocus, executeTick, startTimer, stopTimer]);
+  }, [enabled, intervalMs, refreshOnFocus, endpoint, executeTick, startTimer, stopTimer]);
 
   return {
     refreshNow: (force = true) => {

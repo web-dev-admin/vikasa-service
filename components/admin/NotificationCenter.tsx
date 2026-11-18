@@ -39,7 +39,7 @@ export default function NotificationCenter({ adminEmail: _adminEmail }: { adminE
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
-      CircuitBreaker.reportStatus(res.status);
+      CircuitBreaker.reportStatus(res.status, 'notifications');
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -83,12 +83,12 @@ export default function NotificationCenter({ adminEmail: _adminEmail }: { adminE
         }
       }
     } catch (err) {
-      CircuitBreaker.reportError(err);
+      CircuitBreaker.reportError(err, 'notifications');
     }
   }, []);
 
   // Smart polling: pauses completely in background tab, auto-syncs on return, 25s interval
-  useSmartPolling(fetchNotifications, { intervalMs: 25000 });
+  useSmartPolling(fetchNotifications, { intervalMs: 25000, endpoint: 'notifications' });
 
   useEffect(() => {
     // Listen for live client-side broadcast

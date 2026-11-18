@@ -157,6 +157,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useSmartPolling(refreshStats, {
     enabled: !isLoginPage && Boolean(isAuthenticated),
     intervalMs: 30000,
+    endpoint: 'stats',
   });
 
   useEffect(() => {

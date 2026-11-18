@@ -127,15 +127,15 @@ export default function AdminSuggestionsPage() {
 
     Promise.all([
       fetch('/api/requests', { headers, credentials: 'include' }).then((r) => {
-        CircuitBreaker.reportStatus(r.status);
+        CircuitBreaker.reportStatus(r.status, 'requests');
         return r.ok ? r.json() : null;
       }),
       fetch('/api/technicians', { headers, credentials: 'include' }).then((r) => {
-        CircuitBreaker.reportStatus(r.status);
+        CircuitBreaker.reportStatus(r.status, 'technicians');
         return r.ok ? r.json() : null;
       }),
       fetch('/api/categories', { credentials: 'include' }).then((r) => {
-        CircuitBreaker.reportStatus(r.status);
+        CircuitBreaker.reportStatus(r.status, 'categories');
         return r.ok ? r.json() : null;
       }),
     ])
@@ -175,12 +175,12 @@ export default function AdminSuggestionsPage() {
         }
       })
       .catch((err) => {
-        CircuitBreaker.reportError(err);
+        CircuitBreaker.reportError(err, 'suggestions');
       });
   }, [deletedCustomerSuggestionIds, deletedTechSuggestionIds]);
 
   // Smart visibility-aware polling (30s interval, instant sync on focus, zero compute in background)
-  useSmartPolling(refreshData, { intervalMs: 30000 });
+  useSmartPolling(refreshData, { intervalMs: 30000, endpoint: 'suggestions' });
 
   useEffect(() => {
     const handleUpdate = () => refreshData();
