@@ -3,6 +3,70 @@ import { dataStore } from '@/lib/data/store';
 import { authenticateAdmin, unauthorizedResponse } from '@/lib/auth/admin';
 import { supabase, supabaseAdmin, isLocalMockMode } from '@/lib/supabase/client';
 
+interface DualTableResult {
+  primaryUpdated: boolean;
+  fallbackUpdated: boolean;
+  errors: string[];
+}
+
+/**
+ * Executes a dual-table mutation across 'notifications' and 'admin_notifications',
+ * strictly inspecting results, logging sanitized errors, and determining whether
+ * the database update actually succeeded.
+ */
+async function executeDualTableMutation(
+  operationName: string,
+  mutateFn: (tableName: 'notifications' | 'admin_notifications') => PromiseLike<{ error: { code?: string; message: string } | null }>
+): Promise<DualTableResult> {
+  if (isLocalMockMode || !process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    return { primaryUpdated: true, fallbackUpdated: true, errors: [] };
+  }
+
+  const results = await Promise.allSettled([
+    Promise.resolve(mutateFn('notifications')),
+    Promise.resolve(mutateFn('admin_notifications')),
+  ]);
+
+  let primaryUpdated = false;
+  let fallbackUpdated = false;
+  const errors: string[] = [];
+
+  // 1. Evaluate primary table ('notifications')
+  if (results[0].status === 'fulfilled') {
+    const { error } = results[0].value;
+    if (error) {
+      // 42P01: relation does not exist (acceptable if legacy table is missing)
+      if (error.code !== '42P01') {
+        errors.push(`notifications: ${error.message}`);
+      }
+    } else {
+      primaryUpdated = true;
+    }
+  } else {
+    errors.push(`notifications rejected: ${String(results[0].reason)}`);
+  }
+
+  // 2. Evaluate fallback table ('admin_notifications')
+  if (results[1].status === 'fulfilled') {
+    const { error } = results[1].value;
+    if (error) {
+      if (error.code !== '42P01') {
+        errors.push(`admin_notifications: ${error.message}`);
+      }
+    } else {
+      fallbackUpdated = true;
+    }
+  } else {
+    errors.push(`admin_notifications rejected: ${String(results[1].reason)}`);
+  }
+
+  if (errors.length > 0) {
+    console.warn(`[AdminNotifications:${operationName}] DB mutation warnings:`, errors.join('; '));
+  }
+
+  return { primaryUpdated, fallbackUpdated, errors };
+}
+
 // GET: Privileged retrieval of notification center items
 export async function GET(request: NextRequest) {
   try {
@@ -11,6 +75,9 @@ export async function GET(request: NextRequest) {
       return unauthorizedResponse('Administrator session required');
     }
 
+    if (!supabaseAdmin && !isLocalMockMode) {
+      console.warn('[AdminNotifications:GET] SUPABASE_SERVICE_ROLE_KEY missing; querying via anon client.');
+    }
     const client = supabaseAdmin || supabase;
 
     // Sync from Supabase if connected
@@ -38,7 +105,7 @@ export async function GET(request: NextRequest) {
           dataStore.mergeNotifications(data);
         }
       } catch (e) {
-        console.warn('Supabase notifications sync warning:', e);
+        console.warn('[AdminNotifications:GET] Supabase sync warning:', e instanceof Error ? e.message : 'Unknown sync error');
       }
     }
 
@@ -73,67 +140,90 @@ export async function POST(request: NextRequest) {
       return unauthorizedResponse('Administrator session required');
     }
 
+    if (!supabaseAdmin && !isLocalMockMode) {
+      console.warn('[AdminNotifications:POST] SUPABASE_SERVICE_ROLE_KEY missing; mutating via anon client.');
+    }
     const client = supabaseAdmin || supabase;
     const body = await request.json();
     const action = body.action;
 
     if (action === 'mark_read') {
       const id = body.id;
-      if (!id) {
-        return NextResponse.json({ success: false, error: 'Notification ID required' }, { status: 400 });
+      if (!id || typeof id !== 'string') {
+        return NextResponse.json({ success: false, error: 'Valid notification ID required' }, { status: 400 });
       }
+
+      // Execute dual-table database mutation and inspect results
+      const { primaryUpdated, fallbackUpdated, errors } = await executeDualTableMutation(
+        'mark_read',
+        (table) => client.from(table).update({ is_read: true }).eq('id', id)
+      );
+
+      // If both tables were targeted but failed with real DB errors, report error to client
+      if (!primaryUpdated && !fallbackUpdated && errors.length > 0) {
+        return NextResponse.json(
+          { success: false, error: 'Database update failed on all notification tables' },
+          { status: 502 }
+        );
+      }
+
+      // Update in-memory dataStore once verified
       dataStore.markNotificationAsRead(id);
 
-      if (!isLocalMockMode && process.env.NEXT_PUBLIC_SUPABASE_URL) {
-        try {
-          await Promise.allSettled([
-            client.from('notifications').update({ is_read: true }).eq('id', id),
-            client.from('admin_notifications').update({ is_read: true }).eq('id', id),
-          ]);
-        } catch {
-          // ignore
-        }
-      }
-
-      return NextResponse.json({ success: true, message: 'Notification marked as read' });
+      return NextResponse.json({
+        success: true,
+        message: 'Notification marked as read',
+        persisted: { primary: primaryUpdated, fallback: fallbackUpdated },
+      });
     }
 
     if (action === 'mark_all_read') {
-      dataStore.markAllNotificationsAsRead();
+      const { primaryUpdated, fallbackUpdated, errors } = await executeDualTableMutation(
+        'mark_all_read',
+        (table) => client.from(table).update({ is_read: true }).eq('is_read', false)
+      );
 
-      if (!isLocalMockMode && process.env.NEXT_PUBLIC_SUPABASE_URL) {
-        try {
-          await Promise.allSettled([
-            client.from('notifications').update({ is_read: true }).eq('is_read', false),
-            client.from('admin_notifications').update({ is_read: true }).eq('is_read', false),
-          ]);
-        } catch {
-          // ignore
-        }
+      if (!primaryUpdated && !fallbackUpdated && errors.length > 0) {
+        return NextResponse.json(
+          { success: false, error: 'Database update failed on all notification tables' },
+          { status: 502 }
+        );
       }
 
-      return NextResponse.json({ success: true, message: 'All notifications marked as read' });
+      dataStore.markAllNotificationsAsRead();
+
+      return NextResponse.json({
+        success: true,
+        message: 'All notifications marked as read',
+        persisted: { primary: primaryUpdated, fallback: fallbackUpdated },
+      });
     }
 
     if (action === 'delete') {
       const id = body.id;
-      if (!id) {
-        return NextResponse.json({ success: false, error: 'Notification ID required' }, { status: 400 });
+      if (!id || typeof id !== 'string') {
+        return NextResponse.json({ success: false, error: 'Valid notification ID required' }, { status: 400 });
       }
+
+      const { primaryUpdated, fallbackUpdated, errors } = await executeDualTableMutation(
+        'delete',
+        (table) => client.from(table).delete().eq('id', id)
+      );
+
+      if (!primaryUpdated && !fallbackUpdated && errors.length > 0) {
+        return NextResponse.json(
+          { success: false, error: 'Database deletion failed on all notification tables' },
+          { status: 502 }
+        );
+      }
+
       dataStore.deleteNotification(id);
 
-      if (!isLocalMockMode && process.env.NEXT_PUBLIC_SUPABASE_URL) {
-        try {
-          await Promise.allSettled([
-            client.from('notifications').delete().eq('id', id),
-            client.from('admin_notifications').delete().eq('id', id),
-          ]);
-        } catch {
-          // ignore
-        }
-      }
-
-      return NextResponse.json({ success: true, message: 'Notification removed' });
+      return NextResponse.json({
+        success: true,
+        message: 'Notification removed',
+        persisted: { primary: primaryUpdated, fallback: fallbackUpdated },
+      });
     }
 
     return NextResponse.json({ success: false, error: 'Unknown action' }, { status: 400 });
@@ -144,4 +234,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
