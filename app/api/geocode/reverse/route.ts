@@ -82,19 +82,26 @@ export async function GET(request: NextRequest) {
 
     const formattedAddress = parts.length > 0 ? parts.join(', ') : `GPS Coordinates (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        latitude: lat,
-        longitude: lon,
-        district: matchedDistrict,
-        city: city || matchedDistrict,
-        road,
-        locality,
-        postcode,
-        formatted_address: formattedAddress,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          latitude: lat,
+          longitude: lon,
+          district: matchedDistrict,
+          city: city || matchedDistrict,
+          road,
+          locality,
+          postcode,
+          formatted_address: formattedAddress,
+        },
       },
-    });
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800',
+        },
+      }
+    );
   } catch (error) {
     return NextResponse.json(
       { success: false, error: 'Reverse geocoding failed' },

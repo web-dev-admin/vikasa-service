@@ -16,6 +16,7 @@ import {
   matchDistrict,
 } from '@/lib/matching/algorithm';
 import { ServiceRequest, Worker, RequestStatus } from '@/types';
+import { useSmartPolling } from '@/lib/hooks/useSmartPolling';
 import {
   PhoneCall,
   MessageCircle,
@@ -120,16 +121,14 @@ export default function AdminDashboardPage() {
       .catch(() => {});
   }, []);
 
+  // Smart visibility-aware polling (30s interval, instant sync on focus, zero compute in background)
+  useSmartPolling(loadData, { intervalMs: 30000 });
+
   useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 4000);
-    const handleUpdate = () => loadData();
-    window.addEventListener('vikasa_data_updated', handleUpdate);
-    window.addEventListener('storage', handleUpdate);
+    const handleStorage = () => loadData();
+    window.addEventListener('storage', handleStorage);
     return () => {
-      clearInterval(interval);
-      window.removeEventListener('vikasa_data_updated', handleUpdate);
-      window.removeEventListener('storage', handleUpdate);
+      window.removeEventListener('storage', handleStorage);
     };
   }, [loadData]);
 

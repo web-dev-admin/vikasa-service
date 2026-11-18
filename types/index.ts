@@ -228,6 +228,7 @@ export interface PublicTrackingData {
   status: RequestStatus;
   preferred_date?: string;
   preferred_time_slot?: string;
+  district?: string;
   general_area: string;
   created_at: string;
   assigned_worker_first_name?: string;
@@ -264,7 +265,7 @@ export interface AdminNotification {
 export interface AdminDeviceToken {
   id: string;
   admin_email: string;
-  fcm_token: string;
+  fcm_token?: string;
   device_name?: string;
   platform: 'android' | 'ios' | 'web';
   is_active: boolean;

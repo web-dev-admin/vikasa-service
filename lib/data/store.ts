@@ -44,7 +44,6 @@ class VikasaDataStore {
   private contactAttempts: WorkerContactAttempt[] = [];
   private auditLogs: AuditLog[] = [];
   private notifications: AdminNotification[] = [];
-  private deviceTokens: AdminDeviceToken[] = [];
   private customServices: ServiceItem[] = [];
   private customCategories: ServiceCategory[] = [];
   private deletedRequestIds = new Set<string>();
@@ -173,9 +172,6 @@ class VikasaDataStore {
         const savedNotifs = localStorage.getItem('vikasa_notifications');
         if (savedNotifs) this.notifications = JSON.parse(savedNotifs);
 
-        const savedTokens = localStorage.getItem('vikasa_device_tokens');
-        if (savedTokens) this.deviceTokens = JSON.parse(savedTokens);
-
         const savedServices = localStorage.getItem('vikasa_custom_services');
         if (savedServices) {
           try {
@@ -214,7 +210,6 @@ class VikasaDataStore {
         localStorage.setItem('vikasa_attempts', JSON.stringify(this.contactAttempts));
         localStorage.setItem('vikasa_logs', JSON.stringify(this.auditLogs));
         localStorage.setItem('vikasa_notifications', JSON.stringify(this.notifications));
-        localStorage.setItem('vikasa_device_tokens', JSON.stringify(this.deviceTokens));
         localStorage.setItem('vikasa_custom_services', JSON.stringify(this.customServices));
         localStorage.setItem('vikasa_custom_categories', JSON.stringify(this.customCategories));
         localStorage.setItem('vikasa_deleted_request_ids', JSON.stringify(Array.from(this.deletedRequestIds)));
@@ -427,6 +422,7 @@ class VikasaDataStore {
 
     if (existing) {
       existing.full_name = data.full_name || existing.full_name;
+      existing.phone = cleanPhone || existing.phone;
       if (data.whatsapp) existing.whatsapp = data.whatsapp;
       if (data.district) existing.district = data.district;
       if (data.address) existing.address = data.address;
@@ -440,8 +436,8 @@ class VikasaDataStore {
     const newCustomer: Customer = {
       id: cleanPhone ? `cust-${cleanPhone}` : `cust-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       full_name: data.full_name.trim(),
-      phone: data.phone.trim(),
-      whatsapp: data.whatsapp?.trim() || data.phone.trim(),
+      phone: cleanPhone || data.phone.trim(),
+      whatsapp: data.whatsapp ? (data.whatsapp.replace(/\D/g, '').slice(-10) || data.whatsapp.trim()) : (cleanPhone || data.phone.trim()),
       district: data.district || 'Erode',
       address: data.address || '',
       latitude: data.latitude || ERODE_CENTER.lat,
@@ -675,6 +671,7 @@ class VikasaDataStore {
       status: req.status,
       preferred_date: req.preferred_date,
       preferred_time_slot: req.preferred_time_slot,
+      district: req.district || 'Erode',
       general_area: req.formatted_address ? req.formatted_address.split(',')[0]?.trim() : (req.district || 'Erode'),
       created_at: req.created_at,
       assigned_worker_first_name: req.assigned_worker_name ? req.assigned_worker_name.split(' ')[0] : undefined,
@@ -709,7 +706,8 @@ class VikasaDataStore {
       id: `req-${nextNumber}`,
       request_number: nextNumber,
       customer_id: permanentCustomer.id,
-      customer_whatsapp: data.customer_whatsapp || data.customer_phone,
+      customer_phone: permanentCustomer.phone,
+      customer_whatsapp: permanentCustomer.whatsapp || permanentCustomer.phone,
       district: data.district || 'Erode',
       tracking_token: trackingToken,
       status: data.status || 'NEW',
@@ -1194,49 +1192,22 @@ class VikasaDataStore {
     return false;
   }
 
-  // --- FCM Device Tokens (Android PWA Push) ---
+  // --- FCM Device Tokens (Deprecated & Removed) ---
   getDeviceTokens(): AdminDeviceToken[] {
-    this.init();
-    return [...this.deviceTokens];
+    return [];
   }
 
   registerDeviceToken(tokenData: Omit<AdminDeviceToken, 'id' | 'created_at' | 'updated_at'>): AdminDeviceToken {
-    this.init();
-    const now = new Date().toISOString();
-    const existingIndex = this.deviceTokens.findIndex((t) => t.fcm_token === tokenData.fcm_token);
-
-    if (existingIndex >= 0) {
-      const updated: AdminDeviceToken = {
-        ...this.deviceTokens[existingIndex],
-        ...tokenData,
-        is_active: true,
-        updated_at: now,
-      };
-      this.deviceTokens[existingIndex] = updated;
-      this.persist();
-      return updated;
-    }
-
-    const created: AdminDeviceToken = {
-      id: `tok-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    return {
+      id: `tok-deprecated`,
       ...tokenData,
-      created_at: now,
-      updated_at: now,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
-    this.deviceTokens.push(created);
-    this.persist();
-    return created;
   }
 
-  removeDeviceToken(fcmToken: string): boolean {
-    this.init();
-    const prevLen = this.deviceTokens.length;
-    this.deviceTokens = this.deviceTokens.filter((t) => t.fcm_token !== fcmToken);
-    if (this.deviceTokens.length !== prevLen) {
-      this.persist();
-      return true;
-    }
-    return false;
+  removeDeviceToken(_fcmToken: string): boolean {
+    return true;
   }
 
   resetDemoData() {

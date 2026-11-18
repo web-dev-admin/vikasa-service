@@ -6,6 +6,7 @@ import { Worker, WorkerStatus, ServiceItem } from '@/types';
 import { INITIAL_CATEGORIES } from '@/lib/taxonomy/catalog';
 import { TAMIL_NADU_DISTRICTS } from '@/lib/constants';
 import { sanitizeIndianMobile10, getTelUrl, getWhatsAppUrl } from '@/lib/utils/phone';
+import { useSmartPolling } from '@/lib/hooks/useSmartPolling';
 import {
   Users,
   Search,
@@ -113,20 +114,18 @@ export default function AdminWorkersPage() {
       });
   }, []);
 
+  // Smart visibility-aware polling (30s interval, instant sync on focus, zero compute in background)
+  useSmartPolling(refreshWorkers, { intervalMs: 30000 });
+
   useEffect(() => {
-    refreshWorkers();
-    const interval = setInterval(refreshWorkers, 8000);
     const handleServicesUpdate = () => {
       setAvailableServices(dataStore.getAllServices());
     };
     window.addEventListener('vikasa_services_updated', handleServicesUpdate);
-    window.addEventListener('vikasa_data_updated', handleServicesUpdate);
     return () => {
-      clearInterval(interval);
       window.removeEventListener('vikasa_services_updated', handleServicesUpdate);
-      window.removeEventListener('vikasa_data_updated', handleServicesUpdate);
     };
-  }, [refreshWorkers]);
+  }, []);
 
   const handleAddClick = () => {
     setFormData({

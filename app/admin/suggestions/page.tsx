@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { dataStore } from '@/lib/data/store';
 import { ServiceRequest, Worker, ServiceCategory } from '@/types';
+import { useSmartPolling } from '@/lib/hooks/useSmartPolling';
 import {
   Sparkles,
   Search,
@@ -166,16 +167,14 @@ export default function AdminSuggestionsPage() {
       .catch(() => {});
   }, [deletedCustomerSuggestionIds, deletedTechSuggestionIds]);
 
+  // Smart visibility-aware polling (30s interval, instant sync on focus, zero compute in background)
+  useSmartPolling(refreshData, { intervalMs: 30000 });
+
   useEffect(() => {
-    refreshData();
-    const interval = setInterval(refreshData, 6000);
     const handleUpdate = () => refreshData();
-    window.addEventListener('vikasa_data_updated', handleUpdate);
     window.addEventListener('vikasa_services_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
     return () => {
-      clearInterval(interval);
-      window.removeEventListener('vikasa_data_updated', handleUpdate);
       window.removeEventListener('vikasa_services_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };

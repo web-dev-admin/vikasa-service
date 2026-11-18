@@ -12,6 +12,7 @@ import {
 } from '@/types';
 import { matchWorkers } from '@/lib/matching/algorithm';
 import DispatchMap from '@/components/maps/DispatchMap';
+import { useSmartPolling } from '@/lib/hooks/useSmartPolling';
 import {
   Search,
   PhoneCall,
@@ -124,16 +125,14 @@ export default function OperationsPage() {
       });
   }, []);
 
+  // Smart visibility-aware polling (30s interval, instant sync on focus, zero compute in background)
+  useSmartPolling(refreshData, { intervalMs: 30000 });
+
   useEffect(() => {
-    refreshData();
-    const interval = setInterval(refreshData, 4000);
-    const handleUpdate = () => refreshData();
-    window.addEventListener('vikasa_data_updated', handleUpdate);
-    window.addEventListener('storage', handleUpdate);
+    const handleStorage = () => refreshData();
+    window.addEventListener('storage', handleStorage);
     return () => {
-      clearInterval(interval);
-      window.removeEventListener('vikasa_data_updated', handleUpdate);
-      window.removeEventListener('storage', handleUpdate);
+      window.removeEventListener('storage', handleStorage);
     };
   }, [refreshData]);
 

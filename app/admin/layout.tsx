@@ -33,6 +33,7 @@ import NotificationCenter from '@/components/admin/NotificationCenter';
 import PWAInstallButton from '@/components/pwa/PWAInstallButton';
 import HeavyAlarmBanner from '@/components/admin/HeavyAlarmBanner';
 import { audioAlert } from '@/lib/utils/audioAlert';
+import { useSmartPolling } from '@/lib/hooks/useSmartPolling';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -152,17 +153,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, []);
 
+  // Smart visibility-aware polling (30s foreground interval, 0 background compute)
+  useSmartPolling(refreshStats, {
+    enabled: !isLoginPage && Boolean(isAuthenticated),
+    intervalMs: 30000,
+  });
+
   useEffect(() => {
     if (!isLoginPage && isAuthenticated) {
-      refreshStats();
-      const interval = setInterval(refreshStats, 4000);
-      const handleUpdate = () => refreshStats();
-      window.addEventListener('vikasa_data_updated', handleUpdate);
-      window.addEventListener('storage', handleUpdate);
+      const handleStorage = () => refreshStats();
+      window.addEventListener('storage', handleStorage);
       return () => {
-        clearInterval(interval);
-        window.removeEventListener('vikasa_data_updated', handleUpdate);
-        window.removeEventListener('storage', handleUpdate);
+        window.removeEventListener('storage', handleStorage);
       };
     }
   }, [isLoginPage, isAuthenticated, refreshStats]);
