@@ -162,48 +162,110 @@ export async function POST(request: NextRequest) {
     // Sync to Supabase if connected
     if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       try {
-        await supabase.from('service_requests').insert([{
+        let customerId = newRequest.customer_id;
+        const cleanPhone = newRequest.customer_phone.replace(/\D/g, '').slice(-10);
+
+        // 1. Ensure customer exists in Supabase first (satisfies foreign key constraint)
+        const { data: existingCust } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('phone', cleanPhone)
+          .maybeSingle();
+
+        if (existingCust?.id) {
+          customerId = existingCust.id;
+        } else {
+          const custId = customerId || `cust-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+          const { data: createdCust, error: cErr } = await supabase
+            .from('customers')
+            .insert([{
+              id: custId,
+              full_name: newRequest.customer_name,
+              phone: cleanPhone,
+              whatsapp: newRequest.customer_whatsapp || cleanPhone,
+              district: newRequest.district || 'Erode',
+              address: newRequest.formatted_address || '',
+              latitude: newRequest.latitude || null,
+              longitude: newRequest.longitude || null,
+            }])
+            .select('id')
+            .maybeSingle();
+
+          if (!cErr && createdCust?.id) {
+            customerId = createdCust.id;
+          } else {
+            customerId = custId;
+          }
+        }
+
+        // 2. Map service_id to valid DB services foreign key
+        const validServiceIds = [
+          'srv-interior',
+          'srv-electrical',
+          'srv-plumbing',
+          'srv-carpentry',
+          'srv-painting',
+          'srv-ac',
+          'srv-cleaning',
+          'srv-other',
+        ];
+        let dbServiceId = 'srv-other';
+        const rawSrv = (newRequest.service_id || '').toLowerCase();
+        const rawName = (newRequest.service_name || '').toLowerCase();
+
+        if (
+          rawSrv.includes('interior') ||
+          rawSrv.includes('kitchen') ||
+          rawSrv.includes('ceiling') ||
+          rawName.includes('interior') ||
+          rawName.includes('kitchen') ||
+          rawName.includes('ceiling')
+        ) {
+          dbServiceId = 'srv-interior';
+        } else if (rawSrv.includes('electric') || rawName.includes('electric') || rawName.includes('wiring')) {
+          dbServiceId = 'srv-electrical';
+        } else if (rawSrv.includes('plumb') || rawName.includes('plumb') || rawName.includes('pipe') || rawName.includes('leak')) {
+          dbServiceId = 'srv-plumbing';
+        } else if (rawSrv.includes('carpent') || rawName.includes('carpent') || rawName.includes('wood')) {
+          dbServiceId = 'srv-carpentry';
+        } else if (rawSrv.includes('paint') || rawName.includes('paint') || rawName.includes('putty')) {
+          dbServiceId = 'srv-painting';
+        } else if (rawSrv.includes('ac') || rawName.includes('ac') || rawName.includes('air conditioner') || rawName.includes('appliance')) {
+          dbServiceId = 'srv-ac';
+        } else if (rawSrv.includes('clean') || rawName.includes('clean') || rawName.includes('pest')) {
+          dbServiceId = 'srv-cleaning';
+        } else if (validServiceIds.includes(rawSrv)) {
+          dbServiceId = rawSrv;
+        }
+
+        // 3. Insert service_requests matching actual DB columns
+        const { error: reqErr } = await supabase.from('service_requests').insert([{
           id: newRequest.id,
           request_number: newRequest.request_number,
-          customer_id: newRequest.customer_id || newRequest.id,
+          tracking_token: newRequest.tracking_token,
+          customer_id: customerId,
           customer_name: newRequest.customer_name,
           customer_phone: newRequest.customer_phone,
-          customer_whatsapp: newRequest.customer_whatsapp,
-          customer_email: newRequest.customer_email,
-          category_id: newRequest.category_id,
-          category_name: newRequest.category_name,
-          service_id: newRequest.service_id,
+          service_id: dbServiceId,
           service_name: newRequest.service_name,
-          description: newRequest.description,
+          category_name: newRequest.category_name || 'Standard Service',
+          description: newRequest.description || '',
+          custom_service_note: newRequest.custom_service_note || null,
           formatted_address: newRequest.formatted_address,
-          district: newRequest.district,
-          latitude: newRequest.latitude,
-          longitude: newRequest.longitude,
-          preferred_date: newRequest.preferred_date,
-          preferred_time_slot: newRequest.preferred_time_slot,
-          status: newRequest.status,
-          customer_confirmed: newRequest.customer_confirmed,
-          tracking_token: newRequest.tracking_token,
-          requester_type: newRequest.requester_type || 'client',
-          custom_service_note: newRequest.custom_service_note,
+          district: newRequest.district || 'Erode',
+          latitude: newRequest.latitude || null,
+          longitude: newRequest.longitude || null,
+          preferred_date: newRequest.preferred_date || new Date().toISOString().split('T')[0],
+          preferred_time_slot: newRequest.preferred_time_slot || 'Today (Within 2 Hours)',
+          status: newRequest.status || 'NEW',
+          customer_confirmed: Boolean(newRequest.customer_confirmed),
           created_at: newRequest.created_at,
           updated_at: newRequest.updated_at,
         }]);
 
-        // Upsert customer profile
-        await supabase.from('customers').upsert([{
-          id: newRequest.id,
-          full_name: newRequest.customer_name,
-          phone: newRequest.customer_phone,
-          whatsapp: newRequest.customer_whatsapp,
-          email: newRequest.customer_email,
-          district: newRequest.district,
-          address: newRequest.formatted_address,
-          latitude: newRequest.latitude,
-          longitude: newRequest.longitude,
-          total_requests: 1,
-          updated_at: new Date().toISOString(),
-        }], { onConflict: 'phone' });
+        if (reqErr) {
+          console.error('[Requests:POST] Supabase insert error:', reqErr.message, reqErr.code);
+        }
       } catch (dbErr) {
         console.warn('Supabase request sync warning:', dbErr);
       }

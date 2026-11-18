@@ -138,35 +138,34 @@ export async function POST(request: NextRequest) {
       has_custom_skill: Boolean(body.has_custom_skill),
     });
 
-    // Sync new worker to Supabase if configured
+    // Sync new worker to Supabase matching actual DB columns
     if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       try {
-        await supabase.from('workers').insert([{
+        const { error: wErr } = await supabase.from('workers').insert([{
           id: technician.id,
           full_name: technician.full_name,
           phone: technician.phone,
-          whatsapp: technician.whatsapp,
-          email: technician.email,
-          avatar_url: technician.avatar_url,
-          experience_years: technician.experience_years,
-          skills: technician.skills,
-          bio: technician.bio,
-          verification_status: technician.verification_status,
-          availability: technician.availability,
-          active_status: technician.active_status,
-          district: technician.district,
-          base_location_name: technician.base_location_name,
-          latitude: technician.latitude,
-          longitude: technician.longitude,
-          service_radius_km: technician.service_radius_km,
-          service_area_names: technician.service_area_names,
-          service_ids: technician.service_ids,
+          whatsapp: technician.whatsapp || technician.phone,
+          district: technician.district || 'Erode',
+          base_location_name: technician.base_location_name || `${technician.district || 'Erode'}, Tamil Nadu`,
+          latitude: technician.latitude || 11.3410,
+          longitude: technician.longitude || 77.7172,
+          service_radius_km: technician.service_radius_km || 20,
+          experience_years: technician.experience_years || 1,
+          skills: technician.skills || [],
+          service_ids: technician.service_ids || [],
+          service_area_names: technician.service_area_names || [technician.district || 'Erode'],
+          availability: technician.availability || 'available',
+          verification_status: technician.verification_status || 'pending_verification',
           application_token: technician.application_token,
-          custom_trade_note: technician.custom_trade_note,
-          has_custom_skill: technician.has_custom_skill,
+          avatar_url: technician.avatar_url || null,
           created_at: technician.created_at,
           updated_at: technician.updated_at,
         }]);
+
+        if (wErr) {
+          console.error('[Technicians:POST] Supabase worker insert error:', wErr.message, wErr.code);
+        }
       } catch (dbErr) {
         console.warn('Supabase worker insert warning:', dbErr);
       }

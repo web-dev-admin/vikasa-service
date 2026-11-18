@@ -210,11 +210,17 @@ export default function AdminRequestsPage() {
               !deletedIdsRef.current.has(r.tracking_token) &&
               !deletedIdsRef.current.has(String(r.request_number))
           );
-          dataStore.setRequests(cleanList);
-          setRequests(cleanList);
+          dataStore.mergeRequests(cleanList);
+          const current = dataStore.getRequests().filter(
+            (r: ServiceRequest) =>
+              !deletedIdsRef.current.has(r.id) &&
+              !deletedIdsRef.current.has(r.tracking_token) &&
+              !deletedIdsRef.current.has(String(r.request_number))
+          );
+          setRequests(current);
           setSelectedRequest((prev) => {
             if (!prev) return null;
-            return cleanList.find((r: ServiceRequest) => r.id === prev.id) || null;
+            return current.find((r: ServiceRequest) => r.id === prev.id) || null;
           });
         }
       })

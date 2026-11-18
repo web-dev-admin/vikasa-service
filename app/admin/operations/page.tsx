@@ -116,10 +116,11 @@ export default function OperationsPage() {
       })
       .then((json) => {
         if (json?.success && Array.isArray(json.data)) {
-          dataStore.setRequests(json.data);
-          setRequests(json.data);
+          dataStore.mergeRequests(json.data);
+          const current = dataStore.getRequests();
+          setRequests(current);
           setSelectedRequestId((prev) => {
-            if (!prev && json.data.length > 0) return json.data[0].id;
+            if (!prev && current.length > 0) return current[0].id;
             return prev;
           });
         }

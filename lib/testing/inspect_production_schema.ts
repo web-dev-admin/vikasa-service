@@ -33,76 +33,71 @@ async function inspectSchema() {
 
   const client = createClient(url, key);
 
-  console.log('=== READ-ONLY SUPABASE SCHEMA & DUPLICATE INSPECTION ===');
+  console.log('=== READ-ONLY SUPABASE SCHEMA & TABLES INSPECTION ===');
   console.log(`Target Endpoint: ${url.replace(/^https?:\/\/([^.]+).*/, '$1')}...`);
 
-  // 1. Inspect notifications table
+  // 1. Inspect service_requests table
   try {
-    const { data, error, count } = await client
-      .from('notifications')
-      .select('id, type, title, message, related_id, is_read, created_at', { count: 'exact' })
-      .limit(10);
+    const { error, count } = await client
+      .from('service_requests')
+      .select('*', { count: 'exact' })
+      .limit(1);
 
     if (error) {
-      console.log(`[notifications] Table error: ${error.message} (code: ${error.code})`);
+      console.log(`[service_requests] Table error: ${error.message} (code: ${error.code})`);
     } else {
-      console.log(`[notifications] Table EXISTS. Total rows: ${count}`);
-      if (data && data.length > 0) {
-        console.log(`[notifications] Columns present: ${Object.keys(data[0]).join(', ')}`);
-        console.log(`[notifications] Sample row 1: id=${data[0].id}, type=${data[0].type}, related_id=${data[0].related_id}, is_read=${data[0].is_read}`);
-      }
+      console.log(`[service_requests] Table EXISTS. Current row count: ${count}`);
     }
   } catch (err: unknown) {
-    console.log(`[notifications] Query exception:`, (err as Error).message);
+    console.log(`[service_requests] Query exception:`, (err as Error).message);
   }
 
-  // 2. Inspect admin_notifications table
+  // 2. Inspect workers table
   try {
-    const { data, error, count } = await client
-      .from('admin_notifications')
-      .select('id, type, title, message, related_id, is_read, created_at', { count: 'exact' })
-      .limit(10);
+    const { error, count } = await client
+      .from('workers')
+      .select('*', { count: 'exact' })
+      .limit(1);
 
     if (error) {
-      console.log(`[admin_notifications] Table error: ${error.message} (code: ${error.code})`);
+      console.log(`[workers] Table error: ${error.message} (code: ${error.code})`);
     } else {
-      console.log(`[admin_notifications] Table EXISTS. Total rows: ${count}`);
-      if (data && data.length > 0) {
-        console.log(`[admin_notifications] Columns present: ${Object.keys(data[0]).join(', ')}`);
-        console.log(`[admin_notifications] Sample row 1: id=${data[0].id}, type=${data[0].type}, related_id=${data[0].related_id}, is_read=${data[0].is_read}`);
-      }
+      console.log(`[workers] Table EXISTS. Current row count: ${count}`);
     }
   } catch (err: unknown) {
-    console.log(`[admin_notifications] Query exception:`, (err as Error).message);
+    console.log(`[workers] Query exception:`, (err as Error).message);
   }
 
-  // 3. Check for duplicates in notifications table
+  // 3. Inspect customers table
+  try {
+    const { error, count } = await client
+      .from('customers')
+      .select('*', { count: 'exact' })
+      .limit(1);
+
+    if (error) {
+      console.log(`[customers] Table error: ${error.message} (code: ${error.code})`);
+    } else {
+      console.log(`[customers] Table EXISTS. Current row count: ${count}`);
+    }
+  } catch (err: unknown) {
+    console.log(`[customers] Query exception:`, (err as Error).message);
+  }
+
+  // 4. Inspect services table
   try {
     const { data, error } = await client
-      .from('notifications')
-      .select('id, type, related_id, created_at')
-      .not('related_id', 'is', null)
-      .limit(200);
+      .from('services')
+      .select('id, name')
+      .limit(20);
 
-    if (!error && Array.isArray(data)) {
-      const groupMap = new Map<string, string[]>();
-      for (const row of data) {
-        if (!row.related_id) continue;
-        const key = `${row.type}::${row.related_id}`;
-        if (!groupMap.has(key)) groupMap.set(key, []);
-        groupMap.get(key)!.push(row.id);
-      }
-      let duplicateGroups = 0;
-      for (const [key, ids] of groupMap.entries()) {
-        if (ids.length > 1) {
-          duplicateGroups++;
-          console.log(`[notifications] DUPLICATE DETECTED: key="${key}" has ${ids.length} entries`);
-        }
-      }
-      console.log(`[notifications] Duplicate groups count (in sample of ${data.length}): ${duplicateGroups}`);
+    if (error) {
+      console.log(`[services] Table error: ${error.message} (code: ${error.code})`);
+    } else {
+      console.log(`[services] Table EXISTS. Available service IDs: ${data?.map((s) => s.id).join(', ')}`);
     }
   } catch (err: unknown) {
-    console.log(`[notifications] Duplicate check exception:`, (err as Error).message);
+    console.log(`[services] Query exception:`, (err as Error).message);
   }
 }
 

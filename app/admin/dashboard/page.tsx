@@ -97,11 +97,12 @@ export default function AdminDashboardPage() {
       })
       .then((json) => {
         if (json?.success && Array.isArray(json.data)) {
-          dataStore.setRequests(json.data);
-          setRequests(json.data);
+          dataStore.mergeRequests(json.data);
+          const current = dataStore.getRequests();
+          setRequests(current);
           setSelectedRequest((prev) => {
             if (!prev) return null;
-            return json.data.find((r: ServiceRequest) => r.id === prev.id) || null;
+            return current.find((r: ServiceRequest) => r.id === prev.id) || null;
           });
         }
       })
