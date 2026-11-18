@@ -1142,6 +1142,41 @@ class VikasaDataStore {
     );
   }
 
+  mergeNotifications(incoming: AdminNotification[]): AdminNotification[] {
+    this.init();
+    const existingMap = new Map<string, AdminNotification>();
+    for (const n of this.notifications) {
+      if (n && n.id) {
+        existingMap.set(n.id, n);
+      }
+    }
+    for (const inc of incoming) {
+      if (!inc || !inc.id) continue;
+      const existing = existingMap.get(inc.id);
+      if (existing) {
+        existing.is_read = inc.is_read ?? existing.is_read;
+        existing.title = inc.title || existing.title;
+        existing.message = inc.message || existing.message;
+      } else {
+        existingMap.set(inc.id, {
+          id: inc.id,
+          type: inc.type,
+          title: inc.title,
+          message: inc.message,
+          related_id: inc.related_id,
+          related_type: inc.related_type,
+          is_read: Boolean(inc.is_read),
+          created_at: inc.created_at || new Date().toISOString(),
+        });
+      }
+    }
+    this.notifications = Array.from(existingMap.values())
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 100);
+    this.persist();
+    return this.notifications;
+  }
+
   addNotification(notif: Omit<AdminNotification, 'id' | 'created_at' | 'is_read'>): AdminNotification {
     this.init();
     const newNotif: AdminNotification = {

@@ -4,6 +4,7 @@ interface SmartPollingOptions {
   intervalMs?: number;
   enabled?: boolean;
   refreshOnFocus?: boolean;
+  throttleMs?: number;
 }
 
 /**
@@ -13,7 +14,9 @@ interface SmartPollingOptions {
  * 1. ZERO background polling when browser tab/window is hidden or minimized.
  * 2. Instant re-fetch the exact millisecond the administrator switches back to the tab.
  * 3. Default active interval of 30s (prevents 4-second hammering while keeping live data fresh).
- * 4. Listens to window 'focus' and 'vikasa_data_updated' custom events for instant sync.
+ * 4. Throttle guard (default 2000ms) to strictly prevent duplicate bursts when both
+ *    'visibilitychange' and 'focus' events fire concurrently upon window focus.
+ * 5. Full timer and event listener cleanup upon component unmount.
  */
 export function useSmartPolling(
   callback: () => Promise<void> | void,
@@ -23,29 +26,39 @@ export function useSmartPolling(
     intervalMs = 30000,
     enabled = true,
     refreshOnFocus = true,
+    throttleMs = 2000,
   } = options;
 
   const savedCallback = useRef(callback);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastExecutedRef = useRef<number>(0);
+  const isMountedRef = useRef<boolean>(true);
 
   // Keep latest callback reference
   useEffect(() => {
     savedCallback.current = callback;
   }, [callback]);
 
-  const executeTick = useCallback(() => {
+  const executeTick = useCallback((force = false) => {
+    if (!isMountedRef.current) return;
     if (typeof document !== 'undefined' && document.hidden) {
       // Tab is in the background: do NOT execute or consume serverless compute
       return;
     }
+    const now = Date.now();
+    // Throttle duplicate calls within throttleMs (e.g. concurrent visibilitychange + focus events)
+    if (!force && now - lastExecutedRef.current < throttleMs) {
+      return;
+    }
+    lastExecutedRef.current = now;
     savedCallback.current();
-  }, []);
+  }, [throttleMs]);
 
   const startTimer = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
-    timerRef.current = setInterval(executeTick, intervalMs);
+    timerRef.current = setInterval(() => executeTick(false), intervalMs);
   }, [executeTick, intervalMs]);
 
   const stopTimer = useCallback(() => {
@@ -56,6 +69,8 @@ export function useSmartPolling(
   }, []);
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     if (!enabled) {
       stopTimer();
       return;
@@ -63,7 +78,7 @@ export function useSmartPolling(
 
     // 1. Initial trigger if document is visible
     if (typeof document !== 'undefined' && !document.hidden) {
-      executeTick();
+      executeTick(false);
       startTimer();
     }
 
@@ -75,7 +90,7 @@ export function useSmartPolling(
       } else {
         // Resumed in foreground — refresh immediately and restart interval
         if (refreshOnFocus) {
-          executeTick();
+          executeTick(false);
         }
         startTimer();
       }
@@ -84,13 +99,13 @@ export function useSmartPolling(
     // 3. Window focus handler
     const handleFocus = () => {
       if (refreshOnFocus && !document.hidden) {
-        executeTick();
+        executeTick(false);
       }
     };
 
     // 4. Data mutation listener (triggered after any local POST/PATCH/DELETE)
     const handleDataUpdated = () => {
-      executeTick();
+      executeTick(true);
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -98,6 +113,7 @@ export function useSmartPolling(
     window.addEventListener('vikasa_data_updated', handleDataUpdated);
 
     return () => {
+      isMountedRef.current = false;
       stopTimer();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
@@ -106,6 +122,6 @@ export function useSmartPolling(
   }, [enabled, intervalMs, refreshOnFocus, executeTick, startTimer, stopTimer]);
 
   return {
-    refreshNow: executeTick,
+    refreshNow: (force = true) => executeTick(force),
   };
 }

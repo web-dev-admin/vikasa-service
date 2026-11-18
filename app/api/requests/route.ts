@@ -58,11 +58,18 @@ export async function GET(request: NextRequest) {
       requests = requests.filter((r) => r.district?.toLowerCase() === district.toLowerCase());
     }
 
-    return NextResponse.json({
-      success: true,
-      count: requests.length,
-      data: requests,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        count: requests.length,
+        data: requests,
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, private',
+        },
+      }
+    );
   } catch (error) {
     return NextResponse.json(
       { success: false, error: 'Failed to fetch requests' },

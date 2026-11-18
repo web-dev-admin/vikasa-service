@@ -88,6 +88,12 @@ async function runTests() {
   const updatedNotif = dataStore.getNotifications().find((n) => n.id === notif.id);
   assert(updatedNotif?.is_read === true, 'Notification marked as read');
 
+  // Notification deduplication via mergeNotifications
+  const countBefore = dataStore.getNotifications().length;
+  dataStore.mergeNotifications([notif, { ...notif, is_read: true }]);
+  const countAfter = dataStore.getNotifications().length;
+  assert(countBefore === countAfter, 'mergeNotifications deduplicates incoming records by ID without buffer bloat');
+
   // 6. In-App Notification Dispatch (Zero-Firebase Verification)
   const testNotif = await dispatchAdminNotification({
     type: 'service_request',

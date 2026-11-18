@@ -47,11 +47,18 @@ export async function GET(request: NextRequest) {
       active_status,
     });
 
-    return NextResponse.json({
-      success: true,
-      count: technicians.length,
-      data: technicians,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        count: technicians.length,
+        data: technicians,
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, private',
+        },
+      }
+    );
   } catch (error) {
     return NextResponse.json(
       { success: false, error: 'Failed to fetch technicians' },

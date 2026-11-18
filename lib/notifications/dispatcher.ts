@@ -34,18 +34,25 @@ export async function dispatchAdminNotification(params: DispatchNotificationPara
   // 2. Persist to Supabase if connected
   if (!isLocalMockMode && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     try {
-      await supabase.from('notifications').insert([
-        {
-          id: notif.id,
-          type,
-          title,
-          message,
-          related_id: relatedId,
-          related_type: relatedType,
-          is_read: false,
-          created_at: notif.created_at,
-        },
-      ]);
+      const payload = {
+        id: notif.id,
+        type,
+        title,
+        message,
+        related_id: relatedId,
+        related_type: relatedType,
+        is_read: false,
+        created_at: notif.created_at,
+      };
+      const { error } = await supabase.from('notifications').insert([payload]);
+      if (error) {
+        // Fallback to admin_notifications if notifications table is not present
+        try {
+          await supabase.from('admin_notifications').insert([payload]);
+        } catch {
+          // ignore
+        }
+      }
     } catch (dbErr) {
       console.warn('Supabase notification record insert warning:', dbErr);
     }

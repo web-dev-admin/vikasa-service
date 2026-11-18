@@ -39,11 +39,18 @@ export async function GET(request: NextRequest) {
     const service = searchParams.get('service') || undefined;
 
     const customers = dataStore.getCustomers({ search, district, service });
-    return NextResponse.json({
-      success: true,
-      count: customers.length,
-      data: customers,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        count: customers.length,
+        data: customers,
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, private',
+        },
+      }
+    );
   } catch (error) {
     return NextResponse.json(
       { success: false, error: 'Failed to fetch customers' },
