@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
+import { CircuitBreaker } from '@/lib/utils/circuitBreaker';
 
 interface SmartPollingOptions {
   intervalMs?: number;
@@ -8,15 +9,19 @@ interface SmartPollingOptions {
 }
 
 /**
- * Smart visibility-aware polling hook to prevent excessive Vercel function invocations.
+ * Smart visibility-aware polling hook with circuit breaker and exponential backoff.
  *
  * Key guarantees:
  * 1. ZERO background polling when browser tab/window is hidden or minimized.
  * 2. Instant re-fetch the exact millisecond the administrator switches back to the tab.
- * 3. Default active interval of 30s (prevents 4-second hammering while keeping live data fresh).
- * 4. Throttle guard (default 2000ms) to strictly prevent duplicate bursts when both
- *    'visibilitychange' and 'focus' events fire concurrently upon window focus.
- * 5. Full timer and event listener cleanup upon component unmount.
+ * 3. Default active interval of 30s.
+ * 4. Circuit Breaker protection: If server returns HTTP 503 (Project Paused), 429, or 401,
+ *    polling is HALTED immediately to prevent runaway CDN request loops.
+ * 5. Network Offline Awareness: Halts all requests when browser is offline (`!navigator.onLine`)
+ *    and resumes automatically when connection returns.
+ * 6. Throttle guard (default 2000ms) to strictly prevent duplicate bursts when both
+ *    'visibilitychange' and 'focus' events fire concurrently.
+ * 7. Full timer and event listener cleanup upon component unmount.
  */
 export function useSmartPolling(
   callback: () => Promise<void> | void,
@@ -39,26 +44,44 @@ export function useSmartPolling(
     savedCallback.current = callback;
   }, [callback]);
 
-  const executeTick = useCallback((force = false) => {
+  const executeTick = useCallback(async (force = false) => {
     if (!isMountedRef.current) return;
+
+    // 1. Check tab visibility (ZERO compute in background)
     if (typeof document !== 'undefined' && document.hidden) {
-      // Tab is in the background: do NOT execute or consume serverless compute
       return;
     }
+
+    // 2. Check network connectivity
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return;
+    }
+
+    // 3. Check Circuit Breaker (halts if 503 paused, 429 rate limited, etc.)
+    if (!force && CircuitBreaker.shouldHalt()) {
+      return;
+    }
+
+    // 4. Throttle duplicate calls within throttleMs
     const now = Date.now();
-    // Throttle duplicate calls within throttleMs (e.g. concurrent visibilitychange + focus events)
     if (!force && now - lastExecutedRef.current < throttleMs) {
       return;
     }
     lastExecutedRef.current = now;
-    savedCallback.current();
+
+    try {
+      await savedCallback.current();
+    } catch (err) {
+      CircuitBreaker.reportError(err);
+    }
   }, [throttleMs]);
 
   const startTimer = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
-    timerRef.current = setInterval(() => executeTick(false), intervalMs);
+    const currentInterval = CircuitBreaker.getBackoffInterval(intervalMs);
+    timerRef.current = setInterval(() => executeTick(false), currentInterval);
   }, [executeTick, intervalMs]);
 
   const stopTimer = useCallback(() => {
@@ -76,8 +99,8 @@ export function useSmartPolling(
       return;
     }
 
-    // 1. Initial trigger if document is visible
-    if (typeof document !== 'undefined' && !document.hidden) {
+    // 1. Initial trigger if document is visible and circuit is healthy
+    if (typeof document !== 'undefined' && !document.hidden && !CircuitBreaker.shouldHalt()) {
       executeTick(false);
       startTimer();
     }
@@ -85,11 +108,9 @@ export function useSmartPolling(
     // 2. Tab visibility change handler
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        // Paused in background — save compute
         stopTimer();
       } else {
-        // Resumed in foreground — refresh immediately and restart interval
-        if (refreshOnFocus) {
+        if (refreshOnFocus && !CircuitBreaker.shouldHalt()) {
           executeTick(false);
         }
         startTimer();
@@ -98,30 +119,56 @@ export function useSmartPolling(
 
     // 3. Window focus handler
     const handleFocus = () => {
-      if (refreshOnFocus && !document.hidden) {
+      if (refreshOnFocus && !document.hidden && !CircuitBreaker.shouldHalt()) {
         executeTick(false);
       }
     };
 
-    // 4. Data mutation listener (triggered after any local POST/PATCH/DELETE)
+    // 4. Network online / offline recovery handlers
+    const handleOnline = () => {
+      executeTick(true);
+      startTimer();
+    };
+
+    const handleOffline = () => {
+      stopTimer();
+    };
+
+    // 5. Data mutation listener (triggered after any local POST/PATCH/DELETE)
     const handleDataUpdated = () => {
       executeTick(true);
     };
 
+    // 6. Circuit breaker resume listener
+    const handleResumePolling = () => {
+      CircuitBreaker.resume();
+      executeTick(true);
+      startTimer();
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
     window.addEventListener('vikasa_data_updated', handleDataUpdated);
+    window.addEventListener('vikasa_resume_polling', handleResumePolling);
 
     return () => {
       isMountedRef.current = false;
       stopTimer();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
       window.removeEventListener('vikasa_data_updated', handleDataUpdated);
+      window.removeEventListener('vikasa_resume_polling', handleResumePolling);
     };
   }, [enabled, intervalMs, refreshOnFocus, executeTick, startTimer, stopTimer]);
 
   return {
-    refreshNow: (force = true) => executeTick(force),
+    refreshNow: (force = true) => {
+      CircuitBreaker.resume();
+      return executeTick(force);
+    },
   };
 }

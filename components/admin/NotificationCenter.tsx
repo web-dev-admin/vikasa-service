@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { audioAlert } from '@/lib/utils/audioAlert';
 import { useSmartPolling } from '@/lib/hooks/useSmartPolling';
+import { CircuitBreaker } from '@/lib/utils/circuitBreaker';
 
 export default function NotificationCenter({ adminEmail: _adminEmail }: { adminEmail: string }) {
   const router = useRouter();
@@ -38,6 +39,7 @@ export default function NotificationCenter({ adminEmail: _adminEmail }: { adminE
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
+      CircuitBreaker.reportStatus(res.status);
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -80,8 +82,8 @@ export default function NotificationCenter({ adminEmail: _adminEmail }: { adminE
           setUnreadCount(json.unreadCount ?? incoming.filter((n) => !n.is_read).length);
         }
       }
-    } catch {
-      // ignore
+    } catch (err) {
+      CircuitBreaker.reportError(err);
     }
   }, []);
 

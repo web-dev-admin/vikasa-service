@@ -233,7 +233,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
             </button>
 
-            <Link href="/admin/dashboard" className="flex items-center gap-2.5 group">
+            <Link href="/admin/dashboard" prefetch={false} className="flex items-center gap-2.5 group">
               <div className="w-8 h-8 rounded-xl overflow-hidden shadow-md ring-1 ring-emerald-500/30 group-hover:scale-105 transition-transform shrink-0">
                 <Image
                   src="/logo/vikasa_interior_logo.png"
@@ -278,6 +278,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
             <Link
               href="/admin/guide"
+              prefetch={false}
               className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-950/70 text-emerald-300 border border-emerald-700/50 text-[11px] font-medium hover:bg-emerald-900/80 transition-colors"
               title="Admin User Guide"
             >
@@ -324,6 +325,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   <Link
                     key={item.href}
                     href={item.href}
+                    prefetch={false}
                     className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
                       isActive
                         ? 'bg-emerald-600 text-white shadow-md font-bold'
@@ -349,6 +351,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className="flex items-center gap-3 text-xs text-slate-400 py-2">
               <Link
                 href="/admin/operations"
+                prefetch={false}
                 className="text-[11px] text-slate-400 hover:text-emerald-400 transition-colors flex items-center gap-1"
                 title="Advanced Geo Dispatch Radar"
               >
@@ -393,6 +396,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     <Link
                       key={item.href}
                       href={item.href}
+                      prefetch={false}
                       className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                         isActive
                           ? 'bg-emerald-600 text-white font-bold shadow-xs'
@@ -416,6 +420,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <div className="pt-2 border-t border-slate-800">
                 <Link
                   href="/admin/operations"
+                  prefetch={false}
                   className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-slate-800"
                 >
                   <Radio className="w-4 h-4 text-emerald-500" />
@@ -459,6 +464,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl text-[10px] font-semibold transition-all relative ${
                   isActive
                     ? 'text-emerald-700 font-bold bg-emerald-50'
@@ -479,6 +485,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {/* 5th tab: Guide */}
           <Link
             href="/admin/guide"
+            prefetch={false}
             className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl text-[10px] font-semibold transition-all ${
               pathname === '/admin/guide'
                 ? 'text-emerald-700 font-bold bg-emerald-50'

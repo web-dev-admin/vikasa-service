@@ -13,6 +13,7 @@ import {
 import { matchWorkers } from '@/lib/matching/algorithm';
 import DispatchMap from '@/components/maps/DispatchMap';
 import { useSmartPolling } from '@/lib/hooks/useSmartPolling';
+import { CircuitBreaker } from '@/lib/utils/circuitBreaker';
 import {
   Search,
   PhoneCall,
@@ -109,7 +110,10 @@ export default function OperationsPage() {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     })
-      .then((res) => (res.ok ? res.json() : null))
+      .then((res) => {
+        CircuitBreaker.reportStatus(res.status);
+        return res.ok ? res.json() : null;
+      })
       .then((json) => {
         if (json?.success && Array.isArray(json.data)) {
           dataStore.setRequests(json.data);
@@ -120,8 +124,8 @@ export default function OperationsPage() {
           });
         }
       })
-      .catch(() => {
-        // Fallback gracefully
+      .catch((err) => {
+        CircuitBreaker.reportError(err);
       });
   }, []);
 

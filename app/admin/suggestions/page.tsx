@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { dataStore } from '@/lib/data/store';
 import { ServiceRequest, Worker, ServiceCategory } from '@/types';
 import { useSmartPolling } from '@/lib/hooks/useSmartPolling';
+import { CircuitBreaker } from '@/lib/utils/circuitBreaker';
 import {
   Sparkles,
   Search,
@@ -125,9 +126,18 @@ export default function AdminSuggestionsPage() {
     };
 
     Promise.all([
-      fetch('/api/requests', { headers, credentials: 'include' }).then((r) => (r.ok ? r.json() : null)),
-      fetch('/api/technicians', { headers, credentials: 'include' }).then((r) => (r.ok ? r.json() : null)),
-      fetch('/api/categories', { credentials: 'include' }).then((r) => (r.ok ? r.json() : null)),
+      fetch('/api/requests', { headers, credentials: 'include' }).then((r) => {
+        CircuitBreaker.reportStatus(r.status);
+        return r.ok ? r.json() : null;
+      }),
+      fetch('/api/technicians', { headers, credentials: 'include' }).then((r) => {
+        CircuitBreaker.reportStatus(r.status);
+        return r.ok ? r.json() : null;
+      }),
+      fetch('/api/categories', { credentials: 'include' }).then((r) => {
+        CircuitBreaker.reportStatus(r.status);
+        return r.ok ? r.json() : null;
+      }),
     ])
       .then(([reqRes, techRes, catRes]) => {
         if (reqRes?.success && Array.isArray(reqRes.data)) {
@@ -164,7 +174,9 @@ export default function AdminSuggestionsPage() {
           setCategories(catRes.data);
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        CircuitBreaker.reportError(err);
+      });
   }, [deletedCustomerSuggestionIds, deletedTechSuggestionIds]);
 
   // Smart visibility-aware polling (30s interval, instant sync on focus, zero compute in background)

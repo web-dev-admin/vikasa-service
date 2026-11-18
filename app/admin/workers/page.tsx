@@ -7,6 +7,7 @@ import { INITIAL_CATEGORIES } from '@/lib/taxonomy/catalog';
 import { TAMIL_NADU_DISTRICTS } from '@/lib/constants';
 import { sanitizeIndianMobile10, getTelUrl, getWhatsAppUrl } from '@/lib/utils/phone';
 import { useSmartPolling } from '@/lib/hooks/useSmartPolling';
+import { CircuitBreaker } from '@/lib/utils/circuitBreaker';
 import {
   Users,
   Search,
@@ -99,7 +100,10 @@ export default function AdminWorkersPage() {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     })
-      .then((res) => (res.ok ? res.json() : null))
+      .then((res) => {
+        CircuitBreaker.reportStatus(res.status);
+        return res.ok ? res.json() : null;
+      })
       .then((json) => {
         if (json?.success && Array.isArray(json.data)) {
           const cleanWorkers = json.data.filter(
@@ -110,6 +114,7 @@ export default function AdminWorkersPage() {
         }
       })
       .catch((err) => {
+        CircuitBreaker.reportError(err);
         console.warn('Technician list refresh warning:', err);
       });
   }, []);

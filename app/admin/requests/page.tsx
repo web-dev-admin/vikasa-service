@@ -17,6 +17,7 @@ import {
 } from '@/lib/matching/algorithm';
 import { ServiceRequest, Worker, RequestStatus } from '@/types';
 import { useSmartPolling } from '@/lib/hooks/useSmartPolling';
+import { CircuitBreaker } from '@/lib/utils/circuitBreaker';
 import {
   FileText,
   Search,
@@ -197,7 +198,10 @@ export default function AdminRequestsPage() {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     })
-      .then((res) => (res.ok ? res.json() : null))
+      .then((res) => {
+        CircuitBreaker.reportStatus(res.status);
+        return res.ok ? res.json() : null;
+      })
       .then((json) => {
         if (json?.success && Array.isArray(json.data)) {
           const cleanList = json.data.filter(
@@ -214,8 +218,8 @@ export default function AdminRequestsPage() {
           });
         }
       })
-      .catch(() => {
-        // Fallback gracefully
+      .catch((err) => {
+        CircuitBreaker.reportError(err);
       });
 
     fetch('/api/technicians', {
@@ -224,14 +228,19 @@ export default function AdminRequestsPage() {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     })
-      .then((res) => (res.ok ? res.json() : null))
+      .then((res) => {
+        CircuitBreaker.reportStatus(res.status);
+        return res.ok ? res.json() : null;
+      })
       .then((json) => {
         if (json?.success && Array.isArray(json.data)) {
           dataStore.mergeWorkers(json.data);
           setWorkers(dataStore.getWorkers());
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        CircuitBreaker.reportError(err);
+      });
   }, []);
 
   // Smart visibility-aware polling (30s interval, instant sync on focus, zero compute in background)
