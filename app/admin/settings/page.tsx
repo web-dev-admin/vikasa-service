@@ -3,11 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import PWAInstallButton from '@/components/pwa/PWAInstallButton';
-import {
-  isPushNotificationSupported,
-  getNotificationPermissionStatus,
-  enableAdminPushNotifications,
-} from '@/lib/notifications/fcmClient';
 import { audioAlert } from '@/lib/utils/audioAlert';
 import { dataStore } from '@/lib/data/store';
 import { VIKASA_CONFIG } from '@/lib/constants';
@@ -36,10 +31,6 @@ import {
 
 export default function AdminSettingsPage() {
   const [adminEmail, setAdminEmail] = useState('admin@vikasa.com');
-  const [pushStatus, setPushStatus] = useState<string>('default');
-  const [isPushLoading, setIsPushLoading] = useState(false);
-  const [pushFeedback, setPushFeedback] = useState<string | null>(null);
-  const [registeredTokensCount, setRegisteredTokensCount] = useState(0);
 
   // Sound Test Feedback
   const [soundTestSuccess, setSoundTestSuccess] = useState(false);
@@ -73,26 +64,6 @@ export default function AdminSettingsPage() {
       ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}')
       : null;
     if (auth?.email) setAdminEmail(auth.email);
-
-    // Push permission
-    if (isPushNotificationSupported()) {
-      setPushStatus(getNotificationPermissionStatus());
-    } else {
-      setPushStatus('unsupported');
-    }
-
-    // Fetch tokens
-    fetch('/api/admin/device-tokens', {
-      headers: {
-        'x-admin-portal': 'true',
-        ...(auth?.token ? { Authorization: `Bearer ${auth.token}` } : {}),
-      },
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((json) => {
-        if (json?.success) setRegisteredTokensCount(json.count || 0);
-      })
-      .catch(() => {});
 
     const updateCounts = () => {
       setServicesCount(dataStore.getAllServices().length);
@@ -156,27 +127,6 @@ export default function AdminSettingsPage() {
       setServiceFeedback(err instanceof Error ? err.message : 'Error adding category');
     } finally {
       setIsSavingCategory(false);
-    }
-  };
-
-  const handleEnablePush = async () => {
-    setIsPushLoading(true);
-    setPushFeedback(null);
-    try {
-      const res = await enableAdminPushNotifications(adminEmail);
-      if (res.success) {
-        setPushStatus('granted');
-        setPushFeedback('Android Push Notifications active! Sound chime and vibration enabled.');
-        setRegisteredTokensCount((c) => c + 1);
-        audioAlert.triggerFullAlert();
-      } else {
-        setPushStatus(res.status);
-        setPushFeedback(res.error || 'Failed to enable push notifications.');
-      }
-    } catch {
-      setPushFeedback('Error requesting notification permission.');
-    } finally {
-      setIsPushLoading(false);
     }
   };
 
@@ -290,7 +240,7 @@ export default function AdminSettingsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* 1. Web Push Notifications (Sound + Vibration) */}
+        {/* 1. In-App Audio Alerts & 10-Minute Siren Controls */}
         <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-4 flex flex-col justify-between">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -298,40 +248,28 @@ export default function AdminSettingsPage() {
                 <Bell className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-black text-slate-900">Real-Time Push Alerts</h3>
-                <span className="text-[11px] text-slate-500">Urgent Alarm Buzzer &amp; Mobile Vibration</span>
+                <h3 className="text-sm font-black text-slate-900">In-App Audio Alerts &amp; Siren Controls</h3>
+                <span className="text-[11px] text-slate-500">Urgent Chime Buzzer &amp; 10-Minute Client Siren</span>
               </div>
             </div>
 
             <p className="text-xs text-slate-600 leading-relaxed">
-              Receive an immediate electronic alarm buzzer and tactile haptic vibration on your phone and browser whenever a new booking arrives or a technician registers.
+              Vikasa uses high-priority in-browser audio synthesis and vibration. When a new customer booking arrives, a loud continuous heavy siren sounds for up to 10 minutes until acknowledged by an admin.
             </p>
 
             <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-slate-600 font-medium">Browser Permission:</span>
-                <span
-                  className={`font-mono font-bold px-2 py-0.5 rounded-md text-[11px] ${
-                    pushStatus === 'granted'
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : pushStatus === 'denied'
-                      ? 'bg-rose-100 text-rose-800'
-                      : 'bg-amber-100 text-amber-800'
-                  }`}
-                >
-                  {pushStatus.toUpperCase()}
+                <span className="text-slate-600 font-medium">Alert Engine:</span>
+                <span className="font-mono font-bold px-2 py-0.5 rounded-md text-[11px] bg-emerald-100 text-emerald-800">
+                  IN-APP AUDIO + HAPTIC
                 </span>
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-slate-600 font-medium">Registered Admin Devices:</span>
-                <span className="font-mono font-bold text-slate-900">{registeredTokensCount}</span>
+                <span className="text-slate-600 font-medium">Customer Lead Siren:</span>
+                <span className="font-mono font-bold text-rose-700">10-Minute Continuous Alarm</span>
               </div>
             </div>
-
-            {pushFeedback && (
-              <p className="text-[11px] font-bold text-emerald-700">{pushFeedback}</p>
-            )}
 
             {soundTestSuccess && (
               <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-800 flex items-center gap-1.5 animate-in fade-in">
@@ -379,28 +317,6 @@ export default function AdminSettingsPage() {
                 <span>Silence / Acknowledge</span>
               </button>
             </div>
-
-            <button
-              onClick={handleEnablePush}
-              disabled={isPushLoading || pushStatus === 'granted'}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 min-h-[38px] ${
-                pushStatus === 'granted'
-                  ? 'bg-emerald-100 text-emerald-800 cursor-default'
-                  : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs active:scale-95'
-              }`}
-            >
-              {pushStatus === 'granted' ? (
-                <>
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Push Active</span>
-                </>
-              ) : (
-                <>
-                  <Volume2 className="w-3.5 h-3.5" />
-                  <span>{isPushLoading ? 'Connecting...' : 'Enable Push Alerts'}</span>
-                </>
-              )}
-            </button>
           </div>
         </div>
 

@@ -33,15 +33,23 @@ export async function GET(
       status: publicStatus.status,
       preferred_date: publicStatus.preferred_date,
       preferred_time_slot: publicStatus.preferred_time_slot,
+      district: publicStatus.district || 'Erode',
       general_area: publicStatus.general_area,
       created_at: publicStatus.created_at,
       assigned_worker_first_name: publicStatus.assigned_worker_first_name,
     };
 
-    return NextResponse.json({
-      success: true,
-      data: safeProjection,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data: safeProjection,
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, private',
+        },
+      }
+    );
   } catch (error) {
     return NextResponse.json(
       { success: false, error: 'Failed to retrieve tracking status' },

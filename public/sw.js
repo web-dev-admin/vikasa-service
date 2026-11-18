@@ -1,9 +1,9 @@
 // =========================================================================
-// VIKASA SERVICES & INTERIORS — SERVICE WORKER
-// PWA OFFLINE CACHING & WEB PUSH NOTIFICATION HANDLER
+// VIKASA SERVICES & INTERIORS — SERVICE WORKER (v4)
+// PWA OFFLINE CACHING & OPTIMIZED CDN ASSET DELIVERY
 // =========================================================================
 
-const CACHE_NAME = 'vikasa-cache-v3';
+const CACHE_NAME = 'vikasa-cache-v4';
 const STATIC_ASSETS = [
   '/',
   '/offline',
@@ -25,7 +25,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// 2. ACTIVATE
+// 2. ACTIVATE (Purge old cache versions)
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -41,12 +41,13 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// 3. FETCH
+// 3. FETCH STRATEGY
 // SECURITY RULE: Never cache sensitive API calls, customer records, or technician credentials.
+// VERCEL USAGE RULE: Do not trigger redundant background fetches for assets already present in cache.
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // A. Skip non-GET requests or unsupported schemes
+  // A. Skip non-GET requests or unsupported schemes (e.g. chrome-extension:)
   if (event.request.method !== 'GET' || !event.request.url.startsWith('http')) {
     return;
   }
@@ -74,10 +75,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // C. Static assets (images, CSS, JS): Stale-While-Revalidate
+  // C. Static assets (images, CSS, JS, fonts): Cache-First to minimize Vercel CDN requests
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      const fetchPromise = fetch(event.request)
+      if (cached) {
+        return cached;
+      }
+      return fetch(event.request)
         .then((networkRes) => {
           if (networkRes && networkRes.status === 200 && event.request.url.startsWith('http')) {
             const resClone = networkRes.clone();
@@ -93,75 +97,6 @@ self.addEventListener('fetch', (event) => {
           }
           return null;
         });
-
-      return cached || fetchPromise;
     })
   );
 });
-
-// 4. WEB PUSH NOTIFICATIONS (FCM & Web Push)
-self.addEventListener('push', (event) => {
-  let data = {
-    title: 'Vikasa Services Update',
-    body: 'You have a new update in Vikasa Admin.',
-    url: '/admin/dashboard',
-  };
-
-  if (event.data) {
-    try {
-      const parsed = event.data.json();
-      data = {
-        title: parsed.title || parsed.notification?.title || data.title,
-        body: parsed.body || parsed.notification?.body || parsed.message || data.body,
-        url: parsed.data?.url || parsed.url || data.url,
-      };
-    } catch {
-      data.body = event.data.text();
-    }
-  }
-
-  const options = {
-    body: data.body,
-    icon: '/icons/icon-192x192.png',
-    badge: '/icons/icon-192x192.png',
-    vibrate: [250, 70, 250, 70, 250, 70, 450],
-    tag: 'vikasa-urgent-alert',
-    renotify: true,
-    silent: false,
-    data: {
-      url: data.url,
-    },
-    actions: [
-      { action: 'open', title: 'Open in Admin' },
-      { action: 'dismiss', title: 'Dismiss' },
-    ],
-  };
-
-  event.waitUntil(self.registration.showNotification(data.title, options));
-});
-
-// 5. NOTIFICATION CLICK
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-
-  if (event.action === 'dismiss') {
-    return;
-  }
-
-  const targetUrl = event.notification.data?.url || '/admin/dashboard';
-
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      for (const client of windowClients) {
-        if (client.url.includes('/admin') && 'focus' in client) {
-          client.navigate(targetUrl);
-          return client.focus();
-        }
-      }
-      if (clients.openWindow) {
-        return clients.openWindow(targetUrl);
-      }
-    })
-  );
-});
-

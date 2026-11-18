@@ -14,22 +14,26 @@ export async function GET(request: NextRequest) {
     // Sync from Supabase if connected
     if (!isLocalMockMode && process.env.NEXT_PUBLIC_SUPABASE_URL) {
       try {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from('notifications')
           .select('*')
           .order('created_at', { ascending: false })
           .limit(50);
 
-        if (!error && Array.isArray(data) && data.length > 0) {
-          for (const item of data) {
-            dataStore.addNotification({
-              type: item.type,
-              title: item.title,
-              message: item.message,
-              related_id: item.related_id,
-              related_type: item.related_type,
-            });
+        if (error || !Array.isArray(data) || data.length === 0) {
+          const fallback = await supabase
+            .from('admin_notifications')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(50);
+          if (!fallback.error && Array.isArray(fallback.data) && fallback.data.length > 0) {
+            data = fallback.data;
+            error = null;
           }
+        }
+
+        if (!error && Array.isArray(data) && data.length > 0) {
+          dataStore.mergeNotifications(data);
         }
       } catch (e) {
         console.warn('Supabase notifications sync warning:', e);
@@ -39,11 +43,18 @@ export async function GET(request: NextRequest) {
     const notifications = dataStore.getNotifications();
     const unreadCount = notifications.filter((n) => !n.is_read).length;
 
-    return NextResponse.json({
-      success: true,
-      data: notifications,
-      unreadCount,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data: notifications,
+        unreadCount,
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, private',
+        },
+      }
+    );
   } catch (error) {
     return NextResponse.json(
       { success: false, error: 'Failed to fetch notifications' },
@@ -72,7 +83,10 @@ export async function POST(request: NextRequest) {
 
       if (!isLocalMockMode && process.env.NEXT_PUBLIC_SUPABASE_URL) {
         try {
-          await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+          const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+          if (error) {
+            try { await supabase.from('admin_notifications').update({ is_read: true }).eq('id', id); } catch {}
+          }
         } catch {
           // ignore
         }
@@ -86,7 +100,10 @@ export async function POST(request: NextRequest) {
 
       if (!isLocalMockMode && process.env.NEXT_PUBLIC_SUPABASE_URL) {
         try {
-          await supabase.from('notifications').update({ is_read: true }).eq('is_read', false);
+          const { error } = await supabase.from('notifications').update({ is_read: true }).eq('is_read', false);
+          if (error) {
+            try { await supabase.from('admin_notifications').update({ is_read: true }).eq('is_read', false); } catch {}
+          }
         } catch {
           // ignore
         }
@@ -104,7 +121,10 @@ export async function POST(request: NextRequest) {
 
       if (!isLocalMockMode && process.env.NEXT_PUBLIC_SUPABASE_URL) {
         try {
-          await supabase.from('notifications').delete().eq('id', id);
+          const { error } = await supabase.from('notifications').delete().eq('id', id);
+          if (error) {
+            try { await supabase.from('admin_notifications').delete().eq('id', id); } catch {}
+          }
         } catch {
           // ignore
         }

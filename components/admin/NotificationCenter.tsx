@@ -1,44 +1,33 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AdminNotification } from '@/types';
 import {
   Bell,
-  Check,
   CheckCheck,
   Trash2,
   ExternalLink,
   Wrench,
   UserCheck,
   PhoneCall,
-  Clock,
-  Radio,
-  AlertCircle,
   X,
-  Volume2,
 } from 'lucide-react';
-import {
-  isPushNotificationSupported,
-  getNotificationPermissionStatus,
-  enableAdminPushNotifications,
-} from '@/lib/notifications/fcmClient';
 import { audioAlert } from '@/lib/utils/audioAlert';
+import { useSmartPolling } from '@/lib/hooks/useSmartPolling';
+import { CircuitBreaker } from '@/lib/utils/circuitBreaker';
 
-export default function NotificationCenter({ adminEmail }: { adminEmail: string }) {
+export default function NotificationCenter({ adminEmail: _adminEmail }: { adminEmail: string }) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [pushStatus, setPushStatus] = useState<string>('default');
-  const [isPushLoading, setIsPushLoading] = useState(false);
-  const [pushMessage, setPushMessage] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const initialLoadDoneRef = useRef(false);
   const knownNotifIdsRef = useRef<Set<string>>(new Set());
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
       const token = typeof window !== 'undefined'
         ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
@@ -50,6 +39,7 @@ export default function NotificationCenter({ adminEmail }: { adminEmail: string 
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
+      CircuitBreaker.reportStatus(res.status, 'notifications');
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -92,22 +82,15 @@ export default function NotificationCenter({ adminEmail }: { adminEmail: string 
           setUnreadCount(json.unreadCount ?? incoming.filter((n) => !n.is_read).length);
         }
       }
-    } catch {
-      // ignore
+    } catch (err) {
+      CircuitBreaker.reportError(err, 'notifications');
     }
-  };
+  }, []);
+
+  // Smart polling: pauses completely in background tab, auto-syncs on return, 25s interval
+  useSmartPolling(fetchNotifications, { intervalMs: 25000, endpoint: 'notifications' });
 
   useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 6000);
-
-    // Push permission check
-    if (isPushNotificationSupported()) {
-      setPushStatus(getNotificationPermissionStatus());
-    } else {
-      setPushStatus('unsupported');
-    }
-
     // Listen for live client-side broadcast
     const handleLiveNotification = (e: Event) => {
       const customEvent = e as CustomEvent<AdminNotification>;
@@ -115,7 +98,7 @@ export default function NotificationCenter({ adminEmail }: { adminEmail: string 
         setNotifications((prev) => [customEvent.detail, ...prev]);
         setUnreadCount((c) => c + 1);
 
-        // If client lead, trigger the 10-minute looping heavy alarm!
+        // If client lead, trigger the 10-minute looping heavy alarm
         if (customEvent.detail.type === 'service_request') {
           audioAlert.startHeavyAlarm({
             requestId: customEvent.detail.related_id || customEvent.detail.id,
@@ -131,9 +114,8 @@ export default function NotificationCenter({ adminEmail }: { adminEmail: string 
     };
 
     window.addEventListener('vikasa_notification_received', handleLiveNotification);
-    window.addEventListener('vikasa_data_updated', fetchNotifications);
 
-    // Close on outside click
+    // Close dropdown on outside click
     const handleOutsideClick = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setIsOpen(false);
@@ -142,9 +124,7 @@ export default function NotificationCenter({ adminEmail }: { adminEmail: string 
     document.addEventListener('mousedown', handleOutsideClick);
 
     return () => {
-      clearInterval(interval);
       window.removeEventListener('vikasa_notification_received', handleLiveNotification);
-      window.removeEventListener('vikasa_data_updated', fetchNotifications);
       document.removeEventListener('mousedown', handleOutsideClick);
     };
   }, []);
@@ -230,25 +210,6 @@ export default function NotificationCenter({ adminEmail }: { adminEmail: string 
     }
   };
 
-  const handleEnablePush = async () => {
-    setIsPushLoading(true);
-    setPushMessage(null);
-    try {
-      const res = await enableAdminPushNotifications(adminEmail);
-      if (res.success) {
-        setPushStatus('granted');
-        setPushMessage('Android Push Notifications enabled successfully!');
-      } else {
-        setPushStatus(res.status);
-        setPushMessage(res.error || 'Could not enable notifications.');
-      }
-    } catch {
-      setPushMessage('Error requesting permission.');
-    } finally {
-      setIsPushLoading(false);
-    }
-  };
-
   const getItemTargetUrl = (notif: AdminNotification) => {
     if (notif.type === 'service_request') {
       return notif.related_id ? `/admin/requests?id=${notif.related_id}` : '/admin/requests';
@@ -278,7 +239,7 @@ export default function NotificationCenter({ adminEmail }: { adminEmail: string 
       {/* Bell Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors border border-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 min-h-[38px] min-w-[38px] flex items-center justify-center"
+        className="relative p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors border border-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 min-h-[38px] min-w-[38px] flex items-center justify-center cursor-pointer"
         aria-label={`Notifications Center (${unreadCount} unread)`}
       >
         <Bell className="w-4 h-4" />
@@ -308,7 +269,7 @@ export default function NotificationCenter({ adminEmail }: { adminEmail: string 
               {unreadCount > 0 && (
                 <button
                   onClick={handleMarkAllRead}
-                  className="text-[11px] text-slate-400 hover:text-emerald-400 flex items-center gap-1 font-semibold transition-colors"
+                  className="text-[11px] text-slate-400 hover:text-emerald-400 flex items-center gap-1 font-semibold transition-colors cursor-pointer"
                   title="Mark all as read"
                 >
                   <CheckCheck className="w-3.5 h-3.5" />
@@ -317,38 +278,13 @@ export default function NotificationCenter({ adminEmail }: { adminEmail: string 
               )}
               <button
                 onClick={() => setIsOpen(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg"
+                className="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer"
                 aria-label="Close notifications"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
           </div>
-
-          {/* Android Web Push Enable Banner */}
-          {pushStatus !== 'granted' && pushStatus !== 'unsupported' && (
-            <div className="p-3 bg-emerald-50 border-b border-emerald-200 flex flex-col gap-1.5">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-900">
-                  <Volume2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                  <span>Receive Android Push Alerts</span>
-                </div>
-                <button
-                  onClick={handleEnablePush}
-                  disabled={isPushLoading}
-                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-xs active:scale-95 disabled:opacity-50 shrink-0 min-h-[30px]"
-                >
-                  {isPushLoading ? 'Enabling...' : 'Enable Push'}
-                </button>
-              </div>
-              <p className="text-[11px] text-emerald-800 leading-tight">
-                Get instant notifications on your phone when new customer requests or technician registrations arrive.
-              </p>
-              {pushMessage && (
-                <span className="text-[10px] text-emerald-700 font-semibold">{pushMessage}</span>
-              )}
-            </div>
-          )}
 
           {/* Notifications List */}
           <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
@@ -413,7 +349,7 @@ export default function NotificationCenter({ adminEmail }: { adminEmail: string 
                     {/* Action buttons */}
                     <button
                       onClick={(e) => handleDelete(e, n.id)}
-                      className="p-1 text-slate-300 hover:text-rose-500 rounded-md transition-colors shrink-0"
+                      className="p-1 text-slate-300 hover:text-rose-500 rounded-md transition-colors shrink-0 cursor-pointer"
                       title="Delete notification"
                       aria-label="Delete notification"
                     >
@@ -445,4 +381,3 @@ export default function NotificationCenter({ adminEmail }: { adminEmail: string 
     </div>
   );
 }
-

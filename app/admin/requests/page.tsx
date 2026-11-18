@@ -16,6 +16,8 @@ import {
   matchDistrict,
 } from '@/lib/matching/algorithm';
 import { ServiceRequest, Worker, RequestStatus } from '@/types';
+import { useSmartPolling } from '@/lib/hooks/useSmartPolling';
+import { CircuitBreaker } from '@/lib/utils/circuitBreaker';
 import {
   FileText,
   Search,
@@ -196,7 +198,10 @@ export default function AdminRequestsPage() {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     })
-      .then((res) => (res.ok ? res.json() : null))
+      .then((res) => {
+        CircuitBreaker.reportStatus(res.status, 'requests');
+        return res.ok ? res.json() : null;
+      })
       .then((json) => {
         if (json?.success && Array.isArray(json.data)) {
           const cleanList = json.data.filter(
@@ -213,8 +218,8 @@ export default function AdminRequestsPage() {
           });
         }
       })
-      .catch(() => {
-        // Fallback gracefully
+      .catch((err) => {
+        CircuitBreaker.reportError(err, 'requests');
       });
 
     fetch('/api/technicians', {
@@ -223,26 +228,29 @@ export default function AdminRequestsPage() {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     })
-      .then((res) => (res.ok ? res.json() : null))
+      .then((res) => {
+        CircuitBreaker.reportStatus(res.status, 'technicians');
+        return res.ok ? res.json() : null;
+      })
       .then((json) => {
         if (json?.success && Array.isArray(json.data)) {
           dataStore.mergeWorkers(json.data);
           setWorkers(dataStore.getWorkers());
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        CircuitBreaker.reportError(err, 'technicians');
+      });
   }, []);
 
+  // Smart visibility-aware polling (30s interval, instant sync on focus, zero compute in background)
+  useSmartPolling(loadData, { intervalMs: 30000, endpoint: 'requests' });
+
   useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 4000);
-    const handleUpdate = () => loadData();
-    window.addEventListener('vikasa_data_updated', handleUpdate);
-    window.addEventListener('storage', handleUpdate);
+    const handleStorage = () => loadData();
+    window.addEventListener('storage', handleStorage);
     return () => {
-      clearInterval(interval);
-      window.removeEventListener('vikasa_data_updated', handleUpdate);
-      window.removeEventListener('storage', handleUpdate);
+      window.removeEventListener('storage', handleStorage);
     };
   }, [loadData]);
 

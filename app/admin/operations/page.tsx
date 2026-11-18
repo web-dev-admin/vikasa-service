@@ -12,6 +12,8 @@ import {
 } from '@/types';
 import { matchWorkers } from '@/lib/matching/algorithm';
 import DispatchMap from '@/components/maps/DispatchMap';
+import { useSmartPolling } from '@/lib/hooks/useSmartPolling';
+import { CircuitBreaker } from '@/lib/utils/circuitBreaker';
 import {
   Search,
   PhoneCall,
@@ -108,7 +110,10 @@ export default function OperationsPage() {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     })
-      .then((res) => (res.ok ? res.json() : null))
+      .then((res) => {
+        CircuitBreaker.reportStatus(res.status, 'requests');
+        return res.ok ? res.json() : null;
+      })
       .then((json) => {
         if (json?.success && Array.isArray(json.data)) {
           dataStore.setRequests(json.data);
@@ -119,21 +124,19 @@ export default function OperationsPage() {
           });
         }
       })
-      .catch(() => {
-        // Fallback gracefully
+      .catch((err) => {
+        CircuitBreaker.reportError(err, 'requests');
       });
   }, []);
 
+  // Smart visibility-aware polling (30s interval, instant sync on focus, zero compute in background)
+  useSmartPolling(refreshData, { intervalMs: 30000, endpoint: 'operations' });
+
   useEffect(() => {
-    refreshData();
-    const interval = setInterval(refreshData, 4000);
-    const handleUpdate = () => refreshData();
-    window.addEventListener('vikasa_data_updated', handleUpdate);
-    window.addEventListener('storage', handleUpdate);
+    const handleStorage = () => refreshData();
+    window.addEventListener('storage', handleStorage);
     return () => {
-      clearInterval(interval);
-      window.removeEventListener('vikasa_data_updated', handleUpdate);
-      window.removeEventListener('storage', handleUpdate);
+      window.removeEventListener('storage', handleStorage);
     };
   }, [refreshData]);
 

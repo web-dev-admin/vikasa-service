@@ -8,7 +8,7 @@ console.log('=====================================================');
 
 async function runDeleteTests() {
   let passed = 0;
-  const total = 25;
+  const total = 27;
 
   // -------------------------------------------------------------------------
   // TEST 1: Service Request Creation and Permanent Deletion

@@ -33,11 +33,18 @@ export async function GET() {
     }
 
     const services = dataStore.getAllServices();
-    return NextResponse.json({
-      success: true,
-      count: services.length,
-      data: services,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        count: services.length,
+        data: services,
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=86400',
+        },
+      }
+    );
   } catch (error) {
     return NextResponse.json(
       { success: false, error: 'Failed to retrieve services' },
