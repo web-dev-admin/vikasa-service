@@ -202,6 +202,7 @@ export default function AdminServicesPage() {
       const res = await fetch(`/api/services?id=${encodeURIComponent(id)}`, {
         method: 'DELETE',
         headers,
+        credentials: 'include',
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
@@ -289,6 +290,7 @@ export default function AdminServicesPage() {
       const res = await fetch(`/api/categories?id=${encodeURIComponent(id)}`, {
         method: 'DELETE',
         headers,
+        credentials: 'include',
       });
       const json = await res.json();
       if (!res.ok || !json.success) {

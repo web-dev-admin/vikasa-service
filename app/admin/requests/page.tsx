@@ -151,6 +151,7 @@ export default function AdminRequestsPage() {
       const res = await fetch(`/api/requests/${encodeURIComponent(targetId)}?${queryParams.toString()}`, {
         method: 'DELETE',
         headers,
+        credentials: 'include',
       });
       const json = await res.json();
 

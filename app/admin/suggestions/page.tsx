@@ -25,6 +25,8 @@ import {
   ArrowRight,
   ShieldCheck,
   Tag,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   getTelUrl,
@@ -47,6 +49,40 @@ export default function AdminSuggestionsPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Blacklist tracking to prevent deleted suggestions from popping back during interval sync
+  const [deletedCustomerSuggestionIds, setDeletedCustomerSuggestionIds] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = sessionStorage.getItem('vikasa_admin_deleted_requests');
+        if (saved) return new Set(JSON.parse(saved));
+      } catch {}
+    }
+    return new Set();
+  });
+
+  const [deletedTechSuggestionIds, setDeletedTechSuggestionIds] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = sessionStorage.getItem('vikasa_admin_deleted_workers');
+        if (saved) return new Set(JSON.parse(saved));
+      } catch {}
+    }
+    return new Set();
+  });
+
+  // Delete / Dismiss Modal State
+  const [deleteModalData, setDeleteModalData] = useState<{
+    type: 'customer' | 'technician';
+    id: string;
+    name: string;
+    title: string;
+    token?: string;
+    requestNumber?: number;
+    phone?: string;
+    detail?: string;
+  } | null>(null);
+  const [isDeletingSuggestion, setIsDeletingSuggestion] = useState(false);
+
   // Quick "Add to Catalog" Modal State
   const [catalogModalData, setCatalogModalData] = useState<{
     source: 'customer' | 'technician';
@@ -63,8 +99,19 @@ export default function AdminSuggestionsPage() {
   };
 
   const refreshData = useCallback(() => {
-    setRequests(dataStore.getRequests());
-    setWorkers(dataStore.getWorkers());
+    setRequests(
+      dataStore.getRequests().filter(
+        (r) =>
+          !deletedCustomerSuggestionIds.has(r.id) &&
+          !deletedCustomerSuggestionIds.has(r.tracking_token) &&
+          !deletedCustomerSuggestionIds.has(String(r.request_number))
+      )
+    );
+    setWorkers(
+      dataStore.getWorkers().filter(
+        (w) => !deletedTechSuggestionIds.has(w.id) && (!w.phone || !deletedTechSuggestionIds.has(w.phone))
+      )
+    );
     setCategories(dataStore.getAllCategories());
 
     const token = typeof window !== 'undefined'
@@ -77,25 +124,47 @@ export default function AdminSuggestionsPage() {
     };
 
     Promise.all([
-      fetch('/api/requests', { headers }).then((r) => (r.ok ? r.json() : null)),
-      fetch('/api/technicians', { headers }).then((r) => (r.ok ? r.json() : null)),
-      fetch('/api/categories').then((r) => (r.ok ? r.json() : null)),
+      fetch('/api/requests', { headers, credentials: 'include' }).then((r) => (r.ok ? r.json() : null)),
+      fetch('/api/technicians', { headers, credentials: 'include' }).then((r) => (r.ok ? r.json() : null)),
+      fetch('/api/categories', { credentials: 'include' }).then((r) => (r.ok ? r.json() : null)),
     ])
       .then(([reqRes, techRes, catRes]) => {
         if (reqRes?.success && Array.isArray(reqRes.data)) {
-          dataStore.mergeRequests(reqRes.data);
-          setRequests(dataStore.getRequests());
+          const cleanReqs = reqRes.data.filter(
+            (r: ServiceRequest) =>
+              !deletedCustomerSuggestionIds.has(r.id) &&
+              !deletedCustomerSuggestionIds.has(r.tracking_token) &&
+              !deletedCustomerSuggestionIds.has(String(r.request_number))
+          );
+          dataStore.mergeRequests(cleanReqs);
+          setRequests(
+            dataStore.getRequests().filter(
+              (r) =>
+                !deletedCustomerSuggestionIds.has(r.id) &&
+                !deletedCustomerSuggestionIds.has(r.tracking_token) &&
+                !deletedCustomerSuggestionIds.has(String(r.request_number))
+            )
+          );
         }
         if (techRes?.success && Array.isArray(techRes.data)) {
-          dataStore.mergeWorkers(techRes.data);
-          setWorkers(dataStore.getWorkers());
+          const cleanTechs = techRes.data.filter(
+            (w: Worker) =>
+              !deletedTechSuggestionIds.has(w.id) &&
+              (!w.phone || !deletedTechSuggestionIds.has(w.phone))
+          );
+          dataStore.mergeWorkers(cleanTechs);
+          setWorkers(
+            dataStore.getWorkers().filter(
+              (w) => !deletedTechSuggestionIds.has(w.id) && (!w.phone || !deletedTechSuggestionIds.has(w.phone))
+            )
+          );
         }
         if (catRes?.success && Array.isArray(catRes.data)) {
           setCategories(catRes.data);
         }
       })
       .catch(() => {});
-  }, []);
+  }, [deletedCustomerSuggestionIds, deletedTechSuggestionIds]);
 
   useEffect(() => {
     refreshData();
@@ -227,6 +296,177 @@ export default function AdminSuggestionsPage() {
       showToast(msg);
     } finally {
       setIsSubmittingCatalog(false);
+    }
+  };
+
+  // Open Delete / Dismiss Modal for Customer Suggestion
+  const handleOpenDeleteCustomerSuggestion = (req: ServiceRequest) => {
+    const suggestedTitle = req.custom_service_note?.split(' - ')[0] || req.service_name || 'Custom Home Service';
+    setDeleteModalData({
+      type: 'customer',
+      id: req.id,
+      name: req.customer_name,
+      title: suggestedTitle,
+      token: req.tracking_token,
+      requestNumber: req.request_number,
+      phone: req.customer_phone,
+      detail: req.custom_service_note || req.description,
+    });
+  };
+
+  // Open Delete / Dismiss Modal for Technician Suggestion
+  const handleOpenDeleteTechnicianSuggestion = (tech: Worker) => {
+    const suggestedTrade = tech.custom_trade_note || tech.skills[0] || 'Specialized Trade';
+    setDeleteModalData({
+      type: 'technician',
+      id: tech.id,
+      name: tech.full_name,
+      title: suggestedTrade,
+      phone: tech.phone,
+      detail: tech.custom_trade_note || tech.skills.join(', '),
+    });
+  };
+
+  // Execute Permanent Delete for Customer Suggestion
+  const executeDeleteCustomerSuggestion = async () => {
+    if (!deleteModalData) return;
+    const { id, token, requestNumber, title } = deleteModalData;
+    setIsDeletingSuggestion(true);
+
+    // 1. Immediately add to blacklist in memory & session
+    const nextBlacklist = new Set(deletedCustomerSuggestionIds);
+    nextBlacklist.add(id);
+    if (token) nextBlacklist.add(token);
+    if (requestNumber) nextBlacklist.add(String(requestNumber));
+    setDeletedCustomerSuggestionIds(nextBlacklist);
+
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem('vikasa_admin_deleted_requests', JSON.stringify(Array.from(nextBlacklist)));
+      } catch {}
+    }
+
+    // 2. Optimistically purge from dataStore and UI state
+    dataStore.deleteRequest(id);
+    if (token) dataStore.deleteRequest(token);
+    if (requestNumber) dataStore.deleteRequest(String(requestNumber));
+    setRequests((prev) =>
+      prev.filter(
+        (r) =>
+          r.id !== id &&
+          r.tracking_token !== token &&
+          r.request_number !== requestNumber &&
+          !nextBlacklist.has(r.id) &&
+          !nextBlacklist.has(r.tracking_token)
+      )
+    );
+
+    // 3. Delete from backend database
+    const authToken = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
+      : null;
+
+    const headers: Record<string, string> = {
+      'x-admin-portal': 'true',
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+    };
+
+    const queryParams = new URLSearchParams();
+    if (token) queryParams.set('token', token);
+    if (requestNumber) queryParams.set('num', String(requestNumber));
+
+    try {
+      const res = await fetch(`/api/requests/${encodeURIComponent(id)}?${queryParams.toString()}`, {
+        method: 'DELETE',
+        headers,
+        credentials: 'include',
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to delete service request');
+      }
+      showToast(`Customer request for "${title}" permanently deleted from database.`);
+      setDeleteModalData(null);
+    } catch (err) {
+      console.warn('Delete suggestion warning:', err);
+      const msg = err instanceof Error ? err.message : 'Notice: Record removed locally';
+      showToast(msg);
+      setDeleteModalData(null);
+    } finally {
+      setIsDeletingSuggestion(false);
+    }
+  };
+
+  // Execute Dismiss or Permanent Delete for Technician Suggestion
+  const executeDismissTechnicianSuggestion = async (mode: 'dismiss_trade' | 'delete_technician') => {
+    if (!deleteModalData) return;
+    const { id, name, title } = deleteModalData;
+    setIsDeletingSuggestion(true);
+
+    const authToken = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
+      : null;
+
+    const headers: Record<string, string> = {
+      'x-admin-portal': 'true',
+      'Content-Type': 'application/json',
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+    };
+
+    try {
+      if (mode === 'dismiss_trade') {
+        // Clear custom trade note from technician record
+        const res = await fetch(`/api/technicians/${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers,
+          credentials: 'include',
+          body: JSON.stringify({
+            custom_trade_note: null,
+            has_custom_skill: false,
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json.error || 'Failed to dismiss trade suggestion');
+        }
+        dataStore.updateWorker(id, { custom_trade_note: undefined, has_custom_skill: false });
+        setWorkers(dataStore.getWorkers());
+        showToast(`Custom trade suggestion for "${name}" dismissed.`);
+      } else {
+        // Permanently delete technician
+        const nextBlacklist = new Set(deletedTechSuggestionIds);
+        nextBlacklist.add(id);
+        if (deleteModalData.phone) nextBlacklist.add(deleteModalData.phone);
+        setDeletedTechSuggestionIds(nextBlacklist);
+
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem('vikasa_admin_deleted_workers', JSON.stringify(Array.from(nextBlacklist)));
+          } catch {}
+        }
+
+        dataStore.deleteWorker(id);
+        setWorkers((prev) => prev.filter((w) => w.id !== id && !nextBlacklist.has(w.id)));
+
+        const res = await fetch(`/api/technicians/${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+          headers,
+          credentials: 'include',
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json.error || 'Failed to delete technician record');
+        }
+        showToast(`Technician "${name}" permanently deleted from database.`);
+      }
+      setDeleteModalData(null);
+    } catch (err) {
+      console.warn('Technician suggestion action error:', err);
+      const msg = err instanceof Error ? err.message : 'Error processing request';
+      showToast(msg);
+      setDeleteModalData(null);
+    } finally {
+      setIsDeletingSuggestion(false);
     }
   };
 
@@ -452,15 +692,25 @@ export default function AdminSuggestionsPage() {
                             </p>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => openAddToCatalogModal(suggestedTitle, detailedScope, 'customer')}
-                            className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs flex items-center gap-1 shadow-xs transition-colors shrink-0 cursor-pointer"
-                            title="Publish this suggestion to the official services catalog"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Add to Catalog</span>
-                          </button>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => openAddToCatalogModal(suggestedTitle, detailedScope, 'customer')}
+                              className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs flex items-center gap-1 shadow-xs transition-colors shrink-0 cursor-pointer"
+                              title="Publish this suggestion to the official services catalog"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Add to Catalog</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDeleteCustomerSuggestion(req)}
+                              className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-900 border border-rose-200 transition-colors shrink-0 cursor-pointer"
+                              title="Permanently delete this customer request"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
 
                         {/* Customer Scope / Description Callout */}
@@ -525,7 +775,7 @@ export default function AdminSuggestionsPage() {
                         <button
                           type="button"
                           onClick={() => handleCopySuggestion(shareMsg, req.id)}
-                          className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors shrink-0"
+                          className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors shrink-0 cursor-pointer"
                           title="Copy details to clipboard"
                         >
                           {copiedId === req.id ? (
@@ -533,6 +783,16 @@ export default function AdminSuggestionsPage() {
                           ) : (
                             <Copy className="w-3.5 h-3.5 text-slate-500" />
                           )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenDeleteCustomerSuggestion(req)}
+                          className="py-2 px-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer shrink-0"
+                          title="Permanently delete this customer request"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Delete</span>
                         </button>
                       </div>
                     </div>
@@ -584,15 +844,25 @@ export default function AdminSuggestionsPage() {
                             </p>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => openAddToCatalogModal(tech.custom_trade_note || tech.skills[0], `${tech.full_name} custom trade specialization in ${tech.district}`, 'technician')}
-                            className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs flex items-center gap-1 shadow-xs transition-colors shrink-0 cursor-pointer"
-                            title="Add this trade to official catalog"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Add to Catalog</span>
-                          </button>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => openAddToCatalogModal(tech.custom_trade_note || tech.skills[0], `${tech.full_name} custom trade specialization in ${tech.district}`, 'technician')}
+                              className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs flex items-center gap-1 shadow-xs transition-colors shrink-0 cursor-pointer"
+                              title="Add this trade to official catalog"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Add to Catalog</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDeleteTechnicianSuggestion(tech)}
+                              className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-900 border border-rose-200 transition-colors shrink-0 cursor-pointer"
+                              title="Dismiss or delete this technician suggestion"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
 
                         {/* Specialization Notes */}
@@ -659,6 +929,16 @@ export default function AdminSuggestionsPage() {
                         >
                           Edit Profile
                         </Link>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenDeleteTechnicianSuggestion(tech)}
+                          className="py-2 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer shrink-0"
+                          title="Dismiss or delete this technician suggestion"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete</span>
+                        </button>
                       </div>
                     </div>
                   );
@@ -758,6 +1038,131 @@ export default function AdminSuggestionsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE / DISMISS CONFIRMATION MODAL */}
+      {deleteModalData && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 border border-slate-100">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-200">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">
+                    {deleteModalData.type === 'customer'
+                      ? 'Delete Customer Suggestion'
+                      : 'Dismiss / Delete Trade Suggestion'}
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    {deleteModalData.type === 'customer'
+                      ? `Booking #${deleteModalData.requestNumber || 'Custom'}`
+                      : `${deleteModalData.name}`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeleteModalData(null)}
+                className="p-1.5 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content summary */}
+            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Target:</span>
+                <span className="font-bold text-slate-800">{deleteModalData.name} ({deleteModalData.phone})</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Service / Trade:</span>
+                <span className="font-bold text-slate-900">{deleteModalData.title}</span>
+              </div>
+              {deleteModalData.detail && (
+                <div className="pt-1 border-t border-slate-200/60">
+                  <span className="text-[10px] text-slate-400 block mb-0.5">Detail Scope:</span>
+                  <p className="text-[11px] text-slate-700 italic font-medium leading-relaxed">&quot;{deleteModalData.detail}&quot;</p>
+                </div>
+              )}
+            </div>
+
+            {deleteModalData.type === 'customer' ? (
+              <div className="space-y-4">
+                <p className="text-xs text-rose-700 font-medium bg-rose-50 p-3 rounded-xl border border-rose-200 leading-relaxed">
+                  ⚠️ This action will permanently remove booking #{deleteModalData.requestNumber} from the database and suggestions queue. It cannot be undone.
+                </p>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteModalData(null)}
+                    disabled={isDeletingSuggestion}
+                    className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={executeDeleteCustomerSuggestion}
+                    disabled={isDeletingSuggestion}
+                    className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{isDeletingSuggestion ? 'Deleting...' : 'Permanently Delete'}</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Choose how to handle this technician suggestion:
+                </p>
+
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => executeDismissTechnicianSuggestion('dismiss_trade')}
+                    disabled={isDeletingSuggestion}
+                    className="w-full p-3 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-200 text-xs font-bold flex items-start gap-2.5 text-left transition-colors cursor-pointer"
+                  >
+                    <span className="text-base">🧹</span>
+                    <div>
+                      <span className="block font-black text-amber-900">Dismiss Custom Trade Only</span>
+                      <span className="text-[11px] text-amber-700 font-normal">Removes this custom trade note from suggestions, but keeps the technician active in the directory.</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => executeDismissTechnicianSuggestion('delete_technician')}
+                    disabled={isDeletingSuggestion}
+                    className="w-full p-3 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-950 border border-rose-200 text-xs font-bold flex items-start gap-2.5 text-left transition-colors cursor-pointer"
+                  >
+                    <span className="text-base">🗑️</span>
+                    <div>
+                      <span className="block font-black text-rose-900">Permanently Delete Technician</span>
+                      <span className="text-[11px] text-rose-700 font-normal">Permanently removes technician {deleteModalData.name} from the database.</span>
+                    </div>
+                  </button>
+                </div>
+
+                <div className="flex justify-end pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteModalData(null)}
+                    disabled={isDeletingSuggestion}
+                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

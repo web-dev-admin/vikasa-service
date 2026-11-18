@@ -262,7 +262,11 @@ export default function AdminContactsPage() {
         ? `/api/customers/${encodeURIComponent(targetId)}`
         : `/api/technicians/${encodeURIComponent(targetId)}`;
 
-      const res = await fetch(endpoint, { method: 'DELETE', headers });
+      const res = await fetch(endpoint, {
+        method: 'DELETE',
+        headers,
+        credentials: 'include',
+      });
       const json = await res.json();
 
       if (!res.ok || !json.success) {

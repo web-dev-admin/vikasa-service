@@ -54,24 +54,39 @@ export async function DELETE(
     const queryToken = searchParams.get('token');
     const queryNum = searchParams.get('num');
 
+    const isUuid = (val?: string | null): boolean =>
+      Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
+
     // 1. Delete from Supabase if configured
     if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       try {
-        // Delete child assignments first
+        // A. Delete child records from assignments
         await supabase.from('assignments').delete().eq('request_id', id);
-        // Delete associated contact attempts
-        await supabase.from('worker_contact_attempts').delete().eq('request_id', id);
-
-        // Delete main service request record by primary id
-        await supabase.from('service_requests').delete().eq('id', id);
-
-        // Delete by tracking token
-        await supabase.from('service_requests').delete().eq('tracking_token', id);
         if (queryToken) {
+          await supabase.from('assignments').delete().eq('request_id', queryToken);
+        }
+
+        // B. Delete child records from worker_contact_attempts
+        await supabase.from('worker_contact_attempts').delete().eq('request_id', id);
+        if (queryToken) {
+          await supabase.from('worker_contact_attempts').delete().eq('request_id', queryToken);
+        }
+
+        // C. Delete main service request record by primary id
+        await supabase.from('service_requests').delete().eq('id', id);
+        if (queryToken && queryToken !== id) {
+          await supabase.from('service_requests').delete().eq('id', queryToken);
+        }
+
+        // D. Delete by tracking token (only pass valid UUIDs to Postgres)
+        if (isUuid(id)) {
+          await supabase.from('service_requests').delete().eq('tracking_token', id);
+        }
+        if (queryToken && isUuid(queryToken)) {
           await supabase.from('service_requests').delete().eq('tracking_token', queryToken);
         }
 
-        // If numeric request number was provided
+        // E. If numeric request number was provided
         if (/^\d+$/.test(id)) {
           await supabase.from('service_requests').delete().eq('request_number', Number(id));
         }
@@ -85,6 +100,12 @@ export async function DELETE(
 
     // 2. Delete from local dataStore
     dataStore.deleteRequest(id);
+    if (queryToken) {
+      dataStore.deleteRequest(queryToken);
+    }
+    if (queryNum) {
+      dataStore.deleteRequest(queryNum);
+    }
 
     return NextResponse.json({
       success: true,

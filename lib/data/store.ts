@@ -120,8 +120,16 @@ class VikasaDataStore {
           const parsed: Worker[] = JSON.parse(savedWorkers);
           const phoneMap = new Map<string, Worker>();
           for (const w of parsed) {
-            if (!w) continue;
+            if (!w || !w.id) continue;
             const cleanP = w.phone ? w.phone.replace(/\D/g, '').slice(-10) : '';
+            if (
+              this.deletedWorkerIds.has(w.id) ||
+              (cleanP && this.deletedWorkerIds.has(cleanP)) ||
+              (w.phone && this.deletedWorkerIds.has(w.phone)) ||
+              (w.application_token && this.deletedWorkerIds.has(w.application_token))
+            ) {
+              continue;
+            }
             const key = cleanP || w.id;
             if (key && !phoneMap.has(key)) {
               phoneMap.set(key, w);
@@ -137,8 +145,15 @@ class VikasaDataStore {
           const parsed: Customer[] = JSON.parse(savedCustomers);
           const phoneMap = new Map<string, Customer>();
           for (const c of parsed) {
-            if (!c) continue;
+            if (!c || !c.id) continue;
             const cleanP = c.phone ? c.phone.replace(/\D/g, '').slice(-10) : '';
+            if (
+              this.deletedCustomerIds.has(c.id) ||
+              (cleanP && this.deletedCustomerIds.has(cleanP)) ||
+              (c.phone && this.deletedCustomerIds.has(c.phone))
+            ) {
+              continue;
+            }
             const key = cleanP || c.id;
             if (key && !phoneMap.has(key)) {
               phoneMap.set(key, c);
@@ -289,7 +304,16 @@ class VikasaDataStore {
 
   setWorkers(workers: Worker[]) {
     this.init();
-    this.workers = [...workers];
+    this.workers = workers.filter((w) => {
+      if (!w || !w.id) return false;
+      const cleanP = w.phone ? w.phone.replace(/\D/g, '').slice(-10) : '';
+      return (
+        !this.deletedWorkerIds.has(w.id) &&
+        (!cleanP || !this.deletedWorkerIds.has(cleanP)) &&
+        (!w.phone || !this.deletedWorkerIds.has(w.phone)) &&
+        (!w.application_token || !this.deletedWorkerIds.has(w.application_token))
+      );
+    });
     this.persist();
   }
 
@@ -437,8 +461,15 @@ class VikasaDataStore {
     // 1. Strict deduplication pass over existing customers by clean phone
     const uniqueMap = new Map<string, Customer>();
     for (const c of this.customers) {
-      if (!c) continue;
+      if (!c || !c.id) continue;
       const cleanP = c.phone ? c.phone.replace(/\D/g, '').slice(-10) : '';
+      if (
+        this.deletedCustomerIds.has(c.id) ||
+        (cleanP && this.deletedCustomerIds.has(cleanP)) ||
+        (c.phone && this.deletedCustomerIds.has(c.phone))
+      ) {
+        continue;
+      }
       const key = cleanP || c.id;
       if (key && !uniqueMap.has(key)) {
         uniqueMap.set(key, c);
@@ -450,7 +481,13 @@ class VikasaDataStore {
     for (const req of this.requests) {
       if (!req.customer_phone) continue;
       const cleanP = req.customer_phone.replace(/\D/g, '').slice(-10);
-      if (cleanP && !uniqueMap.has(cleanP)) {
+      if (
+        cleanP &&
+        !uniqueMap.has(cleanP) &&
+        !this.deletedCustomerIds.has(cleanP) &&
+        (!req.customer_id || !this.deletedCustomerIds.has(req.customer_id)) &&
+        !this.deletedCustomerIds.has(req.customer_phone)
+      ) {
         uniqueMap.set(cleanP, {
           id: req.customer_id || `cust-${cleanP}`,
           full_name: req.customer_name || 'Customer',
@@ -504,6 +541,10 @@ class VikasaDataStore {
   getCustomerById(id: string): { customer: Customer; requests: ServiceRequest[] } | null {
     this.init();
     const cleanId = id.replace(/\D/g, '').slice(-10);
+    if (this.deletedCustomerIds.has(id) || (cleanId && this.deletedCustomerIds.has(cleanId))) {
+      return null;
+    }
+
     const customer =
       this.customers.find((c) => {
         const cClean = c.phone ? c.phone.replace(/\D/g, '').slice(-10) : '';
@@ -528,9 +569,20 @@ class VikasaDataStore {
     this.init();
     const cleanId = id.replace(/\D/g, '').slice(-10);
     const initialLen = this.customers.length;
+    this.deletedCustomerIds.add(id);
+    if (cleanId) this.deletedCustomerIds.add(cleanId);
+
+    const targetCustomer = this.customers.find((c) => {
+      const cClean = c.phone ? c.phone.replace(/\D/g, '').slice(-10) : '';
+      return c.id === id || (Boolean(cleanId) && cClean === cleanId);
+    });
+    if (targetCustomer?.phone) {
+      this.deletedCustomerIds.add(targetCustomer.phone);
+    }
+
     this.customers = this.customers.filter((c) => {
       const cClean = c.phone ? c.phone.replace(/\D/g, '').slice(-10) : '';
-      return c.id !== id && (!cleanId || cClean !== cleanId);
+      return c.id !== id && (!cleanId || cClean !== cleanId) && !this.deletedCustomerIds.has(c.id);
     });
     // Also remove requests associated with this customer
     this.requests = this.requests.filter((r) => {
@@ -840,7 +892,16 @@ class VikasaDataStore {
     active_status?: string;
   }): Worker[] {
     this.init();
-    let result = [...this.workers];
+    let result = this.workers.filter((w) => {
+      if (!w || !w.id) return false;
+      const cleanP = w.phone ? w.phone.replace(/\D/g, '').slice(-10) : '';
+      return (
+        !this.deletedWorkerIds.has(w.id) &&
+        (!cleanP || !this.deletedWorkerIds.has(cleanP)) &&
+        (!w.phone || !this.deletedWorkerIds.has(w.phone)) &&
+        (!w.application_token || !this.deletedWorkerIds.has(w.application_token))
+      );
+    });
 
     if (filters?.search) {
       const q = filters.search.toLowerCase();
@@ -876,7 +937,23 @@ class VikasaDataStore {
 
   getWorkerById(id: string): Worker | undefined {
     this.init();
-    return this.workers.find((w) => w.id === id);
+    if (!id || this.deletedWorkerIds.has(id)) return undefined;
+    return this.workers.find((w) => {
+      const cleanP = w.phone ? w.phone.replace(/\D/g, '').slice(-10) : '';
+      if (
+        this.deletedWorkerIds.has(w.id) ||
+        (cleanP && this.deletedWorkerIds.has(cleanP)) ||
+        (w.phone && this.deletedWorkerIds.has(w.phone)) ||
+        (w.application_token && this.deletedWorkerIds.has(w.application_token))
+      ) {
+        return false;
+      }
+      return (
+        w.id === id ||
+        w.application_token === id ||
+        (Boolean(cleanP) && cleanP === id.replace(/\D/g, '').slice(-10))
+      );
+    });
   }
 
   getRequestsForWorker(workerId: string): ServiceRequest[] {
@@ -950,6 +1027,9 @@ class VikasaDataStore {
     if (target) {
       this.deletedWorkerIds.add(target.id);
       if (target.phone) this.deletedWorkerIds.add(target.phone);
+      const cleanP = target.phone ? target.phone.replace(/\D/g, '').slice(-10) : '';
+      if (cleanP) this.deletedWorkerIds.add(cleanP);
+      if (target.application_token) this.deletedWorkerIds.add(target.application_token);
     }
     this.deletedWorkerIds.add(id);
 

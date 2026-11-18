@@ -366,6 +366,7 @@ export default function AdminWorkersPage() {
       const res = await fetch(`/api/technicians/${encodeURIComponent(workerId)}`, {
         method: 'DELETE',
         headers,
+        credentials: 'include',
       });
       const json = await res.json();
       if (!res.ok || !json.success) {

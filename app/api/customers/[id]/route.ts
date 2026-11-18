@@ -57,20 +57,33 @@ export async function DELETE(
     // 1. Delete from Supabase if configured
     if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       try {
-        // Delete from customers table
-        await supabase.from('customers').delete().eq('id', id);
+        // A. Find associated request IDs to cleanly delete child records
+        const { data: relatedReqs } = await supabase
+          .from('service_requests')
+          .select('id')
+          .or(`customer_id.eq.${id}${customer?.phone ? `,customer_phone.eq.${customer.phone}` : ''}`);
 
-        if (customer?.phone) {
-          await supabase.from('customers').delete().eq('phone', customer.phone);
+        if (Array.isArray(relatedReqs) && relatedReqs.length > 0) {
+          const reqIds = relatedReqs.map((r) => r.id);
+          for (const rid of reqIds) {
+            await supabase.from('assignments').delete().eq('request_id', rid);
+            await supabase.from('worker_contact_attempts').delete().eq('request_id', rid);
+          }
         }
 
-        // Delete associated service_requests if any
+        // B. Delete associated service_requests
         await supabase.from('service_requests').delete().eq('customer_id', id);
         if (customer?.phone) {
           await supabase.from('service_requests').delete().eq('customer_phone', customer.phone);
         }
         if (cleanPhone) {
           await supabase.from('service_requests').delete().ilike('customer_phone', `%${cleanPhone}%`);
+        }
+
+        // C. Delete from customers table
+        await supabase.from('customers').delete().eq('id', id);
+        if (customer?.phone) {
+          await supabase.from('customers').delete().eq('phone', customer.phone);
         }
       } catch (dbErr) {
         console.warn('Could not delete customer from Supabase:', dbErr);
