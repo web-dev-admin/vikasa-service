@@ -262,7 +262,8 @@ class AudioAlertManager {
   public isAcknowledged(requestId: string): boolean {
     if (typeof window === 'undefined' || !requestId) return false;
     try {
-      const stored = sessionStorage.getItem('vikasa_acknowledged_alarms');
+      const stored = (typeof localStorage !== 'undefined' ? localStorage.getItem('vikasa_acknowledged_alarms') : null) ||
+                     (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('vikasa_acknowledged_alarms') : null);
       if (stored) {
         const ids: string[] = JSON.parse(stored);
         return ids.includes(requestId);
@@ -276,11 +277,22 @@ class AudioAlertManager {
   public markAcknowledged(requestId: string): void {
     if (typeof window === 'undefined' || !requestId) return;
     try {
-      const stored = sessionStorage.getItem('vikasa_acknowledged_alarms');
+      const stored = (typeof localStorage !== 'undefined' ? localStorage.getItem('vikasa_acknowledged_alarms') : null) ||
+                     (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('vikasa_acknowledged_alarms') : null);
       const ids: string[] = stored ? JSON.parse(stored) : [];
       if (!ids.includes(requestId)) {
         ids.push(requestId);
-        sessionStorage.setItem('vikasa_acknowledged_alarms', JSON.stringify(ids));
+        const serialized = JSON.stringify(ids.slice(-100));
+        if (typeof localStorage !== 'undefined') {
+          try {
+            localStorage.setItem('vikasa_acknowledged_alarms', serialized);
+          } catch {}
+        }
+        if (typeof sessionStorage !== 'undefined') {
+          try {
+            sessionStorage.setItem('vikasa_acknowledged_alarms', serialized);
+          } catch {}
+        }
       }
     } catch {
       // ignore

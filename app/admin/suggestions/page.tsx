@@ -185,10 +185,8 @@ export default function AdminSuggestionsPage() {
   useEffect(() => {
     const handleUpdate = () => refreshData();
     window.addEventListener('vikasa_services_updated', handleUpdate);
-    window.addEventListener('storage', handleUpdate);
     return () => {
       window.removeEventListener('vikasa_services_updated', handleUpdate);
-      window.removeEventListener('storage', handleUpdate);
     };
   }, [refreshData]);
 

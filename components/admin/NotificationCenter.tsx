@@ -25,7 +25,18 @@ export default function NotificationCenter({ adminEmail: _adminEmail }: { adminE
   const [unreadCount, setUnreadCount] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const initialLoadDoneRef = useRef(false);
-  const knownNotifIdsRef = useRef<Set<string>>(new Set());
+  const knownNotifIdsRef = useRef<Set<string>>((() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('vikasa_seen_notifications');
+        if (stored) {
+          const arr = JSON.parse(stored);
+          if (Array.isArray(arr)) return new Set<string>(arr);
+        }
+      } catch {}
+    }
+    return new Set<string>();
+  })());
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -45,37 +56,42 @@ export default function NotificationCenter({ adminEmail: _adminEmail }: { adminE
         if (json.success && Array.isArray(json.data)) {
           const incoming: AdminNotification[] = json.data;
 
-          // Check if any brand new unread notification arrived
+          // Check if any genuinely new notification arrived while the page is running
           if (initialLoadDoneRef.current) {
-            const newClientNotif = incoming.find(
-              (n) =>
-                !n.is_read &&
-                n.type === 'service_request' &&
-                !knownNotifIdsRef.current.has(n.id) &&
-                !audioAlert.isAcknowledged(n.related_id || n.id)
+            const genuinelyNewNotifs = incoming.filter(
+              (n) => !n.is_read && !knownNotifIdsRef.current.has(n.id)
             );
 
-            if (newClientNotif) {
-              // Trigger HEAVY ALARM (10-minute continuous loop until acknowledged) ONLY for client leads
-              audioAlert.startHeavyAlarm({
-                requestId: newClientNotif.related_id || newClientNotif.id,
-                customerName: newClientNotif.title.replace(/^New (Customer )?Service Request:?\s*/i, ''),
-                serviceName: newClientNotif.message,
-                message: newClientNotif.message,
-              });
-            } else {
-              const hasOtherNew = incoming.some(
-                (n) => !n.is_read && !knownNotifIdsRef.current.has(n.id)
+            if (genuinelyNewNotifs.length > 0) {
+              const newClientLead = genuinelyNewNotifs.find(
+                (n) => n.type === 'service_request' && !audioAlert.isAcknowledged(n.related_id || n.id)
               );
-              if (hasOtherNew) {
-                // Standard single alert for non-client events (technician registrations, etc.)
+
+              if (newClientLead) {
+                // Trigger heavy alarm ONLY for a brand-new client booking
+                audioAlert.startHeavyAlarm({
+                  requestId: newClientLead.related_id || newClientLead.id,
+                  customerName: newClientLead.title.replace(/^New (Customer )?Service Request:?\s*/i, ''),
+                  serviceName: newClientLead.message,
+                  message: newClientLead.message,
+                });
+              } else {
+                // Standard single chime for non-client events (technician registrations, etc.)
                 audioAlert.triggerFullAlert();
               }
             }
           }
 
-          // Update known set
+          // Register all seen notification IDs into localStorage so they never re-alert
           incoming.forEach((n) => knownNotifIdsRef.current.add(n.id));
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem(
+                'vikasa_seen_notifications',
+                JSON.stringify(Array.from(knownNotifIdsRef.current).slice(-200))
+              );
+            } catch {}
+          }
           initialLoadDoneRef.current = true;
 
           setNotifications(incoming);
@@ -94,17 +110,31 @@ export default function NotificationCenter({ adminEmail: _adminEmail }: { adminE
     // Listen for live client-side broadcast
     const handleLiveNotification = (e: Event) => {
       const customEvent = e as CustomEvent<AdminNotification>;
-      if (customEvent.detail) {
-        setNotifications((prev) => [customEvent.detail, ...prev]);
+      const newNotif = customEvent.detail;
+      if (newNotif && newNotif.id) {
+        // Prevent duplicate live handling if already known
+        if (knownNotifIdsRef.current.has(newNotif.id)) return;
+        knownNotifIdsRef.current.add(newNotif.id);
+
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(
+              'vikasa_seen_notifications',
+              JSON.stringify(Array.from(knownNotifIdsRef.current).slice(-200))
+            );
+          } catch {}
+        }
+
+        setNotifications((prev) => [newNotif, ...prev.filter((n) => n.id !== newNotif.id)]);
         setUnreadCount((c) => c + 1);
 
         // If client lead, trigger the 10-minute looping heavy alarm
-        if (customEvent.detail.type === 'service_request') {
+        if (newNotif.type === 'service_request' && !audioAlert.isAcknowledged(newNotif.related_id || newNotif.id)) {
           audioAlert.startHeavyAlarm({
-            requestId: customEvent.detail.related_id || customEvent.detail.id,
-            customerName: customEvent.detail.title.replace(/^New (Customer )?Service Request:?\s*/i, ''),
-            serviceName: customEvent.detail.message,
-            message: customEvent.detail.message,
+            requestId: newNotif.related_id || newNotif.id,
+            customerName: newNotif.title.replace(/^New (Customer )?Service Request:?\s*/i, ''),
+            serviceName: newNotif.message,
+            message: newNotif.message,
           });
         } else {
           // Standard single chime for non-client notifications

@@ -132,14 +132,6 @@ export default function OperationsPage() {
   // Smart visibility-aware polling (30s interval, instant sync on focus, zero compute in background)
   useSmartPolling(refreshData, { intervalMs: 30000, endpoint: 'operations' });
 
-  useEffect(() => {
-    const handleStorage = () => refreshData();
-    window.addEventListener('storage', handleStorage);
-    return () => {
-      window.removeEventListener('storage', handleStorage);
-    };
-  }, [refreshData]);
-
   const activeRequest = requests.find((r) => r.id === selectedRequestId) || requests[0];
 
   // Matched workers for active request

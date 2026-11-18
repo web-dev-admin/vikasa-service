@@ -216,7 +216,6 @@ class VikasaDataStore {
         localStorage.setItem('vikasa_deleted_worker_ids', JSON.stringify(Array.from(this.deletedWorkerIds)));
         localStorage.setItem('vikasa_deleted_customer_ids', JSON.stringify(Array.from(this.deletedCustomerIds)));
         localStorage.setItem('vikasa_website_content', JSON.stringify(this.websiteContent));
-        window.dispatchEvent(new Event('vikasa_data_updated'));
       } catch (e) {
         console.error('Failed to persist database state:', e);
       }
@@ -1177,10 +1176,26 @@ class VikasaDataStore {
     return this.notifications;
   }
 
-  addNotification(notif: Omit<AdminNotification, 'id' | 'created_at' | 'is_read'>): AdminNotification {
+  addNotification(notif: Omit<AdminNotification, 'id' | 'created_at' | 'is_read'> & { id?: string }): AdminNotification {
     this.init();
+    const deterministicId = notif.id || (
+      notif.related_id
+        ? `notif-${notif.type}-${notif.related_id}`
+        : `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+    );
+
+    // Deduplication check: if notification for this ID or (type, related_id) already exists, update & return without duplicates
+    const existing = this.notifications.find(
+      (n) => n.id === deterministicId || (notif.related_id && n.type === notif.type && n.related_id === notif.related_id)
+    );
+    if (existing) {
+      existing.title = notif.title || existing.title;
+      existing.message = notif.message || existing.message;
+      return existing;
+    }
+
     const newNotif: AdminNotification = {
-      id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      id: deterministicId,
       ...notif,
       is_read: false,
       created_at: new Date().toISOString(),

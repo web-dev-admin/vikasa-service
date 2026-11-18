@@ -246,14 +246,6 @@ export default function AdminRequestsPage() {
   // Smart visibility-aware polling (30s interval, instant sync on focus, zero compute in background)
   useSmartPolling(loadData, { intervalMs: 30000, endpoint: 'requests' });
 
-  useEffect(() => {
-    const handleStorage = () => loadData();
-    window.addEventListener('storage', handleStorage);
-    return () => {
-      window.removeEventListener('storage', handleStorage);
-    };
-  }, [loadData]);
-
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);

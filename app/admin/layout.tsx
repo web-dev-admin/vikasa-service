@@ -130,27 +130,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       totalWorkers: workers.length,
       suggestions: suggestionsCount,
     });
-
-    // Heavy Alarm for Client / Homeowner Leads:
-    // Continuous heavy alarm looping up to 10 minutes until someone acknowledges it.
-    // Triggers ONLY for client requests (NEW or CUSTOMER_TO_CALL), never for technicians.
-    const unackClientLeads = all.filter((r) => {
-      if (r.status !== 'NEW' && r.status !== 'CUSTOMER_TO_CALL') return false;
-      if (audioAlert.isAcknowledged(r.id)) return false;
-      const ageMs = Date.now() - new Date(r.created_at).getTime();
-      return ageMs >= 0 && ageMs < 10 * 60 * 1000;
-    });
-
-    if (unackClientLeads.length > 0) {
-      const topLead = unackClientLeads[0];
-      audioAlert.startHeavyAlarm({
-        requestId: topLead.id,
-        customerName: topLead.customer_name,
-        serviceName: topLead.service_name,
-        district: topLead.district,
-        message: `${topLead.customer_name} requested ${topLead.service_name} in ${topLead.district}`,
-      });
-    }
   }, []);
 
   // Smart visibility-aware polling (30s foreground interval, 0 background compute)
@@ -159,16 +138,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     intervalMs: 30000,
     endpoint: 'stats',
   });
-
-  useEffect(() => {
-    if (!isLoginPage && isAuthenticated) {
-      const handleStorage = () => refreshStats();
-      window.addEventListener('storage', handleStorage);
-      return () => {
-        window.removeEventListener('storage', handleStorage);
-      };
-    }
-  }, [isLoginPage, isAuthenticated, refreshStats]);
 
   const handleSignOut = async () => {
     try {

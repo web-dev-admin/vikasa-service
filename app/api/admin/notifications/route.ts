@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dataStore } from '@/lib/data/store';
 import { authenticateAdmin, unauthorizedResponse } from '@/lib/auth/admin';
-import { supabase, isLocalMockMode } from '@/lib/supabase/client';
+import { supabase, supabaseAdmin, isLocalMockMode } from '@/lib/supabase/client';
 
 // GET: Privileged retrieval of notification center items
 export async function GET(request: NextRequest) {
@@ -11,17 +11,19 @@ export async function GET(request: NextRequest) {
       return unauthorizedResponse('Administrator session required');
     }
 
+    const client = supabaseAdmin || supabase;
+
     // Sync from Supabase if connected
     if (!isLocalMockMode && process.env.NEXT_PUBLIC_SUPABASE_URL) {
       try {
-        let { data, error } = await supabase
+        let { data, error } = await client
           .from('notifications')
           .select('*')
           .order('created_at', { ascending: false })
           .limit(50);
 
         if (error || !Array.isArray(data) || data.length === 0) {
-          const fallback = await supabase
+          const fallback = await client
             .from('admin_notifications')
             .select('*')
             .order('created_at', { ascending: false })
@@ -71,6 +73,7 @@ export async function POST(request: NextRequest) {
       return unauthorizedResponse('Administrator session required');
     }
 
+    const client = supabaseAdmin || supabase;
     const body = await request.json();
     const action = body.action;
 
@@ -83,10 +86,10 @@ export async function POST(request: NextRequest) {
 
       if (!isLocalMockMode && process.env.NEXT_PUBLIC_SUPABASE_URL) {
         try {
-          const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', id);
-          if (error) {
-            try { await supabase.from('admin_notifications').update({ is_read: true }).eq('id', id); } catch {}
-          }
+          await Promise.allSettled([
+            client.from('notifications').update({ is_read: true }).eq('id', id),
+            client.from('admin_notifications').update({ is_read: true }).eq('id', id),
+          ]);
         } catch {
           // ignore
         }
@@ -100,10 +103,10 @@ export async function POST(request: NextRequest) {
 
       if (!isLocalMockMode && process.env.NEXT_PUBLIC_SUPABASE_URL) {
         try {
-          const { error } = await supabase.from('notifications').update({ is_read: true }).eq('is_read', false);
-          if (error) {
-            try { await supabase.from('admin_notifications').update({ is_read: true }).eq('is_read', false); } catch {}
-          }
+          await Promise.allSettled([
+            client.from('notifications').update({ is_read: true }).eq('is_read', false),
+            client.from('admin_notifications').update({ is_read: true }).eq('is_read', false),
+          ]);
         } catch {
           // ignore
         }
@@ -121,10 +124,10 @@ export async function POST(request: NextRequest) {
 
       if (!isLocalMockMode && process.env.NEXT_PUBLIC_SUPABASE_URL) {
         try {
-          const { error } = await supabase.from('notifications').delete().eq('id', id);
-          if (error) {
-            try { await supabase.from('admin_notifications').delete().eq('id', id); } catch {}
-          }
+          await Promise.allSettled([
+            client.from('notifications').delete().eq('id', id),
+            client.from('admin_notifications').delete().eq('id', id),
+          ]);
         } catch {
           // ignore
         }

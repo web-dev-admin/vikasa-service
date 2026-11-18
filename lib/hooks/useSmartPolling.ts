@@ -64,13 +64,14 @@ export function useSmartPolling(
     }
 
     // 3. Check Circuit Breaker (halts if 503 paused, 429 rate limited, etc.)
-    if (!force && CircuitBreaker.shouldHalt(endpoint)) {
+    if (CircuitBreaker.shouldHalt(endpoint)) {
       return;
     }
 
-    // 4. Throttle duplicate calls within throttleMs
+    // 4. Throttle duplicate calls: enforce strict minimum gap (1000ms even if forced, else throttleMs)
     const now = Date.now();
-    if (!force && now - lastExecutedRef.current < throttleMs) {
+    const effectiveThrottle = force ? 1000 : throttleMs;
+    if (now - lastExecutedRef.current < effectiveThrottle) {
       return;
     }
     lastExecutedRef.current = now;
@@ -144,19 +145,14 @@ export function useSmartPolling(
       stopTimer();
     };
 
-    // 5. Data mutation listener (triggered after any local POST/PATCH/DELETE)
-    const handleDataUpdated = () => {
-      executeTick(true);
-    };
-
-    // 6. Circuit breaker resume listener
+    // 5. Circuit breaker resume listener
     const handleResumePolling = () => {
       CircuitBreaker.resume();
       executeTick(true);
       startTimer();
     };
 
-    // 7. Circuit breaker tripped listener (stops timer immediately and schedules auto-resume)
+    // 6. Circuit breaker tripped listener (stops timer immediately and schedules auto-resume)
     const handleCircuitBroken = (e: Event) => {
       stopTimer();
       const customEvent = e as CustomEvent<{ pausedUntil?: number }>;
@@ -176,7 +172,6 @@ export function useSmartPolling(
     window.addEventListener('focus', handleFocus);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    window.addEventListener('vikasa_data_updated', handleDataUpdated);
     window.addEventListener('vikasa_resume_polling', handleResumePolling);
     window.addEventListener('vikasa_circuit_broken', handleCircuitBroken);
 
@@ -187,7 +182,6 @@ export function useSmartPolling(
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-      window.removeEventListener('vikasa_data_updated', handleDataUpdated);
       window.removeEventListener('vikasa_resume_polling', handleResumePolling);
       window.removeEventListener('vikasa_circuit_broken', handleCircuitBroken);
     };
