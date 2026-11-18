@@ -29,10 +29,7 @@ import {
   Globe,
   Settings,
 } from 'lucide-react';
-import NotificationCenter from '@/components/admin/NotificationCenter';
 import PWAInstallButton from '@/components/pwa/PWAInstallButton';
-import HeavyAlarmBanner from '@/components/admin/HeavyAlarmBanner';
-import { audioAlert } from '@/lib/utils/audioAlert';
 import { useSmartPolling } from '@/lib/hooks/useSmartPolling';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -185,9 +182,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans antialiased text-slate-900">
-      {/* Heavy Alarm Banner for Client Leads (Continuous 10-Minute Loop until Acknowledged) */}
-      <HeavyAlarmBanner />
-
       {/* ========================================================================= */}
       {/* TOP LUXURY ADMIN BAR */}
       {/* ========================================================================= */}
@@ -255,9 +249,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <HelpCircle className="w-3.5 h-3.5 text-emerald-400" />
               <span>How To Use</span>
             </Link>
-
-            {/* Notification Center with live alerts */}
-            <NotificationCenter adminEmail={adminUser} />
 
             {/* PWA Install Button */}
             <PWAInstallButton className="hidden md:inline-flex" />

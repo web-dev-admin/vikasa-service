@@ -1206,9 +1206,6 @@ class VikasaDataStore {
       this.notifications = this.notifications.slice(0, 100);
     }
     this.persist();
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('vikasa_notification_received', { detail: newNotif }));
-    }
     return newNotif;
   }
 

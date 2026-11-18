@@ -260,63 +260,20 @@ export default function AdminSettingsPage() {
             <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-slate-600 font-medium">Alert Engine:</span>
-                <span className="font-mono font-bold px-2 py-0.5 rounded-md text-[11px] bg-emerald-100 text-emerald-800">
-                  IN-APP AUDIO + HAPTIC
+                <span className="font-mono font-bold px-2 py-0.5 rounded-md text-[11px] bg-slate-200 text-slate-800">
+                  DISABLED (100% SILENT)
                 </span>
               </div>
 
               <div className="flex items-center justify-between">
                 <span className="text-slate-600 font-medium">Customer Lead Siren:</span>
-                <span className="font-mono font-bold text-rose-700">10-Minute Continuous Alarm</span>
+                <span className="font-mono font-bold text-slate-600">Permanently Muted</span>
               </div>
             </div>
-
-            {soundTestSuccess && (
-              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-800 flex items-center gap-1.5 animate-in fade-in">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Alarm buzzer played &amp; mobile vibration triggered successfully!</span>
-              </div>
-            )}
           </div>
 
-          <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={handleTestSoundAndVibration}
-                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 flex items-center gap-1.5 transition-colors cursor-pointer min-h-[38px]"
-                title="Plays single 1-second chime"
-              >
-                <Play className="w-3.5 h-3.5 text-amber-700" />
-                <span>Single Chime</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  audioAlert.startHeavyAlarm({
-                    requestId: 'test-heavy-alarm-demo',
-                    customerName: 'Demo Homeowner (Sound Test)',
-                    serviceName: 'Full Interior Carpentry & Modular Kitchen',
-                    district: 'Erode',
-                  });
-                }}
-                className="px-3.5 py-1.5 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-700 text-white shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer min-h-[38px]"
-                title="Tests continuous heavy noise alarm (10-minute auto-silence loop for client leads)"
-              >
-                <BellRing className="w-3.5 h-3.5 text-white" />
-                <span>Test Heavy Siren (10-Min Loop)</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => audioAlert.acknowledgeHeavyAlarm('test-heavy-alarm-demo')}
-                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 flex items-center gap-1.5 transition-colors cursor-pointer min-h-[38px]"
-                title="Silence and acknowledge the test alarm"
-              >
-                <VolumeX className="w-3.5 h-3.5 text-slate-600" />
-                <span>Silence / Acknowledge</span>
-              </button>
-            </div>
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <span>Audio alarms and notifications are completely disabled for zero distraction.</span>
           </div>
         </div>
 
