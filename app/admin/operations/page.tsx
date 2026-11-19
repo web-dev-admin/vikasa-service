@@ -130,8 +130,8 @@ export default function OperationsPage() {
       });
   }, []);
 
-  // Smart visibility-aware polling (30s interval, instant sync on focus, zero compute in background)
-  useSmartPolling(refreshData, { intervalMs: 30000, endpoint: 'operations' });
+  // Conservative smart visibility-aware polling (60s interval, zero compute in background)
+  useSmartPolling(refreshData, { intervalMs: 60000, endpoint: 'operations' });
 
   const activeRequest = requests.find((r) => r.id === selectedRequestId) || requests[0];
 

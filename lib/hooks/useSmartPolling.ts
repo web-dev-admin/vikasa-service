@@ -14,17 +14,15 @@ interface SmartPollingOptions {
  *
  * Key guarantees:
  * 1. ZERO background polling when browser tab/window is hidden or minimized.
- * 2. Instant re-fetch the exact millisecond the administrator switches back to the tab.
- * 3. Default active interval of 30s.
+ * 2. Intelligent tab-return sync: Only refetches upon tab return if intervalMs has elapsed.
+ * 3. Default conservative interval of 60s (testing & low-frequency mode).
  * 4. Circuit Breaker protection: If server returns HTTP 503 (Project Paused), 429, or 401,
  *    polling is HALTED immediately to prevent runaway CDN request loops.
  * 5. Network Offline Awareness: Halts all requests when browser is offline (`!navigator.onLine`)
  *    and resumes automatically when connection returns.
- * 6. Isolated Endpoint Failure Isolation: One failing API does not disable or slow down
- *    unrelated healthy APIs.
+ * 6. Concurrency Guard: inFlightRef strictly prevents duplicate simultaneous requests.
  * 7. Active Timer Teardown: Clears timers on circuit break and auto-resumes after cooldown.
- * 8. Throttle guard (default 2000ms) to strictly prevent duplicate bursts when both
- *    'visibilitychange' and 'focus' events fire concurrently.
+ * 8. Throttle guard (default 5000ms) to strictly prevent duplicate bursts.
  * 9. Full timer and event listener cleanup upon component unmount.
  */
 export function useSmartPolling(
@@ -32,10 +30,10 @@ export function useSmartPolling(
   options: SmartPollingOptions = {}
 ) {
   const {
-    intervalMs = 30000,
+    intervalMs = 60000,
     enabled = true,
     refreshOnFocus = true,
-    throttleMs = 2000,
+    throttleMs = 5000,
     endpoint,
   } = options;
 
@@ -43,6 +41,7 @@ export function useSmartPolling(
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const resumeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastExecutedRef = useRef<number>(0);
+  const inFlightRef = useRef<boolean>(false);
   const isMountedRef = useRef<boolean>(true);
 
   // Keep latest callback reference
@@ -52,6 +51,11 @@ export function useSmartPolling(
 
   const executeTick = useCallback(async (force = false) => {
     if (!isMountedRef.current) return;
+
+    // 0. Concurrency guard: Prevent duplicate simultaneous in-flight requests
+    if (inFlightRef.current) {
+      return;
+    }
 
     // 1. Check tab visibility (ZERO compute in background)
     if (typeof document !== 'undefined' && document.hidden) {
@@ -76,24 +80,20 @@ export function useSmartPolling(
     }
     lastExecutedRef.current = now;
 
+    inFlightRef.current = true;
     try {
       await savedCallback.current();
     } catch (err) {
       CircuitBreaker.reportError(err, endpoint);
+    } finally {
+      inFlightRef.current = false;
     }
   }, [throttleMs, endpoint]);
-
-  const startTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-    const currentInterval = CircuitBreaker.getBackoffInterval(intervalMs, endpoint);
-    timerRef.current = setInterval(() => executeTick(false), currentInterval);
-  }, [executeTick, intervalMs, endpoint]);
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
+      clearTimeout(timerRef.current);
       timerRef.current = null;
     }
     if (resumeTimeoutRef.current) {
@@ -101,6 +101,21 @@ export function useSmartPolling(
       resumeTimeoutRef.current = null;
     }
   }, []);
+
+  const startTimer = useCallback((delayMs?: number) => {
+    stopTimer();
+    const currentInterval = CircuitBreaker.getBackoffInterval(intervalMs, endpoint);
+    if (delayMs !== undefined && delayMs > 0) {
+      timerRef.current = setTimeout(() => {
+        if (isMountedRef.current && typeof document !== 'undefined' && !document.hidden && !CircuitBreaker.shouldHalt(endpoint)) {
+          executeTick(false);
+          startTimer();
+        }
+      }, delayMs);
+    } else {
+      timerRef.current = setInterval(() => executeTick(false), currentInterval);
+    }
+  }, [executeTick, intervalMs, endpoint, stopTimer]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -122,16 +137,32 @@ export function useSmartPolling(
         stopTimer();
       } else {
         if (refreshOnFocus && !CircuitBreaker.shouldHalt(endpoint)) {
-          executeTick(false);
+          const now = Date.now();
+          const elapsed = now - lastExecutedRef.current;
+          // Resume intelligently: Only refetch if intervalMs has elapsed or never run yet
+          if (elapsed >= intervalMs || lastExecutedRef.current === 0) {
+            executeTick(false);
+            startTimer();
+          } else {
+            // Wait out the remaining interval before next polling tick
+            const remaining = Math.max(1000, intervalMs - elapsed);
+            startTimer(remaining);
+          }
+        } else {
+          startTimer();
         }
-        startTimer();
       }
     };
 
     // 3. Window focus handler
     const handleFocus = () => {
       if (refreshOnFocus && !document.hidden && !CircuitBreaker.shouldHalt(endpoint)) {
-        executeTick(false);
+        const now = Date.now();
+        const elapsed = now - lastExecutedRef.current;
+        if (elapsed >= intervalMs) {
+          executeTick(false);
+          startTimer();
+        }
       }
     };
 
@@ -190,6 +221,7 @@ export function useSmartPolling(
   return {
     refreshNow: (force = true) => {
       CircuitBreaker.resume();
+      startTimer();
       return executeTick(force);
     },
   };

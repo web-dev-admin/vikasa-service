@@ -179,8 +179,8 @@ export default function AdminSuggestionsPage() {
       });
   }, [deletedCustomerSuggestionIds, deletedTechSuggestionIds]);
 
-  // Smart visibility-aware polling (30s interval, instant sync on focus, zero compute in background)
-  useSmartPolling(refreshData, { intervalMs: 30000, endpoint: 'suggestions' });
+  // Conservative smart visibility-aware polling (60s interval, zero compute in background)
+  useSmartPolling(refreshData, { intervalMs: 60000, endpoint: 'suggestions' });
 
   useEffect(() => {
     const handleUpdate = () => refreshData();

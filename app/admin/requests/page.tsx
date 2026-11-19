@@ -249,8 +249,8 @@ export default function AdminRequestsPage() {
       });
   }, []);
 
-  // Smart visibility-aware polling (30s interval, instant sync on focus, zero compute in background)
-  useSmartPolling(loadData, { intervalMs: 30000, endpoint: 'requests' });
+  // Conservative smart visibility-aware polling (60s interval, zero compute in background)
+  useSmartPolling(loadData, { intervalMs: 60000, endpoint: 'requests' });
 
   const showToast = (msg: string) => {
     setToastMessage(msg);

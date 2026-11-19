@@ -103,8 +103,8 @@ export default function NotificationCenter({ adminEmail: _adminEmail }: { adminE
     }
   }, []);
 
-  // Smart polling: pauses completely in background tab, auto-syncs on return, 25s interval
-  useSmartPolling(fetchNotifications, { intervalMs: 25000, endpoint: 'notifications' });
+  // Conservative smart polling: pauses completely in background tab, 60s interval
+  useSmartPolling(fetchNotifications, { intervalMs: 60000, endpoint: 'notifications' });
 
   useEffect(() => {
     // Listen for live client-side broadcast

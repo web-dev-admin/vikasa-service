@@ -30,6 +30,7 @@ import {
   Settings,
 } from 'lucide-react';
 import PWAInstallButton from '@/components/pwa/PWAInstallButton';
+import NotificationCenter from '@/components/admin/NotificationCenter';
 import { useSmartPolling } from '@/lib/hooks/useSmartPolling';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -129,10 +130,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     });
   }, []);
 
-  // Smart visibility-aware polling (30s foreground interval, 0 background compute)
+  // Conservative in-memory stats refresh (60s foreground interval, 0 background compute)
   useSmartPolling(refreshStats, {
     enabled: !isLoginPage && Boolean(isAuthenticated),
-    intervalMs: 30000,
+    intervalMs: 60000,
     endpoint: 'stats',
   });
 
@@ -249,6 +250,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <HelpCircle className="w-3.5 h-3.5 text-emerald-400" />
               <span>How To Use</span>
             </Link>
+
+            {/* Notification Center with 60s conservative polling */}
+            <NotificationCenter adminEmail={adminUser} />
 
             {/* PWA Install Button */}
             <PWAInstallButton className="hidden md:inline-flex" />

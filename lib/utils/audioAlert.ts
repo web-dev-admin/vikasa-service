@@ -21,6 +21,8 @@ export interface HeavyAlarmState {
  * All method signatures are preserved for 100% backward compatibility.
  */
 export class AudioAlertManager {
+  private acknowledgedSet: Set<string> = new Set();
+
   public playHeavyNoiseBurst(): void {
     // Intentionally disabled: 100% silent
   }
@@ -33,8 +35,10 @@ export class AudioAlertManager {
     // Intentionally disabled: 100% silent
   }
 
-  public acknowledgeHeavyAlarm(_requestId?: string): void {
-    // Intentionally disabled: 100% silent
+  public acknowledgeHeavyAlarm(requestId?: string): void {
+    if (requestId) {
+      this.markAcknowledged(requestId);
+    }
   }
 
   public getHeavyAlarmState(): HeavyAlarmState {
@@ -46,12 +50,49 @@ export class AudioAlertManager {
     };
   }
 
-  public isAcknowledged(_requestId: string): boolean {
-    return true; // Always acknowledged to permanently prevent alarms
+  public isAcknowledged(requestId: string): boolean {
+    if (typeof window === 'undefined' || !requestId) return false;
+    if (this.acknowledgedSet.has(requestId)) return true;
+    try {
+      const stored = (typeof localStorage !== 'undefined' ? localStorage.getItem('vikasa_acknowledged_alarms') : null) ||
+                     (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('vikasa_acknowledged_alarms') : null);
+      if (stored) {
+        const ids: string[] = JSON.parse(stored);
+        if (Array.isArray(ids) && ids.includes(requestId)) {
+          this.acknowledgedSet.add(requestId);
+          return true;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return false;
   }
 
-  public markAcknowledged(_requestId: string): void {
-    // No-op
+  public markAcknowledged(requestId: string): void {
+    if (typeof window === 'undefined' || !requestId) return;
+    this.acknowledgedSet.add(requestId);
+    try {
+      const stored = (typeof localStorage !== 'undefined' ? localStorage.getItem('vikasa_acknowledged_alarms') : null) ||
+                     (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('vikasa_acknowledged_alarms') : null);
+      const ids: string[] = stored ? JSON.parse(stored) : [];
+      if (!ids.includes(requestId)) {
+        ids.push(requestId);
+        const serialized = JSON.stringify(ids.slice(-100));
+        if (typeof localStorage !== 'undefined') {
+          try {
+            localStorage.setItem('vikasa_acknowledged_alarms', serialized);
+          } catch {}
+        }
+        if (typeof sessionStorage !== 'undefined') {
+          try {
+            sessionStorage.setItem('vikasa_acknowledged_alarms', serialized);
+          } catch {}
+        }
+      }
+    } catch {
+      // ignore
+    }
   }
 
   public playAlarmBuzzer(_cycles: number = 1): void {

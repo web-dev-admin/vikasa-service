@@ -119,8 +119,8 @@ export default function AdminWorkersPage() {
       });
   }, []);
 
-  // Smart visibility-aware polling (30s interval, instant sync on focus, zero compute in background)
-  useSmartPolling(refreshWorkers, { intervalMs: 30000, endpoint: 'technicians' });
+  // Conservative smart visibility-aware polling (60s interval, zero compute in background)
+  useSmartPolling(refreshWorkers, { intervalMs: 60000, endpoint: 'technicians' });
 
   useEffect(() => {
     const handleServicesUpdate = () => {
