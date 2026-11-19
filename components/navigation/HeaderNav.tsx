@@ -91,7 +91,7 @@ export default function HeaderNav() {
 
           {/* Center Navigation Links (Desktop) */}
           <nav
-            className="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-700"
+            className="hidden md:flex items-center gap-4 lg:gap-6 text-sm font-semibold text-slate-700"
             aria-label="Primary Desktop Navigation"
           >
             <a
@@ -124,6 +124,16 @@ export default function HeaderNav() {
             >
               Track Request
             </Link>
+
+            {/* Prominently Highlighted: Register as Technician Link (Desktop) */}
+            <Link
+              href="/worker-register"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-amber-950 bg-amber-50 hover:bg-amber-100 border border-amber-300 shadow-2xs hover:shadow-xs transition-all hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+              aria-label="Register as Technician on Vikasa Services"
+            >
+              <UserCheck className="w-3.5 h-3.5 text-amber-600" />
+              <span>Register as Technician</span>
+            </Link>
           </nav>
 
           {/* Right Header CTAs & Mobile Hamburger */}
@@ -150,13 +160,14 @@ export default function HeaderNav() {
               <span>WhatsApp</span>
             </a>
 
-            {/* Main Consultation Button */}
+            {/* Prominently Highlighted: Book a Service CTA Button */}
             <Link
               href="/request"
-              className="px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-emerald-600/20 active:scale-[0.98] transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
+              className="px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-emerald-600/25 ring-1 ring-emerald-500/40 active:scale-[0.98] transition-all flex items-center gap-1.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
+              id="header-book-service-btn"
             >
-              <span className="hidden min-[380px]:inline">Consultation</span>
-              <span className="min-[380px]:hidden">Book</span>
+              <Wrench className="w-3.5 h-3.5 text-emerald-200" />
+              <span>Book a Service</span>
               <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </Link>
 
@@ -227,15 +238,60 @@ export default function HeaderNav() {
             </div>
 
             {/* Navigation Links */}
-            <nav className="p-4 space-y-1.5 flex-1" aria-label="Mobile Links">
-              <a
+            <nav className="p-4 space-y-2 flex-1" aria-label="Mobile Links">
+              {/* Highlighted Mobile Action: Book a Service */}
+              <Link
                 ref={firstDrawerLinkRef}
-                href="#portfolio"
+                href="/request"
                 onClick={closeMenu}
-                className="flex items-center justify-between p-3.5 rounded-2xl hover:bg-emerald-50/70 active:scale-[0.98] text-slate-800 hover:text-emerald-950 font-bold text-sm transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1"
+                className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 active:scale-[0.98] text-white font-bold text-sm shadow-md shadow-emerald-600/20 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                  <div className="w-9 h-9 rounded-xl bg-white/20 text-white flex items-center justify-center shrink-0">
+                    <Wrench className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="block text-sm font-black">Book a Service</span>
+                    <span className="block text-xs font-medium text-emerald-100">Carpentry, electrical, plumbing &amp; interiors</span>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-emerald-100 group-hover:translate-x-1 transition-transform" />
+              </Link>
+
+              {/* Highlighted Mobile Action: Register as Technician */}
+              <Link
+                href="/worker-register"
+                onClick={closeMenu}
+                className="flex items-center justify-between p-3.5 rounded-2xl bg-amber-50 hover:bg-amber-100/80 active:scale-[0.98] border border-amber-300 text-amber-950 font-bold text-sm shadow-2xs transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <UserCheck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="block text-sm font-black">Register as Technician</span>
+                      <span className="text-[10px] uppercase tracking-wider bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded font-extrabold">
+                        Join
+                      </span>
+                    </div>
+                    <span className="block text-xs font-medium text-amber-800/90">Daily jobs &amp; weekly payouts</span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-amber-600 group-hover:translate-x-1 transition-transform" />
+              </Link>
+
+              <div className="pt-2 pb-1">
+                <div className="h-px bg-slate-200/80" />
+              </div>
+
+              <a
+                href="#portfolio"
+                onClick={closeMenu}
+                className="flex items-center justify-between p-3 rounded-2xl hover:bg-emerald-50/70 active:scale-[0.98] text-slate-800 hover:text-emerald-950 font-bold text-sm transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
                     <Layers className="w-4 h-4" />
                   </div>
                   <div>
@@ -243,7 +299,7 @@ export default function HeaderNav() {
                     <span className="block text-xs font-normal text-slate-600">Real completed works in Erode</span>
                   </div>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-600 transition-colors" />
+                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 transition-colors" />
               </a>
 
               <a
@@ -333,14 +389,24 @@ export default function HeaderNav() {
             </nav>
 
             {/* Drawer Footer Actions */}
-            <div className="p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] border-t border-slate-100 bg-slate-50/50 space-y-2.5">
+            <div className="p-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] border-t border-slate-100 bg-slate-50/50 space-y-2">
               <Link
                 href="/request"
                 onClick={closeMenu}
-                className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
+                className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
               >
-                <span>Book a Consultation</span>
+                <Wrench className="w-4 h-4 text-emerald-200" />
+                <span>Book a Service</span>
                 <ArrowRight className="w-4 h-4" />
+              </Link>
+
+              <Link
+                href="/worker-register"
+                onClick={closeMenu}
+                className="w-full py-2.5 px-4 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-950 font-bold text-xs flex items-center justify-center gap-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+              >
+                <UserCheck className="w-3.5 h-3.5 text-amber-600" />
+                <span>Register as Technician</span>
               </Link>
 
               <div className="grid grid-cols-2 gap-2 pt-1">

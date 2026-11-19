@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import {
   STANDARDIZED_SERVICES,
@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { Language, TRANSLATIONS } from '@/lib/taxonomy/i18n';
 import { getDeviceGeolocation, fetchDistrictAndAddress } from '@/lib/utils/location';
+import { trackMetaCompleteRegistration } from '@/components/analytics/MetaPixel';
 
 export default function WorkerRegisterPage() {
   const [lang, setLang] = useState<Language>('en');
@@ -58,6 +59,7 @@ export default function WorkerRegisterPage() {
   const [phone, setPhone] = useState('');
   const [sameAsPhone, setSameAsPhone] = useState(true);
   const [whatsapp, setWhatsapp] = useState('');
+  const hasSubmittedRef = useRef(false);
 
   // Professional Information
   const [selectedServices, setSelectedServices] = useState<string[]>(['srv-plumbing']);
@@ -120,6 +122,7 @@ export default function WorkerRegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting || hasSubmittedRef.current) return;
     setError(null);
 
     if (!fullName.trim() || fullName.trim().length < 2) {
@@ -180,8 +183,12 @@ export default function WorkerRegisterPage() {
         throw new Error(json.error || t.errSubmitFailed);
       }
 
+      hasSubmittedRef.current = true;
       setAppToken(json.data?.application_token || null);
       setSubmitted(true);
+
+      // Track technician registration in Meta Pixel strictly once after successful persistence
+      trackMetaCompleteRegistration();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t.errSubmitFailed);
     } finally {
@@ -315,6 +322,9 @@ export default function WorkerRegisterPage() {
             </div>
           )}
 
+          {/* Form field for Automatic Advanced Matching */}
+          <input type="hidden" name="service_category" value={selectedServices.join(', ')} />
+
           {/* 1. Contact Information */}
           <div className="space-y-4">
             <h2 className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-2">
@@ -327,6 +337,8 @@ export default function WorkerRegisterPage() {
               </label>
               <input
                 id="worker-fullname"
+                name="name"
+                autoComplete="name"
                 type="text"
                 required
                 placeholder={t.fullNamePlaceholder}
@@ -346,6 +358,8 @@ export default function WorkerRegisterPage() {
                 </span>
                 <input
                   id="worker-calling-phone"
+                  name="phone"
+                  autoComplete="tel"
                   type="tel"
                   required
                   placeholder={t.callingPhonePlaceholder}
@@ -606,6 +620,14 @@ export default function WorkerRegisterPage() {
               </>
             )}
           </button>
+
+          <p className="text-center text-[11px] text-slate-500 pt-1">
+            By submitting, you agree to our{' '}
+            <Link href="/privacy" className="text-emerald-700 underline font-semibold hover:text-emerald-800">
+              Privacy Policy
+            </Link>
+            . Your details remain confidential with Vikasa coordination.
+          </p>
         </form>
       </div>
     </div>

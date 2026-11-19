@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import { VIKASA_CONFIG } from '@/lib/constants';
+import { VIKASA_CONFIG, META_PIXEL_ID } from '@/lib/constants';
 import PWARegistration from '@/components/pwa/PWARegistration';
+import { MetaPixelRouteTracker } from '@/components/analytics/MetaPixel';
 
 // High-performance system typography stack with zero font-download latency
 const inter = { className: 'font-sans' };
@@ -305,8 +306,25 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
         />
+        {/* Meta Pixel Base Code: Injected directly into <head> of every page */}
+        <script
+          id="meta-pixel-base"
+          dangerouslySetInnerHTML={{
+            __html: `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init', '1436121381902025');fbq('track', 'PageView');`,
+          }}
+        />
+        <noscript>
+          <img
+            height="1"
+            width="1"
+            style={{ display: 'none' }}
+            src="https://www.facebook.com/tr?id=1436121381902025&ev=PageView&noscript=1"
+            alt=""
+          />
+        </noscript>
       </head>
       <body className={`${inter.className} min-h-full flex flex-col`} suppressHydrationWarning>
+        <MetaPixelRouteTracker />
         <PWARegistration />
         {children}
       </body>

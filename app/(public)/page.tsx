@@ -17,6 +17,8 @@ import {
   HelpCircle,
   MapPin,
   Layers,
+  UserCheck,
+  CheckCircle2,
 } from 'lucide-react';
 import { INITIAL_CATEGORIES } from '@/lib/taxonomy/catalog';
 import { VIKASA_CONFIG } from '@/lib/constants';
@@ -159,6 +161,31 @@ export default function LandingPage() {
                 </div>
               </div>
 
+              {/* Primary High-Impact Navigation Actions */}
+              <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-center lg:justify-start gap-3">
+                <Link
+                  href="/request"
+                  className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-extrabold text-sm sm:text-base shadow-lg shadow-emerald-700/25 ring-2 ring-emerald-500/20 hover:shadow-xl hover:shadow-emerald-700/30 transition-all group"
+                  id="hero-book-service-btn"
+                >
+                  <Wrench className="w-4 h-4 text-emerald-200 group-hover:rotate-12 transition-transform" />
+                  <span>Book a Service</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </Link>
+
+                <Link
+                  href="/worker-register"
+                  className="inline-flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-2xl bg-white hover:bg-amber-50 active:scale-[0.98] text-slate-900 hover:text-amber-950 font-bold text-sm sm:text-base border-2 border-amber-300 shadow-md shadow-amber-900/5 hover:border-amber-400 hover:shadow-lg transition-all group"
+                  id="hero-register-technician-btn"
+                >
+                  <UserCheck className="w-4 h-4 text-amber-600 group-hover:scale-110 transition-transform" />
+                  <span>Register as Technician</span>
+                  <span className="text-[10px] uppercase tracking-wider bg-amber-100 text-amber-800 font-extrabold px-2 py-0.5 rounded-full ml-0.5">
+                    Join
+                  </span>
+                </Link>
+              </div>
+
               {/* Direct Call / WhatsApp Notice */}
               <div className="pt-2 text-xs text-slate-500 flex flex-wrap items-center justify-center lg:justify-start gap-3">
                 <span>Prefer direct phone consultation?</span>
@@ -172,6 +199,103 @@ export default function LandingPage() {
             <div className="lg:col-span-6">
               <HeroEstimateWidget />
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 3b. High-Visibility Action Gateways: Book a Service & Register as Technician */}
+      <section className="py-10 px-4 max-w-6xl mx-auto" aria-label="Action Gateways">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Card 1: Book a Service (Homeowners & Clients) */}
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-900 via-emerald-800 to-slate-900 text-white p-7 sm:p-8 shadow-xl shadow-emerald-950/15 border border-emerald-700/50 flex flex-col justify-between group">
+            <div className="relative z-10 space-y-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30">
+                <Wrench className="w-3.5 h-3.5" />
+                <span>For Customers &amp; Homeowners</span>
+              </div>
+
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                Book a Service
+              </h2>
+
+              <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed max-w-md">
+                Turnkey interior design, custom plywood modular kitchens, wardrobes, and on-demand verified technicians for carpentry, electrical, plumbing, painting &amp; AC repairs in Erode and across Tamil Nadu.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 text-xs font-medium text-emerald-200">
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>60-Sec Booking</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Verified Pros</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Clear Estimates</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-6 relative z-10">
+              <Link
+                href="/request"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-white hover:bg-emerald-50 text-slate-900 font-extrabold text-sm sm:text-base shadow-lg shadow-emerald-950/20 active:scale-[0.98] transition-all group-hover:shadow-emerald-900/40"
+              >
+                <span>Book a Service Now</span>
+                <ArrowRight className="w-4 h-4 text-emerald-700 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
+
+            {/* Subtle aesthetic backdrop light */}
+            <div className="absolute -right-12 -bottom-12 w-48 h-48 bg-emerald-400/15 rounded-full blur-2xl pointer-events-none" />
+          </div>
+
+          {/* Card 2: Register as Technician (Skilled Workers & Tradespersons) */}
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-950 via-slate-900 to-slate-950 text-white p-7 sm:p-8 shadow-xl shadow-amber-950/15 border border-amber-600/40 flex flex-col justify-between group">
+            <div className="relative z-10 space-y-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold border border-amber-500/30">
+                <UserCheck className="w-3.5 h-3.5" />
+                <span>For Skilled Tradespersons</span>
+              </div>
+
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                Register as Technician
+              </h2>
+
+              <p className="text-xs sm:text-sm text-amber-100/90 leading-relaxed max-w-md">
+                Are you an experienced carpenter, electrician, plumber, painter, or AC mechanic? Partner with Vikasa Services for daily verified service requests, prompt weekly payouts, and zero registration fees.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 text-xs font-medium text-amber-200">
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>Zero Fee Joining</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>Weekly Payouts</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>Daily Local Leads</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-6 relative z-10">
+              <Link
+                href="/worker-register"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-sm sm:text-base shadow-lg shadow-amber-950/20 active:scale-[0.98] transition-all group-hover:shadow-amber-900/40"
+              >
+                <span>Register as Technician Now</span>
+                <ArrowRight className="w-4 h-4 text-slate-950 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
+
+            {/* Subtle aesthetic backdrop light */}
+            <div className="absolute -right-12 -bottom-12 w-48 h-48 bg-amber-500/15 rounded-full blur-2xl pointer-events-none" />
           </div>
         </div>
       </section>
@@ -499,8 +623,15 @@ export default function LandingPage() {
               <h4 className="text-xs font-bold text-white uppercase tracking-wider">Quick Navigation</h4>
               <ul className="space-y-2 pt-1 text-slate-400">
                 <li>
-                  <Link href="/request" className="hover:text-emerald-400 transition-colors">
-                    Request Consultation
+                  <Link href="/request" className="text-emerald-400 font-bold hover:text-emerald-300 transition-colors flex items-center gap-1.5">
+                    <Wrench className="w-3.5 h-3.5" />
+                    <span>Book a Service</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/worker-register" className="text-amber-400 font-bold hover:text-amber-300 transition-colors flex items-center gap-1.5">
+                    <UserCheck className="w-3.5 h-3.5" />
+                    <span>Register as Technician</span>
                   </Link>
                 </li>
                 <li>
@@ -510,7 +641,7 @@ export default function LandingPage() {
                 </li>
                 <li>
                   <a href="#services" className="hover:text-emerald-400 transition-colors">
-                    Interior & Trade Services
+                    Interior &amp; Trade Services
                   </a>
                 </li>
                 <li>
@@ -549,10 +680,12 @@ export default function LandingPage() {
 
           <div className="pt-8 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between gap-3 text-slate-500 text-[11px]">
             <p>© {new Date().getFullYear()} Vikasa Services &amp; Interiors (vikasaservices.in). All rights reserved.</p>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+              <Link href="/request" className="text-emerald-400 font-bold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded-sm">Book a Service</Link>
+              <Link href="/worker-register" className="text-amber-400 font-bold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded-sm">Register as Technician</Link>
               <Link href="/track" className="hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded-sm">Track Request</Link>
+              <Link href="/privacy" className="hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded-sm">Privacy Policy</Link>
               <Link href="/technician" className="hover:text-amber-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded-sm">Technician Portal</Link>
-              <Link href="/worker-register" className="hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded-sm">Join as Worker</Link>
               <Link href="/admin/dashboard" className="hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded-sm">Admin Login</Link>
             </div>
           </div>
@@ -560,33 +693,42 @@ export default function LandingPage() {
       </footer>
 
       {/* 9. Mobile Sticky Bottom Quick-Bar with Safe Area Inset Support */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-3 pt-2 pb-[max(0.625rem,env(safe-area-inset-bottom))] flex items-center justify-between gap-2 shadow-xl">
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-3 pt-2 pb-[max(0.625rem,env(safe-area-inset-bottom))] flex items-center justify-between gap-1.5 shadow-xl">
         <a
           href={VIKASA_CONFIG.telUrl}
-          className="min-h-[44px] flex-1 py-2 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1"
+          className="min-h-[44px] flex-1 py-2 px-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1"
           aria-label={`Call ${VIKASA_CONFIG.phoneDisplay}`}
         >
           <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-          <span>Call Us</span>
+          <span className="text-[11px]">Call</span>
         </a>
 
         <a
           href={VIKASA_CONFIG.whatsappUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="min-h-[44px] flex-1 py-2 px-2.5 rounded-xl bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200 flex items-center justify-center gap-1.5 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1"
+          className="min-h-[44px] flex-1 py-2 px-2 rounded-xl bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200 flex items-center justify-center gap-1 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1"
           aria-label="WhatsApp Us"
         >
-          <MessageCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>WhatsApp</span>
+          <MessageCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+          <span className="text-[11px]">Chat</span>
         </a>
 
         <Link
-          href="/request"
-          className="min-h-[44px] flex-1 py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1 shadow-md shadow-emerald-600/20 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1"
+          href="/worker-register"
+          className="min-h-[44px] px-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-950 text-[11px] font-extrabold flex items-center justify-center gap-1 active:scale-95 transition-all shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1"
+          aria-label="Register as Technician"
         >
-          <span>Book</span>
-          <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+          <UserCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+          <span>Tech Join</span>
+        </Link>
+
+        <Link
+          href="/request"
+          className="min-h-[44px] flex-1 py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center justify-center gap-1 shadow-md shadow-emerald-600/25 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1"
+        >
+          <Wrench className="w-3.5 h-3.5 shrink-0 text-emerald-200" />
+          <span className="truncate">Book Service</span>
         </Link>
       </div>
     </div>

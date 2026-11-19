@@ -70,24 +70,3 @@ export function captureAttribution(): AttributionData {
 
   return attribution;
 }
-
-/**
- * Dispatches a standard Meta Pixel conversion event
- */
-export function trackMetaLeadConversion(requestId: string, serviceName: string) {
-  if (typeof window === 'undefined') return;
-
-  // Window fbq trigger if script injected
-  const win = window as unknown as { fbq?: (...args: unknown[]) => void };
-  if (typeof win.fbq === 'function') {
-    win.fbq('track', 'Lead', {
-      content_name: serviceName,
-      content_category: 'Service Request',
-      request_id: requestId,
-      currency: 'INR',
-    });
-  }
-
-  // Console trace for operator visibility
-  console.log(`[Attribution & Meta Tracking] Event 'Lead' triggered for request #${requestId} (${serviceName})`);
-}
