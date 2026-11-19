@@ -100,7 +100,7 @@ export default function WorkerRegisterPage() {
       setLongitude(lon);
       setHasCustomGps(true);
 
-      const geoResult = await fetchDistrictAndAddress(lat, lon, district || 'Erode');
+      const geoResult = await fetchDistrictAndAddress(lat, lon);
       if (geoResult.district) {
         setDistrict(geoResult.district);
       }

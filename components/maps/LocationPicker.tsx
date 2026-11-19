@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { MapPin, Navigation, Compass, AlertCircle } from 'lucide-react';
+import { getDeviceGeolocation, fetchDistrictAndAddress } from '@/lib/utils/location';
 
 interface LocationPickerProps {
   initialLat?: number;
@@ -128,32 +129,26 @@ export default function LocationPicker({
     });
   };
 
-  const handleDetectCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      setGeoError('Geolocation is not supported by your browser.');
-      return;
-    }
-
+  const handleDetectCurrentLocation = async () => {
+    if (isLocating) return;
     setIsLocating(true);
     setGeoError(null);
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setIsLocating(false);
-        const { latitude, longitude, accuracy } = position.coords;
-        const autoAddr = `My GPS Location (±${Math.round(accuracy)}m)`;
-        updateLocation(latitude, longitude, autoAddr, accuracy);
-      },
-      (error) => {
-        setIsLocating(false);
-        if (error.code === error.PERMISSION_DENIED) {
-          setGeoError('Location permission denied. Please select your location from the map or quick presets below.');
-        } else {
-          setGeoError('Unable to detect location. Please select manually on the map.');
-        }
-      },
-      { enableHighAccuracy: true, timeout: 8000 }
-    );
+    try {
+      const pos = await getDeviceGeolocation();
+      const geoResult = await fetchDistrictAndAddress(pos.latitude, pos.longitude);
+      const displayAddr = geoResult.formatted_address || `GPS Location (±${Math.round(pos.accuracy)}m)`;
+      updateLocation(pos.latitude, pos.longitude, displayAddr, pos.accuracy);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Unable to detect location.';
+      if (errMsg.toLowerCase().includes('denied')) {
+        setGeoError('Location permission was denied. Please allow location access in your browser settings or select manually on the map.');
+      } else {
+        setGeoError(errMsg);
+      }
+    } finally {
+      setIsLocating(false);
+    }
   };
 
   return (

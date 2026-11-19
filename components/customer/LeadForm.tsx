@@ -30,7 +30,12 @@ import {
   X,
 } from 'lucide-react';
 import { Language, TRANSLATIONS } from '@/lib/taxonomy/i18n';
-import { getDeviceGeolocation, fetchDistrictAndAddress } from '@/lib/utils/location';
+import {
+  getDeviceGeolocation,
+  fetchDistrictAndAddress,
+  GeolocationError,
+} from '@/lib/utils/location';
+import { normalizeTamilNaduDistrict } from '@/lib/utils/districtMatcher';
 
 function resolveInitialService(catParam: string | null | undefined, initialService?: string): string {
   if (initialService) {
@@ -171,6 +176,17 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
   const [hasCustomGps, setHasCustomGps] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [locationSuccessText, setLocationSuccessText] = useState<string | null>(null);
+  const [locationError, setLocationError] = useState<{
+    code: 'PERMISSION_DENIED' | 'POSITION_UNAVAILABLE' | 'TIMEOUT' | 'OUTSIDE_SERVICE_AREA' | 'GEOCODING_ERROR' | 'NOT_SUPPORTED' | 'UNKNOWN';
+    message: string;
+    actionHint?: string;
+  } | null>(null);
+
+  // Structured address components
+  const [locality, setLocality] = useState('');
+  const [city, setCity] = useState('');
+  const [pincode, setPincode] = useState('');
+  const [state, setState] = useState('Tamil Nadu');
 
   // Submission & Validation State
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -191,10 +207,12 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
     service.toLowerCase().includes('other') ||
     service.toLowerCase().includes('custom');
 
-  // GPS Current Location Handler
+  // GPS Current Location Handler (Strictly on user click, zero continuous tracking)
   const handleUseCurrentLocation = async () => {
+    if (isLocating) return; // Prevent multiple clicks from triggering duplicate requests
     setIsLocating(true);
     setLocationSuccessText(null);
+    setLocationError(null);
     setErrors((prev) => {
       const copy = { ...prev };
       delete copy.location;
@@ -202,7 +220,7 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
     });
 
     try {
-      // 1. Fetch device GPS coordinates (with indoor/WiFi fallback)
+      // 1. Fetch device GPS coordinates using high-accuracy settings
       const pos = await getDeviceGeolocation();
       const lat = pos.latitude;
       const lon = pos.longitude;
@@ -210,25 +228,100 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
       setLongitude(lon);
       setHasCustomGps(true);
 
-      // 2. Perform fast reverse geocoding with district match
-      const geoResult = await fetchDistrictAndAddress(lat, lon, district || 'Erode');
-      if (geoResult.district) {
-        setDistrict(geoResult.district);
-      }
-      setAddress(geoResult.formatted_address);
-      const accText = pos.accuracy ? ` (±${Math.round(pos.accuracy)}m)` : '';
-      setLocationSuccessText(`${t.gpsSuccessText}${accText}`);
-    } catch (err: any) {
-      let msg = lang === 'ta'
-        ? 'இருப்பிடத்தை அணுக முடியவில்லை. உங்கள் மாவட்டத்தை கீழே தேர்ந்தெடுக்கவும்.'
-        : 'Could not access location. Please select your district below.';
+      // 2. Perform reverse geocoding with district match
+      const geoResult = await fetchDistrictAndAddress(lat, lon);
 
-      if (err?.message?.toLowerCase().includes('denied')) {
-        msg = lang === 'ta'
-          ? 'இருப்பிட அனுமதி மறுக்கப்பட்டது. உங்கள் மாவட்டத்தை கைமுறையாக தேர்ந்தெடுக்கவும்.'
-          : 'Location permission denied. Please choose your district manually.';
+      // 3. Handle location detected outside Tamil Nadu service area
+      if (geoResult.isOutsideServiceArea) {
+        setLocationError({
+          code: 'OUTSIDE_SERVICE_AREA',
+          message: geoResult.outsideAreaMessage || (
+            lang === 'ta'
+              ? 'உங்கள் இருப்பிடம் தமிழ்நாட்டிற்கு வெளியே உள்ளது.'
+              : 'Detected location appears to be outside Tamil Nadu.'
+          ),
+          actionHint: lang === 'ta'
+            ? 'தயவுசெய்து கீழே உள்ள மாவட்ட பட்டியலில் உங்கள் சேவை மாவட்டத்தைத் தேர்வுசெய்யவும்.'
+            : 'Please select your service district in Tamil Nadu from the dropdown below.',
+        });
+        if (geoResult.formatted_address) {
+          setAddress(geoResult.formatted_address);
+        }
+        return;
       }
-      setErrors((prev) => ({ ...prev, location: msg }));
+
+      // 4. Automatically select the detected district
+      if (geoResult.district) {
+        const canonical = normalizeTamilNaduDistrict(geoResult.district) || geoResult.district;
+        setDistrict(canonical);
+      }
+
+      // 5. Populate dependent fields
+      if (geoResult.formatted_address) {
+        setAddress(geoResult.formatted_address);
+      }
+      if (geoResult.city) setCity(geoResult.city);
+      if (geoResult.locality) setLocality(geoResult.locality);
+      if (geoResult.postcode) setPincode(geoResult.postcode);
+      if (geoResult.state) setState(geoResult.state);
+
+      const accText = pos.accuracy ? ` (±${pos.accuracy}m)` : '';
+      const summaryDistrict = geoResult.district ? ` in ${geoResult.district}` : '';
+      setLocationSuccessText(
+        lang === 'ta'
+          ? `இருப்பிடம் கண்டறியப்பட்டது${summaryDistrict}${accText}`
+          : `Location detected${summaryDistrict}${accText}`
+      );
+    } catch (err: unknown) {
+      if (err instanceof GeolocationError) {
+        if (err.code === 'PERMISSION_DENIED') {
+          setLocationError({
+            code: 'PERMISSION_DENIED',
+            message: lang === 'ta'
+              ? 'இருப்பிட அனுமதி மறுக்கப்பட்டது.'
+              : 'Location permission was denied.',
+            actionHint: lang === 'ta'
+              ? 'உலாவியின் முகவரிப் பட்டியில் உள்ள பூட்டு 🔒 அல்லது செட்டிங்ஸ் ஐகானைக் கிளிக் செய்து "Location" அனுமதியை "Allow" என மாற்றி மீண்டும் முயற்சிக்கவும். அல்லது கீழே உங்கள் மாவட்டத்தைத் தேர்ந்தெடுக்கவும்.'
+              : 'Click the tune/padlock 🔒 icon next to your browser URL, set Location to "Allow", and retry. Or select your district manually below.',
+          });
+        } else if (err.code === 'POSITION_UNAVAILABLE') {
+          setLocationError({
+            code: 'POSITION_UNAVAILABLE',
+            message: lang === 'ta'
+              ? 'உங்கள் சாதனத்தில் GPS அல்லது இருப்பிடச் சேவை முடக்கப்பட்டுள்ளது.'
+              : 'Location services are disabled or unavailable on your device.',
+            actionHint: lang === 'ta'
+              ? 'உங்கள் சாதனத்தின் அமைப்புகளில் (Settings) "Location / GPS" இயக்கி மீண்டும் முயற்சிக்கவும்.'
+              : 'Please enable Location / GPS in your device settings, or select your district manually below.',
+          });
+        } else if (err.code === 'TIMEOUT') {
+          setLocationError({
+            code: 'TIMEOUT',
+            message: lang === 'ta'
+              ? 'GPS சிக்னல் பெற நேரம் கடந்துவிட்டது.'
+              : 'GPS detection timed out waiting for a satellite fix.',
+            actionHint: lang === 'ta'
+              ? 'மீண்டும் முயற்சிக்க "GPS இருப்பிடத்தைப் பயன்படுத்து" பொத்தானை அழுத்தவும், அல்லது கீழே உங்கள் முகவரியை உள்ளிடவும்.'
+              : 'Click "Use My Current Location" to retry, or enter your address manually below.',
+          });
+        } else {
+          setLocationError({
+            code: 'NOT_SUPPORTED',
+            message: err.message,
+            actionHint: lang === 'ta'
+              ? 'தயவுசெய்து உங்கள் மாவட்டத்தை கைமுறையாக தேர்ந்தெடுக்கவும்.'
+              : 'Please select your district manually below.',
+          });
+        }
+      } else {
+        setLocationError({
+          code: 'GEOCODING_ERROR',
+          message: err instanceof Error ? err.message : 'Could not detect location.',
+          actionHint: lang === 'ta'
+            ? 'தயவுசெய்து உங்கள் மாவட்டத்தை கைமுறையாக தேர்ந்தெடுக்கவும்.'
+            : 'Coordinates captured. Please select your district and enter your address below.',
+        });
+      }
     } finally {
       setIsLocating(false);
     }
@@ -275,8 +368,16 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
 
     try {
       const cleanPhone = sanitizeIndianMobile10(phone);
-      const formattedLocation = address.trim()
-        ? `${address.trim()}, ${district}`
+      const addressParts = [
+        address.trim(),
+        city.trim(),
+        pincode.trim() ? `PIN ${pincode.trim()}` : '',
+        district,
+        state || 'Tamil Nadu',
+      ].filter(Boolean);
+      const uniqueParts = addressParts.filter((item, idx, arr) => arr.indexOf(item) === idx);
+      const formattedLocation = uniqueParts.length > 0
+        ? uniqueParts.join(', ')
         : `${district}, Tamil Nadu`;
 
       const matchedServiceObj = availableServices.find(
@@ -687,7 +788,7 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
             </label>
             <select
               id="lead-district"
-              value={district}
+              value={normalizeTamilNaduDistrict(district) || district}
               onChange={(e) => {
                 const nextDist = e.target.value;
                 setDistrict(nextDist);
@@ -738,9 +839,9 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
           </div>
         </div>
 
-        {/* 5. Address & GPS */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
+        {/* 5. Address & GPS Detection */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <label htmlFor="lead-address" className="block text-xs font-bold text-slate-700">
               {t.addressLabel}
             </label>
@@ -749,13 +850,71 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
               onClick={handleUseCurrentLocation}
               disabled={isLocating}
               aria-label="Use device GPS location"
-              className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 rounded-sm active:scale-95 transition-transform"
+              className={`text-[11px] font-bold px-3 py-1.5 rounded-xl border flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-all ${
+                locationSuccessText
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-xs'
+              }`}
             >
-              <Navigation className={`w-3 h-3 ${isLocating ? 'animate-spin' : ''}`} />
-              <span>{isLocating ? t.gpsLocatingText : t.useGpsButton}</span>
+              {isLocating ? (
+                <>
+                  <Navigation className="w-3.5 h-3.5 animate-spin" />
+                  <span>{t.gpsLocatingText}</span>
+                </>
+              ) : locationSuccessText ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>{lang === 'ta' ? 'இருப்பிடம் கண்டறியப்பட்டது' : 'Location Detected'}</span>
+                </>
+              ) : (
+                <>
+                  <Navigation className="w-3.5 h-3.5" />
+                  <span>{t.useGpsButton}</span>
+                </>
+              )}
             </button>
           </div>
 
+          {/* Success Banner */}
+          {locationSuccessText && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-start gap-2 animate-in fade-in duration-150">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <p className="font-bold">{locationSuccessText}</p>
+                <p className="text-[11px] text-emerald-700">
+                  District selected as <strong>{district}</strong>. Address fields autofilled below and remain fully editable.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Error & Guidance Banner */}
+          {locationError && (
+            <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-950 space-y-1.5 animate-in fade-in duration-150">
+              <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>{locationError.message}</span>
+              </div>
+              {locationError.actionHint && (
+                <p className="text-[11px] text-amber-800 leading-relaxed pl-5.5">
+                  {locationError.actionHint}
+                </p>
+              )}
+              {locationError.code === 'TIMEOUT' && (
+                <div className="pt-1 pl-5.5">
+                  <button
+                    type="button"
+                    onClick={handleUseCurrentLocation}
+                    className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-amber-200/80 hover:bg-amber-300 text-amber-950 transition-colors cursor-pointer"
+                  >
+                    Retry GPS
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Street / Door No / Area Address */}
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
               <MapPin className="w-4 h-4" />
@@ -769,16 +928,37 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
               className="w-full pl-10 pr-4 py-2.5 text-base sm:text-sm rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 focus:border-emerald-600"
             />
           </div>
-          {errors.location && (
-            <p role="alert" className="text-[11px] text-amber-800 font-medium">
-              {errors.location}
-            </p>
-          )}
-          {locationSuccessText && (
-            <p className="text-[11px] text-emerald-700 font-medium flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3 text-emerald-600" /> {locationSuccessText}
-            </p>
-          )}
+
+          {/* Dependent City & PIN Code Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+            <div>
+              <label htmlFor="lead-city" className="block text-[11px] font-semibold text-slate-600 mb-0.5">
+                {lang === 'ta' ? 'நகரம் / கிராமம்' : 'City / Town / Locality (Optional)'}
+              </label>
+              <input
+                id="lead-city"
+                type="text"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="e.g. Erode, Salem, Ariyalur"
+                className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50/40 text-slate-900 focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+              />
+            </div>
+            <div>
+              <label htmlFor="lead-pincode" className="block text-[11px] font-semibold text-slate-600 mb-0.5">
+                {lang === 'ta' ? 'அஞ்சல் குறியீட்டு எண்' : 'Postal PIN Code (Optional)'}
+              </label>
+              <input
+                id="lead-pincode"
+                type="text"
+                maxLength={6}
+                value={pincode}
+                onChange={(e) => setPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="e.g. 638001"
+                className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50/40 text-slate-900 focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 font-mono"
+              />
+            </div>
+          </div>
         </div>
 
         {/* 6. Description */}

@@ -1,4 +1,6 @@
-import { TAMIL_NADU_DISTRICTS } from '@/lib/constants';
+import {
+  findClosestTamilNaduDistrict,
+} from '@/lib/utils/districtMatcher';
 
 export interface GeoPositionResult {
   latitude: number;
@@ -9,35 +11,82 @@ export interface GeoPositionResult {
 export interface ReverseGeocodeResult {
   latitude: number;
   longitude: number;
-  district: string;
+  district: string | null;
   formatted_address: string;
   city?: string;
   locality?: string;
+  road?: string;
+  house_number?: string;
+  postcode?: string;
+  state?: string;
+  country?: string;
+  isOutsideServiceArea?: boolean;
+  outsideAreaMessage?: string;
+}
+
+export class GeolocationError extends Error {
+  code: 'PERMISSION_DENIED' | 'POSITION_UNAVAILABLE' | 'TIMEOUT' | 'NOT_SUPPORTED';
+
+  constructor(
+    code: 'PERMISSION_DENIED' | 'POSITION_UNAVAILABLE' | 'TIMEOUT' | 'NOT_SUPPORTED',
+    message: string
+  ) {
+    super(message);
+    this.name = 'GeolocationError';
+    this.code = code;
+  }
+}
+
+export interface GeolocationOptions {
+  timeoutMs?: number;
+  maximumAgeMs?: number;
+  enableHighAccuracy?: boolean;
 }
 
 /**
- * Gets high-accuracy device geolocation with automatic fallback to standard accuracy
- * and cached position to prevent timeouts indoors or on mobile devices.
+ * Gets device geolocation with high-accuracy satellite lock and intelligent
+ * fallback to WiFi/cellular triangulation.
+ *
+ * Guarantees:
+ * 1. Runs strictly upon explicit user interaction (no background tracking).
+ * 2. Uses appropriate high-accuracy settings with 10s timeout and 60s cache.
+ * 3. Categorizes permission denied, unavailable services, and timeouts cleanly.
  */
-export async function getDeviceGeolocation(): Promise<GeoPositionResult> {
+export async function getDeviceGeolocation(
+  options: GeolocationOptions = {}
+): Promise<GeoPositionResult> {
   if (typeof window === 'undefined' || !navigator.geolocation) {
-    throw new Error('Geolocation is not supported by your browser or device.');
+    throw new GeolocationError(
+      'NOT_SUPPORTED',
+      'Geolocation is not supported by your browser or device.'
+    );
   }
 
-  // Attempt 1: Live pinpoint GPS satellite fix (maximumAge: 0) for sub-meter doorstep accuracy
+  const {
+    timeoutMs = 10000,
+    maximumAgeMs = 60000,
+    enableHighAccuracy = true,
+  } = options;
+
   return new Promise((resolve, reject) => {
+    // Attempt 1: High accuracy GPS satellite lock
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         resolve({
           latitude: Number(pos.coords.latitude.toFixed(6)),
           longitude: Number(pos.coords.longitude.toFixed(6)),
-          accuracy: pos.coords.accuracy,
+          accuracy: Math.round(pos.coords.accuracy),
         });
       },
       (err1) => {
         // If user explicitly denied permission, do not retry
         if (err1.code === err1.PERMISSION_DENIED) {
-          reject(new Error('Location permission denied by user.'));
+          reject(
+            new GeolocationError(
+              'PERMISSION_DENIED',
+              'Location permission was denied. Please allow location access in your browser or device settings.'
+            )
+          );
           return;
         }
 
@@ -47,89 +96,64 @@ export async function getDeviceGeolocation(): Promise<GeoPositionResult> {
             resolve({
               latitude: Number(pos.coords.latitude.toFixed(6)),
               longitude: Number(pos.coords.longitude.toFixed(6)),
-              accuracy: pos.coords.accuracy,
+              accuracy: Math.round(pos.coords.accuracy),
             });
           },
           (err2) => {
-            reject(
-              new Error(
-                err2.code === err2.PERMISSION_DENIED
-                  ? 'Location permission denied.'
-                  : 'Unable to retrieve location. Please select your district manually.'
-              )
-            );
+            if (err2.code === err2.PERMISSION_DENIED) {
+              reject(
+                new GeolocationError(
+                  'PERMISSION_DENIED',
+                  'Location permission was denied. Please allow location access in your browser or device settings.'
+                )
+              );
+            } else if (err2.code === err2.POSITION_UNAVAILABLE) {
+              reject(
+                new GeolocationError(
+                  'POSITION_UNAVAILABLE',
+                  'Location services are disabled or unavailable. Please enable device Location in your settings.'
+                )
+              );
+            } else {
+              reject(
+                new GeolocationError(
+                  'TIMEOUT',
+                  'Location detection timed out. Please retry or enter your address manually.'
+                )
+              );
+            }
           },
           {
             enableHighAccuracy: false,
-            timeout: 8000,
-            maximumAge: 30000, // 30-second fallback cache
+            timeout: 6000,
+            maximumAge: 300000, // 5-minute fallback cache for indoor locations
           }
         );
       },
       {
-        enableHighAccuracy: true,
-        timeout: 9000,
-        maximumAge: 0, // Force fresh satellite pinpoint GPS lock
+        enableHighAccuracy,
+        timeout: timeoutMs,
+        maximumAge: maximumAgeMs,
       }
     );
   });
 }
 
 /**
- * Reverse geocodes coordinates to Tamil Nadu district and clean address.
- * Tries BigDataCloud client API first (CORS safe), falls back to internal proxy API.
+ * Reverse geocodes coordinates to Tamil Nadu district, structured address components,
+ * and human-readable formatted address via our internal proxy API.
+ * Includes mathematical centroid distance fallback if external network fails.
  */
 export async function fetchDistrictAndAddress(
   lat: number,
-  lon: number,
-  fallbackDistrict: string = 'Erode'
+  lon: number
 ): Promise<ReverseGeocodeResult> {
-  const coordLabel = `GPS (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
+  const coordLabel = `GPS Coordinates (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
 
-  // 1. First attempt: BigDataCloud free client reverse geocoding (fast & CORS friendly)
+  // 1. Primary: Server-side reverse geocoding proxy
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3500);
-
-    const bdcRes = await fetch(
-      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`,
-      { signal: controller.signal }
-    );
-    clearTimeout(timeout);
-
-    if (bdcRes.ok) {
-      const data = await bdcRes.json();
-      const locality = data.locality || data.neighbourhood || '';
-      const city = data.city || data.principalSubdivisionDistrict || '';
-      const districtRaw = data.principalSubdivisionDistrict || city || locality || '';
-
-      // Match district
-      const textToMatch = `${districtRaw} ${city} ${locality}`.toLowerCase();
-      const matched = TAMIL_NADU_DISTRICTS.find((d) => {
-        const cleanName = d.toLowerCase().replace(/\s*\(.*\)/, '').trim();
-        return textToMatch.includes(cleanName);
-      });
-
-      const parts = [locality, city, matched || fallbackDistrict].filter(Boolean);
-      const uniqueParts = parts.filter((item, idx, arr) => arr.indexOf(item) === idx);
-
-      return {
-        latitude: lat,
-        longitude: lon,
-        district: matched || fallbackDistrict,
-        city: city || fallbackDistrict,
-        locality,
-        formatted_address: uniqueParts.join(', ') || coordLabel,
-      };
-    }
-  } catch {
-    // Continue to server-side proxy fallback
-  }
-
-  // 2. Second attempt: Internal Next.js proxy route `/api/geocode/reverse`
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
+    const timeout = setTimeout(() => controller.abort(), 6000);
 
     const apiRes = await fetch(
       `/api/geocode/reverse?lat=${lat}&lon=${lon}`,
@@ -143,22 +167,46 @@ export async function fetchDistrictAndAddress(
         return {
           latitude: lat,
           longitude: lon,
-          district: json.data.district || fallbackDistrict,
-          city: json.data.city,
-          locality: json.data.locality,
+          district: json.data.district || null,
           formatted_address: json.data.formatted_address || coordLabel,
+          city: json.data.city || '',
+          locality: json.data.locality || '',
+          road: json.data.road || '',
+          house_number: json.data.house_number || '',
+          postcode: json.data.postcode || '',
+          state: json.data.state || 'Tamil Nadu',
+          country: json.data.country || 'India',
+          isOutsideServiceArea: Boolean(json.data.isOutsideServiceArea),
+          outsideAreaMessage: json.data.outsideAreaMessage,
         };
       }
     }
   } catch {
-    // Both network geocoders failed, return clean fallback with coordinates
+    // API unreachable (offline or network glitch)
   }
 
-  // 3. Fallback: Return coordinates with fallback district
+  // 2. Client-side Mathematical Centroid Fallback:
+  // Accurately maps coordinates to the closest Tamil Nadu district even with zero network
+  const closest = findClosestTamilNaduDistrict(lat, lon);
+
+  if (closest.isWithinTamilNadu) {
+    return {
+      latitude: lat,
+      longitude: lon,
+      district: closest.district,
+      formatted_address: `${closest.district}, Tamil Nadu (${coordLabel})`,
+      state: 'Tamil Nadu',
+      country: 'India',
+      isOutsideServiceArea: false,
+    };
+  }
+
   return {
     latitude: lat,
     longitude: lon,
-    district: fallbackDistrict,
+    district: null,
     formatted_address: coordLabel,
+    isOutsideServiceArea: true,
+    outsideAreaMessage: 'Detected coordinates appear to be outside Tamil Nadu service coverage.',
   };
 }

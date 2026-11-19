@@ -81,6 +81,7 @@ export const TAMIL_NADU_DISTRICTS = [
   'Ranipet',
   'Tirupathur',
   'Mayiladuthurai',
+  'Tiruvallur',
 ] as const;
 
 export type TamilNaduDistrict = (typeof TAMIL_NADU_DISTRICTS)[number];
@@ -124,6 +125,7 @@ export const TAMIL_NADU_DISTRICT_COORDINATES: Record<string, { lat: number; lon:
   'Ranipet': { lat: 12.9274, lon: 79.3330 },
   'Tirupathur': { lat: 12.4925, lon: 78.5678 },
   'Mayiladuthurai': { lat: 11.1075, lon: 79.6524 },
+  'Tiruvallur': { lat: 13.1432, lon: 79.9082 },
 };
 
 export function getDistrictCoordinates(districtName?: string): { lat: number; lon: number } {
