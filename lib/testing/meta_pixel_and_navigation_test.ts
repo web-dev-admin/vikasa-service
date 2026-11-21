@@ -7,8 +7,8 @@ console.log('=== VIKASA META PIXEL COMPREHENSIVE COMPLIANCE TEST ===\n');
 
 // 1. Verify Meta Pixel ID Configuration
 console.log('--- 1. Testing Meta Pixel ID Configuration ---');
-assert.strictEqual(META_PIXEL_ID, '1436121381902025', 'META_PIXEL_ID must match user provided Pixel ID');
-console.log('✅ PASSED: Meta Pixel ID is configured strictly to "1436121381902025"');
+assert.strictEqual(META_PIXEL_ID, '1273210955258944', 'META_PIXEL_ID must match user provided Pixel ID');
+console.log('✅ PASSED: Meta Pixel ID is configured strictly to "1273210955258944"');
 
 // 2. Verify Base Code in <head>
 console.log('\n--- 2. Testing Base Code Presence in <head> of Root Layout ---');
