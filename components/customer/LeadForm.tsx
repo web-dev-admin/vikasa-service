@@ -12,6 +12,7 @@ import {
 import { INITIAL_CATEGORIES } from '@/lib/taxonomy/catalog';
 import { sanitizeIndianMobile10 } from '@/lib/utils/phone';
 import { dataStore, ERODE_CENTER } from '@/lib/data/store';
+import { trackMetaLead } from '@/components/analytics/MetaPixel';
 import {
   MapPin,
   CheckCircle2,
@@ -142,6 +143,7 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
   const [customServiceNote, setCustomServiceNote] = useState('');
   const [preferredDate, setPreferredDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [district, setDistrict] = useState('Erode');
+  const hasTrackedLeadRef = React.useRef(false);
   const [address, setAddress] = useState('');
   const [description, setDescription] = useState('');
 
@@ -417,6 +419,12 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
 
       const created = json.data;
 
+      // Track Meta Pixel Lead event strictly once on successful validation and submission
+      if (!hasTrackedLeadRef.current) {
+        hasTrackedLeadRef.current = true;
+        trackMetaLead(created.tracking_token || created.request_number);
+      }
+
       // Immediately sync with local client store and broadcast to open admin tabs
       if (created.full_request) {
         dataStore.mergeRequests([created.full_request]);
@@ -560,6 +568,8 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
             </div>
             <input
               id="lead-name"
+              name="name"
+              autoComplete="name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -589,6 +599,8 @@ export default function LeadForm({ onSuccess, initialService }: LeadFormProps) {
             </div>
             <input
               id="lead-phone"
+              name="phone"
+              autoComplete="tel"
               type="tel"
               value={phone}
               onChange={(e) => setPhone(sanitizeIndianMobile10(e.target.value))}

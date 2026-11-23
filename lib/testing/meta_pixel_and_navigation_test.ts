@@ -27,18 +27,18 @@ assert.ok(headContent.includes('https://connect.facebook.net/en_US/fbevents.js')
 assert.ok(headContent.includes('noscript'), 'Noscript fallback must be in <head>');
 console.log('✅ PASSED: Meta Pixel base code and noscript are present in <head> of root layout (wrapping all pages)');
 
-// 3. Verify Events Fired: ONLY CompleteRegistration conversion event
-console.log('\n--- 3. Testing Single Conversion Event (CompleteRegistration ONLY) ---');
+// 3. Verify Events Fired: Lead for Inquiries & CompleteRegistration for Worker Onboarding
+console.log('\n--- 3. Testing Conversion Events (Lead & CompleteRegistration) ---');
 const leadFormPath = path.join(process.cwd(), 'components', 'customer', 'LeadForm.tsx');
 const leadFormContent = fs.readFileSync(leadFormPath, 'utf8');
-assert.ok(!leadFormContent.includes("trackMetaEvent('Lead'"), 'LeadForm must NOT trigger Lead event');
-assert.ok(!leadFormContent.includes("fbq('track', 'Lead')"), 'LeadForm must NOT contain any Lead event');
-console.log('✅ PASSED: "Lead" conversion event completely removed from LeadForm');
+assert.ok(leadFormContent.includes('trackMetaLead'), 'LeadForm must trigger trackMetaLead on success');
+assert.ok(!leadFormContent.includes('trackMetaCompleteRegistration'), 'LeadForm must NOT trigger CompleteRegistration');
+console.log('✅ PASSED: LeadForm triggers "Lead" conversion event strictly on successful submission');
 
-const attributionPath = path.join(process.cwd(), 'lib', 'marketing', 'attribution.ts');
-const attributionContent = fs.readFileSync(attributionPath, 'utf8');
-assert.ok(!attributionContent.includes("fbq('track', 'Lead')"), 'attribution.ts must NOT trigger Lead event');
-console.log('✅ PASSED: "Lead" conversion event completely removed from attribution.ts');
+const successPagePath = path.join(process.cwd(), 'app', '(public)', 'request', 'success', '[id]', 'page.tsx');
+const successPageContent = fs.readFileSync(successPagePath, 'utf8');
+assert.ok(successPageContent.includes('trackMetaLead'), 'Request success page must trigger trackMetaLead');
+console.log('✅ PASSED: Confirmation page triggers "Lead" event with deduplication guard');
 
 const workerRegisterPath = path.join(process.cwd(), 'app', '(public)', 'worker-register', 'page.tsx');
 const workerRegisterContent = fs.readFileSync(workerRegisterPath, 'utf8');
@@ -46,9 +46,10 @@ assert.ok(
   workerRegisterContent.includes('trackMetaCompleteRegistration'),
   'worker-register must call trackMetaCompleteRegistration'
 );
-console.log('✅ PASSED: "CompleteRegistration" is the ONLY conversion event used');
+assert.ok(!workerRegisterContent.includes('trackMetaLead'), 'worker-register must NOT trigger Lead event');
+console.log('✅ PASSED: "CompleteRegistration" is used exclusively for technician registrations');
 
-// 4. Verify Registration Event Timing & Anti-Duplication
+// 4. Verify Registration & Lead Event Timing & Anti-Duplication
 console.log('\n--- 4. Testing Event Firing Safety & Anti-Duplication Guards ---');
 assert.ok(
   workerRegisterContent.includes('hasSubmittedRef'),
@@ -62,7 +63,11 @@ assert.ok(
   workerRegisterContent.includes('disabled={isSubmitting}'),
   'Submit button must be disabled during submission'
 );
-console.log('✅ PASSED: CompleteRegistration is guarded against double clicks, page load, and validation failures');
+assert.ok(
+  leadFormContent.includes('hasTrackedLeadRef'),
+  'LeadForm must have hasTrackedLeadRef anti-duplication guard'
+);
+console.log('✅ PASSED: Conversion events are guarded against double clicks, page load, and validation failures');
 
 // 5. Verify Automatic Advanced Matching Field Names
 console.log('\n--- 5. Testing Automatic Advanced Matching Field Names ---');
@@ -78,6 +83,14 @@ assert.ok(
   workerRegisterContent.includes('name="service_category"'),
   'Form must contain service_category for trade matching'
 );
+assert.ok(
+  leadFormContent.includes('name="name"') && leadFormContent.includes('autoComplete="name"'),
+  'LeadForm must have name="name" and autoComplete="name"'
+);
+assert.ok(
+  leadFormContent.includes('name="phone"') && leadFormContent.includes('autoComplete="tel"'),
+  'LeadForm must have name="phone" and autoComplete="tel"'
+);
 console.log('✅ PASSED: Form fields have standard names: name, phone, service_category');
 
 // 6. Verify Safe Wrapper & Zero Console Pollution
@@ -87,6 +100,14 @@ const metaPixelCompContent = fs.readFileSync(metaPixelCompPath, 'utf8');
 assert.ok(
   metaPixelCompContent.includes("typeof window.fbq === 'function'"),
   'Must check if fbq is a function before calling'
+);
+assert.ok(
+  metaPixelCompContent.includes('trackMetaLead'),
+  'MetaPixel must export trackMetaLead'
+);
+assert.ok(
+  metaPixelCompContent.includes('trackMetaCompleteRegistration'),
+  'MetaPixel must export trackMetaCompleteRegistration'
 );
 assert.ok(
   !metaPixelCompContent.includes('console.warn') && !metaPixelCompContent.includes('console.error'),

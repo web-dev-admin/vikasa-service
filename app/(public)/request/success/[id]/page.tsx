@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { PublicTrackingData } from '@/types';
 import { getWhatsAppUrl } from '@/lib/utils/phone';
+import { trackMetaLead } from '@/components/analytics/MetaPixel';
 import Link from 'next/link';
 import {
   CheckCircle2,
@@ -18,6 +19,14 @@ export default function RequestSuccessPage() {
   const params = useParams();
   const token = params?.id as string;
   const [request, setRequest] = useState<PublicTrackingData | null>(null);
+  const hasTrackedLeadRef = useRef(false);
+
+  useEffect(() => {
+    if (!hasTrackedLeadRef.current && token) {
+      hasTrackedLeadRef.current = true;
+      trackMetaLead(token);
+    }
+  }, [token]);
 
   useEffect(() => {
     let isMounted = true;
