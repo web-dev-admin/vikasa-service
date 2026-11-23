@@ -78,6 +78,33 @@ const verifiedWorker = dataStore.verifyWorker(candidate.id, 'admin-tester', 'All
 assert(verifiedWorker?.verification_status === 'verified', 'Worker verification status is now verified');
 assert(verifiedWorker?.call_validated === true, 'Worker call_validated remains true after verification');
 
+// 2b. Defensive sync: Supabase sync with missing/undefined call_validated must NOT overwrite verified/validated worker
+const incomingFromSupabaseWithoutCallValidated = [{
+  id: candidate.id,
+  full_name: candidate.full_name,
+  phone: candidate.phone,
+  verification_status: 'pending_verification' as const, // Simulated outdated DB state
+  // call_validated is omitted / undefined, simulating Supabase table without the column
+  experience_years: 4,
+  skills: ['Electrical & Lighting'],
+  service_ids: ['srv-electrical'],
+  district: 'Erode',
+  base_location_name: 'Erode, Tamil Nadu',
+  latitude: 11.3410,
+  longitude: 77.7172,
+  service_radius_km: 20,
+  service_area_names: ['Erode'],
+  availability: 'available' as const,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+}];
+
+const merged = dataStore.mergeWorkers(incomingFromSupabaseWithoutCallValidated);
+const persistedCandidate = merged.find(w => w.id === candidate.id);
+assert(persistedCandidate?.call_validated === true, 'mergeWorkers defensively preserved call_validated === true when incoming is undefined');
+assert(persistedCandidate?.verification_status === 'verified', 'mergeWorkers defensively preserved verified status against outdated pending_verification sync');
+assert(Boolean(persistedCandidate?.call_notes), 'mergeWorkers preserved call_notes');
+
 // 3. Post-Allocation Location Sharing Tests
 console.log('\n--- 3. Post-Allocation Single Share Button Tests ---');
 

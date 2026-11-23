@@ -109,8 +109,8 @@ export default function AdminWorkersPage() {
           const cleanWorkers = json.data.filter(
             (w: Worker) => !deletedWorkerIdsRef.current.has(w.id)
           );
-          dataStore.mergeWorkers(cleanWorkers);
-          setWorkers(cleanWorkers);
+          const merged = dataStore.mergeWorkers(cleanWorkers);
+          setWorkers(merged);
         }
       })
       .catch((err) => {
@@ -201,18 +201,53 @@ export default function AdminWorkersPage() {
     setCallConfirmed(Boolean(worker.call_validated));
   };
 
-  const handleCompleteCallValidation = async () => {
+  const handleCompleteCallValidation = async (autoVerify: boolean = false) => {
     if (!validatingWorker || !callConfirmed || isValidatingCall) return;
     setIsValidatingCall(true);
     const workerId = validatingWorker.id;
     const workerName = validatingWorker.full_name;
+    const notes = callNotes.trim() || undefined;
 
     try {
-      dataStore.validateWorkerCall(workerId, callNotes.trim() || undefined);
+      // 1. Immediately record in dataStore
+      dataStore.validateWorkerCall(workerId, notes);
+      if (autoVerify) {
+        dataStore.updateWorker(workerId, {
+          verification_status: 'verified',
+          verified_at: new Date().toISOString(),
+        });
+      }
+
+      // 2. Immediately update React state to eliminate UI flicker or stale reads
+      setWorkers((prev) =>
+        prev.map((w) =>
+          w.id === workerId
+            ? {
+                ...w,
+                call_validated: true,
+                call_validated_at: new Date().toISOString(),
+                call_notes: notes,
+                ...(autoVerify
+                  ? { verification_status: 'verified' as WorkerStatus, verified_at: new Date().toISOString() }
+                  : {}),
+              }
+            : w
+        )
+      );
 
       const token = typeof window !== 'undefined'
         ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
         : null;
+
+      const patchBody: Record<string, any> = {
+        call_validated: true,
+        call_validated_at: new Date().toISOString(),
+        call_notes: notes,
+      };
+      if (autoVerify) {
+        patchBody.verification_status = 'verified';
+        patchBody.verified_at = new Date().toISOString();
+      }
 
       await fetch(`/api/technicians/${encodeURIComponent(workerId)}`, {
         method: 'PATCH',
@@ -221,19 +256,20 @@ export default function AdminWorkersPage() {
           'x-admin-portal': 'true',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({
-          call_validated: true,
-          call_validated_at: new Date().toISOString(),
-          call_notes: callNotes.trim() || undefined,
-        }),
+        body: JSON.stringify(patchBody),
       });
 
       refreshWorkers();
-      showToast(`Phone validation completed for ${workerName}. Verification is now unlocked!`);
+      if (autoVerify) {
+        setStatusFilter('verified');
+        showToast(`Technician ${workerName} verified and activated in dispatch pool!`);
+      } else {
+        showToast(`Phone validation completed for ${workerName}. Verification is now unlocked!`);
+      }
       setValidatingWorker(null);
     } catch (err) {
       console.warn('Call validation update error:', err);
-      showToast(`Recorded phone validation for ${workerName}`);
+      showToast(autoVerify ? `Approved ${workerName}` : `Recorded phone validation for ${workerName}`);
       setValidatingWorker(null);
     } finally {
       setIsValidatingCall(false);
@@ -242,7 +278,10 @@ export default function AdminWorkersPage() {
 
   const handleVerifyStatus = async (worker: Worker, newStatus: WorkerStatus) => {
     // Gate: Telephonic interview must be confirmed before verifying a technician
-    if (newStatus === 'verified' && !worker.call_validated) {
+    const isCallValidated = Boolean(
+      worker.call_validated || dataStore.getWorkerById(worker.id)?.call_validated
+    );
+    if (newStatus === 'verified' && !isCallValidated) {
       showToast('Phone validation required: You must conduct and confirm a phone call before approving this technician.');
       openCallValidation(worker);
       return;
@@ -252,6 +291,18 @@ export default function AdminWorkersPage() {
       verification_status: newStatus,
       verified_at: newStatus === 'verified' ? new Date().toISOString() : undefined,
     });
+
+    setWorkers((prev) =>
+      prev.map((w) =>
+        w.id === worker.id
+          ? {
+              ...w,
+              verification_status: newStatus,
+              verified_at: newStatus === 'verified' ? new Date().toISOString() : undefined,
+            }
+          : w
+      )
+    );
 
     const token = typeof window !== 'undefined'
       ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
@@ -275,6 +326,9 @@ export default function AdminWorkersPage() {
     }
 
     refreshWorkers();
+    if (newStatus === 'verified') {
+      setStatusFilter('verified');
+    }
     showToast(`Technician ${worker.full_name} status updated to ${newStatus}`);
   };
 
@@ -331,6 +385,9 @@ export default function AdminWorkersPage() {
       showToast(`Registered technician ${formData.fullName}`);
     }
     refreshWorkers();
+    if (formData.status === 'verified') {
+      setStatusFilter('verified');
+    }
     setView('list');
   };
 
@@ -1062,7 +1119,7 @@ export default function AdminWorkersPage() {
               </span>
             </label>
 
-            <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+            <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
               <button
                 type="button"
                 onClick={() => setValidatingWorker(null)}
@@ -1070,15 +1127,28 @@ export default function AdminWorkersPage() {
               >
                 Cancel
               </button>
-              <button
-                type="button"
-                disabled={!callConfirmed || isValidatingCall}
-                onClick={handleCompleteCallValidation}
-                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
-              >
-                <Check className="w-3.5 h-3.5" />
-                <span>{isValidatingCall ? 'Validating...' : 'Complete Call Validation & Unlock Verify'}</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={!callConfirmed || isValidatingCall}
+                  onClick={() => handleCompleteCallValidation(false)}
+                  className="px-3.5 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 disabled:opacity-40 disabled:cursor-not-allowed text-slate-800 text-xs font-bold cursor-pointer flex items-center gap-1.5"
+                  title="Save call interview notes and unlock Verify button in the table"
+                >
+                  <Check className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Save Call Only</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={!callConfirmed || isValidatingCall}
+                  onClick={() => handleCompleteCallValidation(true)}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
+                  title="Complete phone interview and immediately verify & approve this technician"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{isValidatingCall ? 'Verifying...' : 'Validate & Approve Now'}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

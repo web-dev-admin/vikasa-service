@@ -314,29 +314,53 @@ class VikasaDataStore {
   mergeWorkers(incoming: Worker[]): Worker[] {
     this.init();
     const phoneMap = new Map<string, Worker>();
+    const idMap = new Map<string, Worker>();
 
-    // Index existing workers by clean phone (or id fallback)
+    // Index existing workers by clean phone AND by id
     for (const w of this.workers) {
       if (!w) continue;
       const cleanP = w.phone ? w.phone.replace(/\D/g, '').slice(-10) : '';
       if (this.deletedWorkerIds.has(w.id) || (cleanP && this.deletedWorkerIds.has(cleanP)) || (w.phone && this.deletedWorkerIds.has(w.phone))) {
         continue;
       }
-      const key = cleanP || w.id;
-      if (key) phoneMap.set(key, w);
+      if (w.id) idMap.set(w.id, w);
+      if (cleanP) phoneMap.set(cleanP, w);
     }
 
-    // Merge incoming workers by clean phone
+    // Merge incoming workers
     for (const inc of incoming) {
       if (!inc) continue;
       const cleanP = inc.phone ? inc.phone.replace(/\D/g, '').slice(-10) : '';
       if (this.deletedWorkerIds.has(inc.id) || (cleanP && this.deletedWorkerIds.has(cleanP)) || (inc.phone && this.deletedWorkerIds.has(inc.phone))) {
         continue;
       }
-      const key = cleanP || inc.id;
-      if (key) {
-        const prev = phoneMap.get(key);
-        phoneMap.set(key, { ...prev, ...inc, id: prev?.id || inc.id });
+      const prev = (inc.id && idMap.get(inc.id)) || (cleanP && phoneMap.get(cleanP));
+      if (prev) {
+        const merged: Worker = {
+          ...prev,
+          ...inc,
+          id: prev.id || inc.id,
+          // Preserve call validation if verified locally or if incoming is verified
+          call_validated: Boolean(inc.call_validated || prev.call_validated),
+          call_validated_at: inc.call_validated_at || prev.call_validated_at,
+          call_notes: inc.call_notes || prev.call_notes,
+          // Prevent an unverified incoming row from silently downgrading an already verified technician
+          verification_status: (prev.verification_status === 'verified' && inc.verification_status === 'pending_verification')
+            ? 'verified'
+            : (inc.verification_status || prev.verification_status || 'pending_verification'),
+          verified_at: inc.verified_at || prev.verified_at,
+          verified_by: inc.verified_by || prev.verified_by,
+          verification_notes: inc.verification_notes || prev.verification_notes,
+          custom_trade_note: inc.custom_trade_note || prev.custom_trade_note,
+          has_custom_skill: Boolean(inc.has_custom_skill || prev.has_custom_skill),
+        };
+        const key = cleanP || inc.id;
+        phoneMap.set(key, merged);
+        if (merged.id) idMap.set(merged.id, merged);
+      } else {
+        const key = cleanP || inc.id;
+        phoneMap.set(key, inc);
+        if (inc.id) idMap.set(inc.id, inc);
       }
     }
 
@@ -1006,7 +1030,14 @@ class VikasaDataStore {
 
   updateWorker(id: string, updates: Partial<Worker>): Worker | undefined {
     this.init();
-    const worker = this.workers.find((w) => w.id === id);
+    let worker = this.workers.find((w) => w.id === id);
+    if (!worker && id) {
+      const cleanId = id.replace(/\D/g, '').slice(-10);
+      worker = this.workers.find((w) => {
+        const cleanP = w.phone ? w.phone.replace(/\D/g, '').slice(-10) : '';
+        return (cleanId && cleanP === cleanId) || (w.application_token && w.application_token === id);
+      });
+    }
     if (!worker) return undefined;
 
     Object.assign(worker, updates, { updated_at: new Date().toISOString() });

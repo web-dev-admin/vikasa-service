@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dataStore, ERODE_CENTER } from '@/lib/data/store';
 import { authenticateAdmin, unauthorizedResponse } from '@/lib/auth/admin';
-import { supabase } from '@/lib/supabase/client';
+import { supabase, supabaseAdmin } from '@/lib/supabase/client';
 import { dispatchAdminNotification } from '@/lib/notifications/dispatcher';
 
 // GET: Admin only technician directory
@@ -15,7 +15,8 @@ export async function GET(request: NextRequest) {
     // Sync from Supabase workers table if configured
     if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       try {
-        const { data: dbWorkers, error } = await supabase
+        const client = supabaseAdmin || supabase;
+        const { data: dbWorkers, error } = await client
           .from('workers')
           .select('*')
           .order('created_at', { ascending: false });

@@ -312,11 +312,32 @@ export default function AdminContactsPage() {
     }
   };
 
-  const handleVerifyTechnician = (id: string) => {
+  const handleVerifyTechnician = async (id: string) => {
     dataStore.updateWorker(id, { verification_status: 'verified', verified_at: new Date().toISOString() });
     loadData();
     if (selectedTechnician && selectedTechnician.id === id) {
       setSelectedTechnician({ ...selectedTechnician, verification_status: 'verified' });
+    }
+
+    const token = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
+      : null;
+
+    try {
+      await fetch(`/api/technicians/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-portal': 'true',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          verification_status: 'verified',
+          verified_at: new Date().toISOString(),
+        }),
+      });
+    } catch (e) {
+      console.warn('Technician verify sync warning:', e);
     }
   };
 
