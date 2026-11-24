@@ -125,6 +125,15 @@ assert.ok(pageContent.includes('/privacy'), 'Main page footer must link to /priv
 assert.ok(workerRegisterContent.includes('/privacy'), 'Worker registration must link to /privacy');
 console.log('✅ PASSED: Privacy policy page is available and linked in footer and registration form');
 
+// 8. Verify Meta Domain Verification HTML File & Meta Tag
+console.log('\n--- 8. Testing Meta Domain Verification File & Tag ---');
+const verificationFilePath = path.join(process.cwd(), 'public', '1e7tx9xyqihrixp5zeyk9q7swk9t2y.html');
+assert.ok(fs.existsSync(verificationFilePath), 'Verification file 1e7tx9xyqihrixp5zeyk9q7swk9t2y.html must exist in public/');
+const verificationFileContent = fs.readFileSync(verificationFilePath, 'utf8');
+assert.ok(verificationFileContent.includes('1e7tx9xyqihrixp5zeyk9q7swk9t2y'), 'Verification file must contain the unique code');
+assert.ok(layoutContent.includes('facebook-domain-verification'), 'Root layout must include facebook-domain-verification meta tag');
+console.log('✅ PASSED: Meta Domain Verification HTML file and head meta tag configured correctly');
+
 console.log('\n==================================================================');
-console.log('🎉 ALL META PIXEL AUDIT & FIX COMPLIANCE TESTS PASSED (7/7)!');
+console.log('🎉 ALL META PIXEL & DOMAIN VERIFICATION TESTS PASSED (8/8)!');
 console.log('==================================================================');

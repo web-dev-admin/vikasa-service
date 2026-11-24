@@ -302,6 +302,8 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full antialiased" suppressHydrationWarning>
       <head>
+        {/* Meta Domain Verification Tag */}
+        <meta name="facebook-domain-verification" content="1e7tx9xyqihrixp5zeyk9q7swk9t2y" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
