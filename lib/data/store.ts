@@ -718,7 +718,12 @@ class VikasaDataStore {
       longitude: data.longitude,
     });
 
-    const nextNumber = 1000 + this.requests.length + 1;
+    const maxNum = this.requests.reduce((max, r) => Math.max(max, r.request_number || 0), 1000);
+    const nextNumber = maxNum + 1;
+    const uniqueId =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const trackingToken =
       typeof crypto !== 'undefined' && crypto.randomUUID
         ? crypto.randomUUID()
@@ -726,7 +731,7 @@ class VikasaDataStore {
 
     const newReq: ServiceRequest = {
       ...data,
-      id: `req-${nextNumber}`,
+      id: uniqueId,
       request_number: nextNumber,
       customer_id: permanentCustomer.id,
       customer_phone: permanentCustomer.phone,

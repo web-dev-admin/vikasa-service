@@ -1,5 +1,25 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
+// Auto-hydrate .env.local on Node.js server environments if not already loaded
+if (typeof window === 'undefined' && !process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const envPath = path.resolve(process.cwd(), '.env.local');
+    if (fs.existsSync(envPath)) {
+      const content = fs.readFileSync(envPath, 'utf8');
+      for (const line of content.split('\n')) {
+        const m = line.match(/^([^=]+)=(.*)$/);
+        if (m) {
+          const k = m[1].trim();
+          const v = m[2].trim().replace(/^["']|["']$/g, '');
+          if (!process.env[k]) process.env[k] = v;
+        }
+      }
+    }
+  } catch {}
+}
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://dummy.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'dummy-key';
 

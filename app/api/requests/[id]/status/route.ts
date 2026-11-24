@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dataStore } from '@/lib/data/store';
 import { RequestStatus } from '@/types';
 import { authenticateAdmin, unauthorizedResponse } from '@/lib/auth/admin';
+import { supabase } from '@/lib/supabase/client';
 
 const VALID_STATUSES: RequestStatus[] = [
   'NEW',
@@ -56,6 +57,43 @@ export async function PATCH(
       dataStore.confirmCustomerRequirement(id, note);
     } else {
       dataStore.updateRequestStatus(id, status, note);
+    }
+
+    // Persist status change to Supabase database
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      try {
+        const updatePayload: Record<string, any> = {
+          status,
+          updated_at: new Date().toISOString(),
+        };
+        if (status === 'CUSTOMER_CONFIRMED') {
+          updatePayload.customer_confirmed = true;
+          updatePayload.customer_confirmed_at = new Date().toISOString();
+        }
+        if (note) {
+          updatePayload.admin_notes = note;
+        }
+
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+        const { data: updatedRows, error: sbErr } = await supabase
+          .from('service_requests')
+          .update(updatePayload)
+          .eq('id', id)
+          .select('id');
+
+        if ((!updatedRows || updatedRows.length === 0) && isUuid) {
+          await supabase
+            .from('service_requests')
+            .update(updatePayload)
+            .eq('tracking_token', id);
+        }
+
+        if (sbErr) {
+          console.error('[Requests:status:PATCH] Supabase update error:', sbErr.message);
+        }
+      } catch (err) {
+        console.warn('Supabase status sync error:', err);
+      }
     }
 
     const updated = dataStore.getRequestById(id);

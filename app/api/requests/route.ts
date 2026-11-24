@@ -239,10 +239,14 @@ export async function POST(request: NextRequest) {
         }
 
         // 3. Insert service_requests matching actual DB columns
-        const { error: reqErr } = await supabase.from('service_requests').insert([{
+        const validTrackingToken =
+          newRequest.tracking_token && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(newRequest.tracking_token)
+            ? newRequest.tracking_token
+            : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : '6522e57b-7446-423a-b48a-9122ea02e975');
+
+        const insertPayload: Record<string, any> = {
           id: newRequest.id,
-          request_number: newRequest.request_number,
-          tracking_token: newRequest.tracking_token,
+          tracking_token: validTrackingToken,
           customer_id: customerId,
           customer_name: newRequest.customer_name,
           customer_phone: newRequest.customer_phone,
@@ -261,10 +265,23 @@ export async function POST(request: NextRequest) {
           customer_confirmed: Boolean(newRequest.customer_confirmed),
           created_at: newRequest.created_at,
           updated_at: newRequest.updated_at,
-        }]);
+        };
+
+        const { data: insertedDbReq, error: reqErr } = await supabase
+          .from('service_requests')
+          .insert([insertPayload])
+          .select()
+          .maybeSingle();
 
         if (reqErr) {
           console.error('[Requests:POST] Supabase insert error:', reqErr.message, reqErr.code);
+        } else if (insertedDbReq) {
+          newRequest.id = insertedDbReq.id;
+          newRequest.request_number = insertedDbReq.request_number;
+          newRequest.tracking_token = insertedDbReq.tracking_token;
+          newRequest.created_at = insertedDbReq.created_at;
+          newRequest.updated_at = insertedDbReq.updated_at;
+          dataStore.mergeRequests([newRequest]);
         }
       } catch (dbErr) {
         console.warn('Supabase request sync warning:', dbErr);

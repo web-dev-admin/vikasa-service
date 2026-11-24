@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dataStore } from '@/lib/data/store';
 import { authenticateAdmin, unauthorizedResponse } from '@/lib/auth/admin';
+import { supabase } from '@/lib/supabase/client';
 
 export async function POST(
   request: NextRequest,
@@ -88,6 +89,39 @@ export async function POST(
 
     const assignment = dataStore.assignWorker(id, technician_id, notes);
     const updatedRequest = dataStore.getRequestById(id);
+
+    // Sync assignment to Supabase service_requests
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      try {
+        const updatePayload: Record<string, any> = {
+          assigned_worker_id: technician_id,
+          assigned_worker_name: worker.full_name,
+          assigned_worker_phone: worker.phone,
+          status: 'ASSIGNED',
+          updated_at: new Date().toISOString(),
+        };
+
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+        const { data: updatedRows, error: sbErr } = await supabase
+          .from('service_requests')
+          .update(updatePayload)
+          .eq('id', id)
+          .select('id');
+
+        if ((!updatedRows || updatedRows.length === 0) && isUuid) {
+          await supabase
+            .from('service_requests')
+            .update(updatePayload)
+            .eq('tracking_token', id);
+        }
+
+        if (sbErr) {
+          console.error('[Requests:assign:POST] Supabase update error:', sbErr.message);
+        }
+      } catch (err) {
+        console.warn('Supabase assignment sync error:', err);
+      }
+    }
 
     return NextResponse.json({
       success: true,

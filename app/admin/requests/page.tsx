@@ -56,7 +56,7 @@ export default function AdminRequestsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [districtFilter, setDistrictFilter] = useState('ALL');
-  const [requesterFilter, setRequesterFilter] = useState<'ALL' | 'CLIENT_CUSTOM' | 'TECHNICIAN'>('ALL');
+  const [requesterFilter, setRequesterFilter] = useState<'ALL' | 'CONFIRMED' | 'NEW' | 'CLIENT_CUSTOM' | 'TECHNICIAN'>('ALL');
   const [copiedLocationId, setCopiedLocationId] = useState<string | null>(null);
 
   // Customer Detail Modal
@@ -286,9 +286,42 @@ export default function AdminRequestsPage() {
     }
   };
 
-  const handleConfirmRequest = (requestId: string) => {
+  const handleConfirmRequest = async (requestId: string) => {
     dataStore.confirmCustomerRequirement(requestId, 'Confirmed with customer by Admin');
-    showToast('Request status changed to Confirmed');
+    setRequests((prev) =>
+      prev.map((r) =>
+        r.id === requestId
+          ? {
+              ...r,
+              status: 'CUSTOMER_CONFIRMED' as RequestStatus,
+              customer_confirmed: true,
+              customer_confirmed_at: new Date().toISOString(),
+            }
+          : r
+      )
+    );
+    showToast('Customer requirement verified & confirmed!');
+
+    const token = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
+      : null;
+
+    try {
+      await fetch(`/api/requests/${encodeURIComponent(requestId)}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-portal': 'true',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          status: 'CUSTOMER_CONFIRMED',
+          note: 'Confirmed with customer by Admin',
+        }),
+      });
+    } catch (e) {
+      console.warn('Confirm request API error:', e);
+    }
     loadData();
   };
 
@@ -304,7 +337,7 @@ export default function AdminRequestsPage() {
     setTechFilterAvailability('ALL');
   };
 
-  const handleAssignTechnician = (technicianId: string) => {
+  const handleAssignTechnician = async (technicianId: string) => {
     if (!assigningRequest) return;
     try {
       const worker = workers.find((w) => w.id === technicianId);
@@ -313,6 +346,28 @@ export default function AdminRequestsPage() {
       }
       dataStore.assignWorker(assigningRequest.id, technicianId);
       showToast('Technician assigned successfully.');
+
+      const token = typeof window !== 'undefined'
+        ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
+        : null;
+
+      try {
+        await fetch(`/api/requests/${encodeURIComponent(assigningRequest.id)}/assign`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-portal': 'true',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            technician_id: technicianId,
+            bypass_acceptance_check: true,
+          }),
+        });
+      } catch (assignApiErr) {
+        console.warn('Assign API error:', assignApiErr);
+      }
+
       setAssigningRequest(null);
       if (selectedRequest && selectedRequest.id === assigningRequest.id) {
         setSelectedRequest(null);
@@ -323,23 +378,71 @@ export default function AdminRequestsPage() {
     }
   };
 
-  const handleCompleteJob = (requestId: string) => {
+  const handleCompleteJob = async (requestId: string) => {
     dataStore.completeJob(requestId);
     showToast('Work completed successfully.');
     if (selectedRequest && selectedRequest.id === requestId) {
       setSelectedRequest(null);
     }
+
+    const token = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
+      : null;
+
+    try {
+      await fetch(`/api/requests/${encodeURIComponent(requestId)}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-portal': 'true',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ status: 'COMPLETED' }),
+      });
+    } catch (e) {
+      console.warn('Complete job API error:', e);
+    }
     loadData();
   };
 
-  const handleCancelRequest = (requestId: string) => {
+  const handleCancelRequest = async (requestId: string) => {
     dataStore.updateRequestStatus(requestId, 'CANCELLED', 'Archived by Admin');
     showToast('Booking archived as Cancelled.');
     if (selectedRequest && selectedRequest.id === requestId) {
       setSelectedRequest(null);
     }
+
+    const token = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('vikasa_admin_auth') || '{}').token
+      : null;
+
+    try {
+      await fetch(`/api/requests/${encodeURIComponent(requestId)}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-portal': 'true',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ status: 'CANCELLED', note: 'Archived by Admin' }),
+      });
+    } catch (e) {
+      console.warn('Cancel request API error:', e);
+    }
     loadData();
   };
+
+  const confirmedCount = requests.filter(
+    (r) =>
+      r.customer_confirmed ||
+      r.status === 'CUSTOMER_CONFIRMED' ||
+      r.status === 'MATCHING' ||
+      r.status === 'WORKER_CONTACTING'
+  ).length;
+
+  const newCount = requests.filter(
+    (r) => r.status === 'NEW' || r.status === 'CUSTOMER_TO_CALL'
+  ).length;
 
   const clientCustomCount = requests.filter(
     (r) =>
@@ -365,6 +468,19 @@ export default function AdminRequestsPage() {
 
     if (!matchSearch) return false;
 
+    if (requesterFilter === 'CONFIRMED') {
+      const isConfirmed =
+        r.customer_confirmed ||
+        r.status === 'CUSTOMER_CONFIRMED' ||
+        r.status === 'MATCHING' ||
+        r.status === 'WORKER_CONTACTING';
+      if (!isConfirmed) return false;
+    }
+
+    if (requesterFilter === 'NEW') {
+      if (r.status !== 'NEW' && r.status !== 'CUSTOMER_TO_CALL') return false;
+    }
+
     if (requesterFilter === 'CLIENT_CUSTOM') {
       const isCustom =
         r.service_name.toLowerCase().includes('other') ||
@@ -379,7 +495,7 @@ export default function AdminRequestsPage() {
 
     if (statusFilter !== 'ALL') {
       if (statusFilter === 'NEW' && r.status !== 'NEW' && r.status !== 'CUSTOMER_TO_CALL') return false;
-      if (statusFilter === 'CONFIRMED' && r.status !== 'CUSTOMER_CONFIRMED' && r.status !== 'MATCHING' && r.status !== 'WORKER_CONTACTING') return false;
+      if (statusFilter === 'CONFIRMED' && !r.customer_confirmed && r.status !== 'CUSTOMER_CONFIRMED' && r.status !== 'MATCHING' && r.status !== 'WORKER_CONTACTING') return false;
       if (statusFilter === 'ASSIGNED' && r.status !== 'ASSIGNED' && r.status !== 'IN_PROGRESS') return false;
       if (statusFilter === 'COMPLETED' && r.status !== 'COMPLETED') return false;
     }
@@ -500,6 +616,47 @@ export default function AdminRequestsPage() {
           >
             <span>All Requests ({requests.length})</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setRequesterFilter('CONFIRMED')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+              requesterFilter === 'CONFIRMED'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
+            }`}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Verified Customers</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
+                requesterFilter === 'CONFIRMED' ? 'bg-emerald-800 text-white' : 'bg-emerald-200/80 text-emerald-950'
+              }`}
+            >
+              {confirmedCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setRequesterFilter('NEW')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+              requesterFilter === 'NEW'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-blue-50 text-blue-900 border border-blue-200 hover:bg-blue-100'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5 text-blue-600" />
+            <span>New Inquiries</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
+                requesterFilter === 'NEW' ? 'bg-blue-800 text-white' : 'bg-blue-200/80 text-blue-950'
+              }`}
+            >
+              {newCount}
+            </span>
+          </button>
+
           <button
             type="button"
             onClick={() => setRequesterFilter('CLIENT_CUSTOM')}
@@ -570,7 +727,7 @@ export default function AdminRequestsPage() {
             >
               <option value="ALL">All Statuses</option>
               <option value="NEW">New Requests</option>
-              <option value="CONFIRMED">Confirmed</option>
+              <option value="CONFIRMED">Verified / Confirmed Customers</option>
               <option value="ASSIGNED">Technician Assigned</option>
               <option value="COMPLETED">Work Completed</option>
             </select>
@@ -679,6 +836,25 @@ export default function AdminRequestsPage() {
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
+                    {req.customer_confirmed || req.status === 'CUSTOMER_CONFIRMED' ? (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        <span>Verified</span>
+                      </span>
+                    ) : req.status === 'NEW' || req.status === 'CUSTOMER_TO_CALL' ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleConfirmRequest(req.id);
+                        }}
+                        className="text-[10px] font-bold px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-white shadow-2xs transition-colors cursor-pointer inline-flex items-center gap-1"
+                        title="Click to verify and confirm customer requirement"
+                      >
+                        <Check className="w-3 h-3" />
+                        <span>Verify Customer</span>
+                      </button>
+                    ) : null}
                     <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${badge.className}`}>
                       {badge.label}
                     </span>
